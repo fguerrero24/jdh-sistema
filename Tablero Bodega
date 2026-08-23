@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>JDH · Tablero de Rutas</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  * { box-sizing: border-box; }
+  body { margin:0; background:#0b1622; font-family: Arial, sans-serif; color:#fff; padding:22px 28px; }
+  .header { display:flex; justify-content:space-between; align-items:center; margin-bottom:18px; }
+  .header .title { font-size:22px; font-weight:700; }
+  .header .clock { font-size:20px; color:#8fa5b8; font-variant-numeric:tabular-nums; }
+
+  .resumen { display:flex; gap:32px; background:#0f2033; border-radius:12px; padding:16px 22px; margin-bottom:18px; }
+  .dona-block { flex:1; display:flex; align-items:center; gap:18px; }
+  .dona-label { color:#8fa5b8; font-size:12px; text-transform:uppercase; margin-bottom:8px; }
+  .leyenda { display:flex; flex-direction:column; gap:5px; }
+  .leyenda-item { display:flex; align-items:center; gap:7px; font-size:13px; color:#c2d3e0; }
+  .dot { width:9px; height:9px; border-radius:2px; display:inline-block; }
+
+  table { width:100%; border-collapse:collapse; }
+  th { text-align:left; color:#6b829a; font-size:11px; text-transform:uppercase; padding-bottom:8px; border-bottom:1px solid #1e3148; font-weight:400; }
+  td { padding:14px 8px; border-bottom:1px solid #16283b; font-size:15px; }
+  .ruta-nombre { font-size:19px; font-weight:700; }
+  .badge { font-size:12px; padding:4px 10px; border-radius:5px; display:inline-block; }
+  .badge.pendiente { background:#2a3648; color:#8fa5b8; }
+  .badge.iniciado { background:#123b28; color:#4ade9e; }
+  .badge.pausado { background:#3a2f13; color:#fbbf5c; }
+  .badge.finalizado { background:#123b28; color:#4ade9e; }
+  .timer { font-size:17px; font-weight:700; font-variant-numeric:tabular-nums; margin-left:10px; }
+  .timer.iniciado { color:#4ade9e; }
+  .timer.pausado { color:#fbbf5c; }
+  .pend-num { font-size:19px; font-weight:700; color:#fbbf5c; }
+  .empty { text-align:center; padding:60px; color:#6b829a; font-size:16px; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="title" id="titulo">JDH · Tablero de Rutas</div>
+  <div class="clock" id="reloj"></div>
+</div>
+
+<div class="resumen">
+  <div class="dona-block">
+    <div>
+      <div class="dona-label">Avance de Picking</div>
+      <svg width="88" height="88" viewBox="0 0 42 42" id="dona-picking"></svg>
+    </div>
+    <div class="leyenda" id="leyenda-picking"></div>
+  </div>
+  <div class="dona-block">
+    <div>
+      <div class="dona-label">Avance de Packing</div>
+      <svg width="88" height="88" viewBox="0 0 42 42" id="dona-packing"></svg>
+    </div>
+    <div class="leyenda" id="leyenda-packing"></div>
+  </div>
+</div>
+
+<table>
+  <thead>
+    <tr>
+      <th>Ruta</th>
+      <th>Pedidos / Líneas / Peso / Visitas</th>
+      <th>Picking</th>
+      <th>Packing</th>
+      <th>Muelle / Auditor</th>
+      <th>Pendientes</th>
+    </tr>
+  </thead>
+  <tbody id="filas"></tbody>
+</table>
+<div class="empty hidden" id="vacio">No hay rutas cargadas para hoy.</div>
+
+<script>
+// ============================================================
+// CONFIGURACIÓN
+// ============================================================
+const SUPABASE_URL = 'https://oowfwkrhongqkfavhqeq.supabase.co';
+const SUPABASE_ANON_KEY = 'PEGA_AQUI_TU_ANON_KEY';
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+// CEDI a mostrar: por la URL, ej. tablero-rutas.html?cedi=COP
+// Si no se especifica, muestra Copacabana por defecto.
+const params = new URLSearchParams(location.search);
+const CEDI = params.get('cedi') || 'COP';
+const HOY = new Date().toISOString().slice(0, 10);
+
+document.getElementById('titulo').textContent = `JDH ${CEDI} · Tablero de Rutas · ${HOY}`;
+
+const COLORES = { pendiente: '#2a3648', iniciado: '#3b82f6', pausado: '#fbbf5c', finalizado: '#4ade9e' };
+
+function actualizarReloj() {
+  document.getElementById('reloj').textContent = new Date().toLocaleTimeString('es-CO');
+}
+setInterval(actualizarReloj, 1000);
+actualizarReloj();
+
+function formatoTiempo(segundos) {
+  if (segundos == null || segundos < 0) segundos = 0;
+  const h = String(Math.floor(segundos / 3600)).padStart(2, '0');
+  const m = String(Math.floor((segundos % 3600) / 60)).padStart(2, '0');
+  const s = String(Math.floor(segundos % 60)).padStart(2, '0');
+  return `${h}:${m}:${s}`;
+}
+
+function segundosTranscurridos(iniciadoEn, pausadoDesde, segundosPausados, finalizadoEn) {
+  if (!iniciadoEn) return null;
+  const inicio = new Date(iniciadoEn).getTime();
+  let fin;
+  if (finalizadoEn) fin = new Date(finalizadoEn).getTime();
+  else if (pausadoDesde) fin = new Date(pausadoDesde).getTime();
+  else fin = Date.now();
+  return Math.floor((fin - inicio) / 1000) - (segundosPausados || 0);
+}
+
+let RUTAS = [];
+
+function dibujarDona(svgId, conteos) {
+  const svg = document.getElementById(svgId);
+  const total = Object.values(conteos).reduce((a, b) => a + b, 0) || 1;
+  let acumulado = 0;
+  let circles = `<circle cx="21" cy="21" r="15.9" fill="transparent" stroke="#1e3148" stroke-width="6"></circle>`;
+  ['finalizado', 'iniciado', 'pausado', 'pendiente'].forEach(estado => {
+    const val = conteos[estado] || 0;
+    if (val === 0) return;
+    const pct = (val / total) * 100;
+    circles += `<circle cx="21" cy="21" r="15.9" fill="transparent" stroke="${COLORES[estado]}" stroke-width="6"
+      stroke-dasharray="${pct} 100" stroke-dashoffset="${-acumulado}"></circle>`;
+    acumulado += pct;
+  });
+  circles += `<text x="21" y="24" text-anchor="middle" style="font-size:7px;fill:#fff;font-weight:700;">${Object.values(conteos).reduce((a,b)=>a+b,0)}</text>`;
+  svg.innerHTML = circles;
+}
+
+function dibujarLeyenda(elId, conteos) {
+  const el = document.getElementById(elId);
+  const nombres = { pendiente: 'Pendiente', iniciado: 'En curso', pausado: 'Pausado', finalizado: 'Finalizado' };
+  el.innerHTML = ['iniciado','pausado','finalizado','pendiente'].map(k =>
+    `<div class="leyenda-item"><span class="dot" style="background:${COLORES[k]}"></span>${nombres[k]} · ${conteos[k] || 0}</div>`
+  ).join('');
+}
+
+function actualizarResumen() {
+  const conteoPicking = { pendiente:0, iniciado:0, pausado:0, finalizado:0 };
+  const conteoPacking = { pendiente:0, iniciado:0, pausado:0, finalizado:0 };
+  RUTAS.forEach(r => {
+    conteoPicking[r.estado_picking] = (conteoPicking[r.estado_picking] || 0) + 1;
+    conteoPacking[r.estado_packing] = (conteoPacking[r.estado_packing] || 0) + 1;
+  });
+  dibujarDona('dona-picking', conteoPicking);
+  dibujarDona('dona-packing', conteoPacking);
+  dibujarLeyenda('leyenda-picking', conteoPicking);
+  dibujarLeyenda('leyenda-packing', conteoPacking);
+}
+
+function renderFilas() {
+  const tbody = document.getElementById('filas');
+  document.getElementById('vacio').classList.toggle('hidden', RUTAS.length > 0);
+  tbody.innerHTML = RUTAS.map(r => {
+    const tPicking = segundosTranscurridos(r.picking_iniciado_en, r.picking_pausado_desde, r.picking_segundos_pausados, r.picking_finalizado_en);
+    const tPacking = segundosTranscurridos(r.packing_iniciado_en, r.packing_pausado_desde, r.packing_segundos_pausados, r.packing_finalizado_en);
+    const claseTimerPicking = r.estado_picking === 'pausado' ? 'pausado' : 'iniciado';
+    const claseTimerPacking = r.estado_packing === 'pausado' ? 'pausado' : 'iniciado';
+    return `<tr data-id="${r.id}">
+      <td class="ruta-nombre">${r.ruta_nombre}</td>
+      <td>${r.pedidos} · ${r.lineas} · ${Number(r.peso).toLocaleString('es-CO',{maximumFractionDigits:1})} kg · ${r.visitas} visitas</td>
+      <td><span class="badge ${r.estado_picking}">${r.estado_picking.toUpperCase()}</span>${tPicking != null ? `<span class="timer ${claseTimerPicking}" data-timer="picking">${formatoTiempo(tPicking)}</span>` : ''}</td>
+      <td><span class="badge ${r.estado_packing}">${r.estado_packing.toUpperCase()}</span>${tPacking != null ? `<span class="timer ${claseTimerPacking}" data-timer="packing">${formatoTiempo(tPacking)}</span>` : ''}</td>
+      <td>${r.muelle || '—'} · ${r.auditor || '—'}</td>
+      <td class="pend-num">${r.pendientes}</td>
+    </tr>`;
+  }).join('');
+}
+
+function tickTimers() {
+  RUTAS.forEach(r => {
+    const fila = document.querySelector(`tr[data-id="${r.id}"]`);
+    if (!fila) return;
+    const tp = fila.querySelector('[data-timer="picking"]');
+    if (tp && r.estado_picking === 'iniciado') {
+      tp.textContent = formatoTiempo(segundosTranscurridos(r.picking_iniciado_en, null, r.picking_segundos_pausados, null));
+    }
+    const tk = fila.querySelector('[data-timer="packing"]');
+    if (tk && r.estado_packing === 'iniciado') {
+      tk.textContent = formatoTiempo(segundosTranscurridos(r.packing_iniciado_en, null, r.packing_segundos_pausados, null));
+    }
+  });
+}
+setInterval(tickTimers, 1000);
+
+async function cargarRutas() {
+  const { data, error } = await sb.from('rutas_activas')
+    .select('*')
+    .eq('cedi', CEDI)
+    .eq('fecha', HOY)
+    .order('ruta_nombre');
+  if (error) { console.error(error); return; }
+  RUTAS = data || [];
+  renderFilas();
+  actualizarResumen();
+}
+
+cargarRutas();
+setInterval(cargarRutas, 8000); // se refresca solo cada 8 segundos
+</script>
+</body>
+</html>
