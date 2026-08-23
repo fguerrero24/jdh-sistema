@@ -664,7 +664,10 @@
       <div class="sidebar-item active" data-modulo="torre"><i class="ti ti-broadcast"></i>Torre de control</div>
       <div class="sidebar-item" data-modulo="indicadores"><i class="ti ti-chart-bar"></i>Indicadores</div>
       <div class="sidebar-item locked" data-modulo="inventario"><i class="ti ti-package"></i>Inventario<span class="sidebar-badge">pronto</span></div>
-      <div class="sidebar-item" data-modulo="recepcion"><i class="ti ti-truck-delivery"></i>Recepción y despacho</div>
+      <div class="sidebar-item" data-modulo-grupo="recepcion" id="grupo-recepcion"><i class="ti ti-truck-delivery"></i>Recepción y despacho<i class="ti ti-chevron-down" style="margin-left:auto;font-size:13px;"></i></div>
+      <div class="sidebar-item sidebar-sub hidden" data-modulo="recepcion-importar" style="padding-left:38px;font-size:11.5px;">Importar cargue</div>
+      <div class="sidebar-item sidebar-sub hidden" data-modulo="recepcion-rutas" style="padding-left:38px;font-size:11.5px;">Rutas del día</div>
+      <div class="sidebar-item sidebar-sub hidden" data-modulo="recepcion-ranking" style="padding-left:38px;font-size:11.5px;">Ranking de auditores</div>
       <div class="sidebar-item locked" data-modulo="reportes"><i class="ti ti-file-analytics"></i>Reportes<span class="sidebar-badge">pronto</span></div>
       <div class="sidebar-item locked" data-modulo="admin"><i class="ti ti-settings"></i>Administración<span class="sidebar-badge">pronto</span></div>
     </div>
@@ -699,7 +702,7 @@
           </div>
         </div>
 
-        <div id="view-recepcion" class="hidden">
+        <div id="view-recepcion-importar" class="hidden">
           <div class="section-label">Importar cargue del día</div>
           <div class="indicator-card" style="margin-bottom:20px;">
             <div class="indicator-fields">
@@ -710,7 +713,9 @@
             </div>
             <div id="rutas-import-status" style="font-size:12px;color:var(--text-secondary);margin-top:8px;"></div>
           </div>
+        </div>
 
+        <div id="view-recepcion-rutas" class="hidden">
           <div class="section-label">Rutas del día</div>
           <div id="rutas-lista"></div>
 
@@ -718,7 +723,9 @@
             <button class="btn" id="btn-finalizar-cargues" style="background:var(--crit-dot);">Finalizar Cargues</button>
             <span style="font-size:12px;color:var(--text-secondary);margin-left:10px;">Archiva las rutas de hoy al histórico y vacía el tablero.</span>
           </div>
+        </div>
 
+        <div id="view-recepcion-ranking" class="hidden">
           <div class="section-label">Ranking de auditores (menor Takt Time)</div>
           <div id="ranking-auditores"></div>
         </div>
@@ -828,15 +835,22 @@ function mostrarLogin(mensaje) {
 // ============================================================
 const NOMBRES_MODULO = {
   torre: 'Torre de control', indicadores: 'Indicadores', inventario: 'Inventario',
-  recepcion: 'Recepción y despacho', reportes: 'Reportes', admin: 'Administración'
+  'recepcion-importar': 'Recepción y despacho · Importar cargue',
+  'recepcion-rutas': 'Recepción y despacho · Rutas del día',
+  'recepcion-ranking': 'Recepción y despacho · Ranking de auditores',
+  reportes: 'Reportes', admin: 'Administración'
 };
 
-document.querySelectorAll('.sidebar-item').forEach(el => {
+document.querySelectorAll('.sidebar-item[data-modulo]').forEach(el => {
   el.addEventListener('click', () => cambiarModulo(el.dataset.modulo));
 });
 
+document.getElementById('grupo-recepcion').addEventListener('click', () => {
+  document.querySelectorAll('.sidebar-sub').forEach(el => el.classList.toggle('hidden'));
+});
+
 function cambiarModulo(modulo) {
-  document.querySelectorAll('.sidebar-item').forEach(el => el.classList.toggle('active', el.dataset.modulo === modulo));
+  document.querySelectorAll('.sidebar-item[data-modulo]').forEach(el => el.classList.toggle('active', el.dataset.modulo === modulo));
   document.getElementById('topbar-title').textContent = NOMBRES_MODULO[modulo] || modulo;
 
   const activo = document.querySelector(`.sidebar-item[data-modulo="${modulo}"]`);
@@ -844,7 +858,9 @@ function cambiarModulo(modulo) {
 
   document.getElementById('view-torre').classList.toggle('hidden', modulo !== 'torre' || bloqueado);
   document.getElementById('view-indicadores').classList.toggle('hidden', modulo !== 'indicadores' || bloqueado);
-  document.getElementById('view-recepcion').classList.toggle('hidden', modulo !== 'recepcion' || bloqueado);
+  document.getElementById('view-recepcion-importar').classList.toggle('hidden', modulo !== 'recepcion-importar' || bloqueado);
+  document.getElementById('view-recepcion-rutas').classList.toggle('hidden', modulo !== 'recepcion-rutas' || bloqueado);
+  document.getElementById('view-recepcion-ranking').classList.toggle('hidden', modulo !== 'recepcion-ranking' || bloqueado);
   document.getElementById('view-locked').classList.toggle('hidden', !bloqueado);
 
   if (bloqueado) {
@@ -853,9 +869,8 @@ function cambiarModulo(modulo) {
   }
   if (modulo === 'torre') cargarTorreControl();
   if (modulo === 'indicadores') cargarIndicadores();
-  if (modulo === 'recepcion') {
-    cargarModuloRutas();
-  }
+  if (modulo === 'recepcion-rutas') cargarListaRutas();
+  if (modulo === 'recepcion-ranking') cargarRankingAuditores();
 }
 
 // Orden lógico según el proceso físico de la bodega (no alfabético).
@@ -1293,6 +1308,19 @@ async function importarCargue() {
     visitas: g.visitasSet.size,
   }));
 
+  const cedis = [...new Set(registros.map(r => r.cedi))];
+  const { data: existentes } = await sb.from('rutas_activas').select('ruta_nombre').eq('fecha', fecha).in('cedi', cedis);
+
+  if (existentes && existentes.length > 0) {
+    const nombres = existentes.map(e => e.ruta_nombre).join(', ');
+    const confirmar = confirm(
+      `Ya hay ${existentes.length} ruta(s) cargadas para el ${fecha}: ${nombres}.\n\n` +
+      `Si continúas, se actualizan los datos de Pedidos/Líneas/Peso/Visitas de las rutas que coincidan ` +
+      `(el progreso de Picking/Packing/Muelle/Auditor NO se pierde). ¿Seguro que quieres importar de nuevo?`
+    );
+    if (!confirmar) { estado.textContent = 'Importación cancelada.'; return; }
+  }
+
   estado.textContent = `Importando ${registros.length} ruta(s)...`;
 
   const { error } = await sb.from('rutas_activas')
@@ -1306,12 +1334,20 @@ async function importarCargue() {
 }
 
 // ---------- LISTA DE RUTAS DEL DÍA ----------
+let AUDITORES_CACHE = [];
+
 async function cargarListaRutas() {
   const fecha = document.getElementById('rutas-fecha-import').value || new Date().toISOString().slice(0, 10);
   let q = sb.from('rutas_activas').select('*').eq('fecha', fecha).order('ruta_nombre');
   if (!puedeVerTodosLosCedis()) q = q.eq('cedi', SESION.cedi);
   const { data, error } = await q;
   if (error) { mostrarToast('No se pudieron cargar las rutas.'); return; }
+
+  let qa = sb.from('auditores').select('*').eq('activo', true).order('nombre');
+  if (!puedeVerTodosLosCedis()) qa = qa.eq('cedi', SESION.cedi);
+  const { data: auditores } = await qa;
+  AUDITORES_CACHE = auditores || [];
+
   renderListaRutas(data || []);
 }
 
@@ -1320,22 +1356,32 @@ function badgeEstado(estado) {
   return `<span class="badge ${clases[estado] || 'neutral'}"><span class="dot"></span>${estado.toUpperCase()}</span>`;
 }
 
+function opcionesAuditores(cedi, seleccionado) {
+  const deEsteCedi = AUDITORES_CACHE.filter(a => a.cedi === cedi);
+  const opciones = deEsteCedi.map(a =>
+    `<option value="${tEsc(a.nombre)}" ${a.nombre === seleccionado ? 'selected' : ''}>${tEsc(a.nombre)}</option>`
+  ).join('');
+  const actualNoListado = seleccionado && !deEsteCedi.some(a => a.nombre === seleccionado)
+    ? `<option value="${tEsc(seleccionado)}" selected>${tEsc(seleccionado)}</option>` : '';
+  return `<option value="">Sin asignar</option>${actualNoListado}${opciones}<option value="__nuevo__">+ Crear nuevo auditor...</option>`;
+}
+
 function renderListaRutas(rutas) {
   const cont = document.getElementById('rutas-lista');
   if (!rutas.length) { cont.innerHTML = '<div class="empty-state">No hay rutas importadas para esta fecha.</div>'; return; }
 
   cont.innerHTML = rutas.map(r => `
-    <div class="indicator-card" data-ruta="${r.id}">
+    <div class="indicator-card" data-ruta="${r.id}" data-cedi="${tEsc(r.cedi)}">
       <div class="indicator-top">
         <div>
-          <div class="indicator-area">${tEsc(r.cedi)}</div>
+          <div style="display:inline-block;background:var(--jdh-blue);color:#fff;font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px;margin-bottom:4px;">${tEsc(r.cedi)}</div>
           <div class="indicator-name">${tEsc(r.ruta_nombre)}</div>
           <div class="indicator-meta">${r.pedidos} pedidos · ${r.lineas} líneas · ${Number(r.peso).toLocaleString('es-CO',{maximumFractionDigits:1})} kg · ${r.visitas} visitas</div>
         </div>
       </div>
       <div class="indicator-fields">
         <div class="indicator-field"><label>Muelle</label><input type="text" class="ruta-muelle" value="${tEsc(r.muelle || '')}" placeholder="Muelle"></div>
-        <div class="indicator-field"><label>Auditor</label><input type="text" class="ruta-auditor" value="${tEsc(r.auditor || '')}" placeholder="Auditor"></div>
+        <div class="indicator-field"><label>Auditor</label><select class="ruta-auditor">${opcionesAuditores(r.cedi, r.auditor)}</select></div>
         <div class="indicator-field"><label>Pendientes</label><input type="text" class="ruta-pendientes" inputmode="numeric" value="${r.pendientes}" style="width:80px"></div>
         <button class="btn" data-guardar-ruta="${r.id}">Guardar</button>
       </div>
@@ -1366,6 +1412,22 @@ function renderListaRutas(rutas) {
   });
   cont.querySelectorAll('[data-packing-accion]').forEach(btn => {
     btn.addEventListener('click', () => cambiarEstadoRuta(btn.dataset.rutaId, 'estado_packing', btn.dataset.packingAccion));
+  });
+  cont.querySelectorAll('.ruta-auditor').forEach(sel => {
+    sel.addEventListener('change', async () => {
+      if (sel.value !== '__nuevo__') return;
+      const cedi = sel.closest('[data-cedi]').dataset.cedi;
+      const nombre = prompt('Nombre del nuevo auditor:');
+      if (!nombre || !nombre.trim()) { sel.value = ''; return; }
+      const { error } = await sb.from('auditores').insert({ cedi, nombre: nombre.trim(), creado_por: SESION.id });
+      if (error) { mostrarToast('No se pudo crear el auditor: ' + error.message); sel.value = ''; return; }
+      mostrarToast('Auditor creado.');
+      const seleccionRuta = sel.closest('[data-ruta]').dataset.ruta;
+      await cargarListaRutas();
+      // Preselecciona el auditor recién creado en la ruta donde se creó
+      const nuevoCard = document.querySelector(`[data-ruta="${seleccionRuta}"] .ruta-auditor`);
+      if (nuevoCard) nuevoCard.value = nombre.trim();
+    });
   });
 }
 
