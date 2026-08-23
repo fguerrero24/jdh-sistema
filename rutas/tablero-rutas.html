@@ -74,6 +74,17 @@
 </table>
 <div class="empty hidden" id="vacio">No hay rutas cargadas para hoy.</div>
 
+<div style="margin-top:26px;">
+  <div class="dona-label" style="margin-bottom:10px;">Ranking de auditores — hoy (menor Takt Time primero)</div>
+  <table>
+    <thead>
+      <tr><th>#</th><th>Auditor</th><th>Rutas auditadas</th><th>Líneas</th><th>Peso</th><th>Takt Time</th></tr>
+    </thead>
+    <tbody id="ranking-hoy"></tbody>
+  </table>
+  <div class="empty hidden" id="ranking-vacio">Todavía no hay rutas con auditor asignado hoy.</div>
+</div>
+
 <script>
 // ============================================================
 // CONFIGURACIÓN
@@ -189,7 +200,42 @@ function tickTimers() {
     }
   });
 }
-setInterval(tickTimers, 1000);
+setInterval(() => { tickTimers(); renderRankingHoy(); }, 1000);
+
+function calcularRankingHoy() {
+  const porAuditor = {};
+  RUTAS.forEach(r => {
+    const nombre = (r.auditor || '').trim();
+    if (!nombre) return;
+    const segPicking = segundosTranscurridos(r.picking_iniciado_en, r.picking_pausado_desde, r.picking_segundos_pausados, r.picking_finalizado_en) || 0;
+    const segPacking = segundosTranscurridos(r.packing_iniciado_en, r.packing_pausado_desde, r.packing_segundos_pausados, r.packing_finalizado_en) || 0;
+    if (!porAuditor[nombre]) porAuditor[nombre] = { auditor: nombre, rutas: 0, lineas: 0, peso: 0, tiempoTotal: 0 };
+    const a = porAuditor[nombre];
+    a.rutas += 1;
+    a.lineas += r.lineas;
+    a.peso += Number(r.peso) || 0;
+    a.tiempoTotal += segPicking + segPacking;
+  });
+
+  return Object.values(porAuditor)
+    .map(a => ({ ...a, taktTime: a.lineas > 0 ? a.tiempoTotal / a.lineas : null }))
+    .sort((a, b) => (a.taktTime ?? Infinity) - (b.taktTime ?? Infinity));
+}
+
+function renderRankingHoy() {
+  const ranking = calcularRankingHoy();
+  document.getElementById('ranking-vacio').classList.toggle('hidden', ranking.length > 0);
+  document.getElementById('ranking-hoy').innerHTML = ranking.map((a, i) => `
+    <tr>
+      <td>${i + 1}</td>
+      <td>${a.auditor}</td>
+      <td>${a.rutas}</td>
+      <td>${a.lineas}</td>
+      <td>${a.peso.toLocaleString('es-CO', { maximumFractionDigits: 1 })} kg</td>
+      <td>${a.taktTime != null ? a.taktTime.toFixed(1) + 's' : '—'}</td>
+    </tr>
+  `).join('');
+}
 
 async function cargarRutas() {
   const { data, error } = await sb.from('rutas_activas')
@@ -201,6 +247,7 @@ async function cargarRutas() {
   RUTAS = data || [];
   renderFilas();
   actualizarResumen();
+  renderRankingHoy();
 }
 
 cargarRutas();
