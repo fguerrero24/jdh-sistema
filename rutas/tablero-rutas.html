@@ -22,7 +22,11 @@
   table { width:100%; border-collapse:collapse; }
   th { text-align:left; color:#6b829a; font-size:11px; text-transform:uppercase; padding-bottom:8px; border-bottom:1px solid #1e3148; font-weight:400; }
   td { padding:14px 8px; border-bottom:1px solid #16283b; font-size:15px; }
-  .ruta-nombre { font-size:19px; font-weight:700; }
+  .ruta-nombre { font-size:15px; font-weight:700; }
+  .datos-ruta { display:flex; gap:14px; flex-wrap:wrap; }
+  .dato-item { display:flex; flex-direction:column; }
+  .dato-label { font-size:9px; color:#5c7387; text-transform:uppercase; letter-spacing:.3px; }
+  .dato-valor { font-size:14px; color:#dbe6ee; font-weight:600; }
   .badge { font-size:12px; padding:4px 10px; border-radius:5px; display:inline-block; }
   .badge.pendiente { background:#2a3648; color:#8fa5b8; }
   .badge.iniciado { background:#123b28; color:#4ade9e; }
@@ -193,17 +197,33 @@ function actualizarResumen() {
   dibujarLeyenda('leyenda-packing', conteoPacking);
 }
 
+const ORDEN_ESTADO = { iniciado: 0, pausado: 1, pendiente: 2, finalizado: 3 };
+
 function renderFilas() {
   const tbody = document.getElementById('filas');
   document.getElementById('vacio').classList.toggle('hidden', RUTAS.length > 0);
-  tbody.innerHTML = RUTAS.map(r => {
+
+  const ordenadas = [...RUTAS].sort((a, b) => {
+    const diff = ORDEN_ESTADO[a.estado_packing] - ORDEN_ESTADO[b.estado_packing];
+    if (diff !== 0) return diff;
+    return a.ruta_nombre.localeCompare(b.ruta_nombre);
+  });
+
+  tbody.innerHTML = ordenadas.map(r => {
     const tPicking = segundosTranscurridos(r.picking_iniciado_en, r.picking_pausado_desde, r.picking_segundos_pausados, r.picking_finalizado_en);
     const tPacking = segundosTranscurridos(r.packing_iniciado_en, r.packing_pausado_desde, r.packing_segundos_pausados, r.packing_finalizado_en);
     const claseTimerPicking = r.estado_picking === 'pausado' ? 'pausado' : 'iniciado';
     const claseTimerPacking = r.estado_packing === 'pausado' ? 'pausado' : 'iniciado';
     return `<tr data-id="${r.id}">
       <td class="ruta-nombre">${r.ruta_nombre}</td>
-      <td>${r.pedidos} · ${r.lineas} · ${Number(r.peso).toLocaleString('es-CO',{maximumFractionDigits:1})} kg · ${r.visitas} visitas</td>
+      <td>
+        <div class="datos-ruta">
+          <div class="dato-item"><span class="dato-label">Pedidos</span><span class="dato-valor">${r.pedidos}</span></div>
+          <div class="dato-item"><span class="dato-label">Líneas</span><span class="dato-valor">${r.lineas}</span></div>
+          <div class="dato-item"><span class="dato-label">Peso</span><span class="dato-valor">${Number(r.peso).toLocaleString('es-CO',{maximumFractionDigits:1})} kg</span></div>
+          <div class="dato-item"><span class="dato-label">Visitas</span><span class="dato-valor">${r.visitas}</span></div>
+        </div>
+      </td>
       <td><span class="badge ${r.estado_picking}">${r.estado_picking.toUpperCase()}</span>${tPicking != null ? `<span class="timer ${claseTimerPicking}" data-timer="picking">${formatoTiempo(tPicking)}</span>` : ''}</td>
       <td><span class="badge ${r.estado_packing}">${r.estado_packing.toUpperCase()}</span>${tPacking != null ? `<span class="timer ${claseTimerPacking}" data-timer="packing">${formatoTiempo(tPacking)}</span>` : ''}</td>
       <td>${r.muelle || '—'} · ${r.auditor || '—'}</td>
