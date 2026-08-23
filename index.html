@@ -615,7 +615,7 @@
   .indicator-field label { font-size:9px; color:var(--text-muted); text-transform:uppercase; letter-spacing:.2px; }
   .indicator-field input { font-size:12px; padding:6px 9px; border-radius:6px; height:32px; box-sizing:border-box; }
   .indicator-fields .fecha-field { width:135px; }
-  .indicator-fields .valor-field { width:130px; }
+  .indicator-fields .valor-field { flex:1 1 150px; min-width:150px; }
   .indicator-fields button.btn { height:32px; padding:0 16px; font-size:12px; align-self:flex-end; }
 
   @media(max-width:700px) {
@@ -626,7 +626,6 @@
 </head>
 <body>
 
-<!-- ===================== LOGIN VIEW (sin cambios) ===================== -->
 <div id="login-view">
   <div class="login-layout">
     <div class="login-brand">
@@ -655,7 +654,6 @@
   </div>
 </div>
 
-<!-- ===================== APP VIEW — arquitectura modular ===================== -->
 <div id="app-view" class="hidden">
   <div class="app-shell">
     <div class="sidebar">
@@ -711,7 +709,7 @@
 // CONFIGURACIÓN — reemplaza SOLO estos dos valores.
 // ============================================================
 const SUPABASE_URL = 'https://oowfwkrhongqkfavhqeq.supabase.co';
-const SUPABASE_ANON_KEY = 'sb_publishable_g-7cH12m-lLYcNXGbrK3eA_5mG5tydQ';
+const SUPABASE_ANON_KEY = 'PEGA_AQUI_TU_ANON_KEY';
 
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 let SESION = null;
@@ -1079,26 +1077,112 @@ async function toggleHistorial(indicadorId) {
   const { data: filas, error } = await q;
   if (error) { mostrarToast('No se pudo cargar el historial.'); return; }
 
+  renderHistorial(box, ind, filas);
+  box.classList.add('open');
+}
+
+function puedeEditarRegistro(r) {
+  return SESION.rol === 'admin' || SESION.rol === 'director_nacional' || SESION.puede_editar_registros === true;
+}
+function puedeEliminarRegistro() {
+  return SESION.rol === 'admin' || SESION.rol === 'director_nacional' || SESION.puede_eliminar_registros === true;
+}
+
+function renderHistorial(box, ind, filas) {
   const campos = Array.isArray(ind.campos) ? ind.campos : [];
   const letras = ['a','b','c','d','e','f'];
+  const mostrarAcciones = filas.some(r => puedeEditarRegistro(r) || puedeEliminarRegistro());
 
-  const head = `<tr><th>Fecha</th><th>Usuario</th><th>CEDI</th>${campos.map(c => `<th>${tEsc(c.label || c.key)}</th>`).join('')}<th>RESULTADO</th><th>ESTADO</th></tr>`;
+  const head = `<tr><th>Fecha</th><th>Usuario</th><th>CEDI</th>${campos.map(c => `<th>${tEsc(c.label || c.key)}</th>`).join('')}<th>RESULTADO</th><th>ESTADO</th>${mostrarAcciones ? '<th></th>' : ''}</tr>`;
+
   const body = filas.map(r => {
     const cells = campos.map((c, i) => {
       const v = r['campo_' + letras[i]];
       const maxDec = c.tipo === 'entero' ? 0 : 2;
-      return `<td>${v == null ? '' : Number(v).toLocaleString('es-CO', { maximumFractionDigits: maxDec })}</td>`;
+      return `<td data-celda="${letras[i]}">${v == null ? '' : Number(v).toLocaleString('es-CO', { maximumFractionDigits: maxDec })}</td>`;
     }).join('');
-    return `<tr>
-      <td>${tEsc(r.fecha)}</td><td>${tEsc(r.perfiles ? r.perfiles.nombre : '')}</td><td>${tEsc(r.cedi)}</td>
+
+    let acciones = '';
+    if (mostrarAcciones) {
+      const botones = [];
+      if (puedeEditarRegistro(r)) botones.push(`<button class="hist-toggle" data-editar="${r.id}">Editar</button>`);
+      if (puedeEliminarRegistro()) botones.push(`<button class="hist-toggle" data-eliminar="${r.id}" style="color:var(--crit-dot)">Eliminar</button>`);
+      acciones = `<td>${botones.join(' · ')}</td>`;
+    }
+
+    return `<tr data-fila="${r.id}">
+      <td data-celda="fecha">${tEsc(r.fecha)}</td><td>${tEsc(r.perfiles ? r.perfiles.nombre : '')}</td><td>${tEsc(r.cedi)}</td>
       ${cells}
       <td>${r.valor == null ? '' : Number(r.valor).toLocaleString('es-CO', { maximumFractionDigits: 2 })}</td>
       <td>${tEsc(r.estado)}</td>
+      ${mostrarAcciones ? acciones : ''}
     </tr>`;
   }).join('');
 
   box.innerHTML = `<table>${head}${body}</table>`;
-  box.classList.add('open');
+
+  box.querySelectorAll('[data-editar]').forEach(btn => {
+    btn.addEventListener('click', () => activarEdicionFila(box, ind, filas.find(f => String(f.id) === btn.dataset.editar)));
+  });
+  box.querySelectorAll('[data-eliminar]').forEach(btn => {
+    btn.addEventListener('click', () => eliminarRegistro(box, ind, btn.dataset.eliminar));
+  });
+}
+
+function activarEdicionFila(box, ind, registro) {
+  const fila = box.querySelector(`tr[data-fila="${registro.id}"]`);
+  if (!fila) return;
+  const campos = Array.isArray(ind.campos) ? ind.campos : [];
+  const letras = ['a','b','c','d','e','f'];
+
+  const fechaCelda = fila.querySelector('[data-celda="fecha"]');
+  fechaCelda.innerHTML = `<input type="date" class="edit-fecha" value="${tEsc(registro.fecha)}" style="width:130px">`;
+
+  campos.forEach((c, i) => {
+    const celda = fila.querySelector(`[data-celda="${letras[i]}"]`);
+    const v = registro['campo_' + letras[i]];
+    celda.innerHTML = `<input type="text" class="edit-campo" data-key="${letras[i]}" value="${v == null ? '' : v}" style="width:90px">`;
+  });
+
+  const ultimaCelda = fila.querySelector('td:last-child');
+  ultimaCelda.innerHTML = `<button class="hist-toggle" data-guardar-edicion="${registro.id}">Guardar</button> · <button class="hist-toggle" data-cancelar-edicion="${registro.id}">Cancelar</button>`;
+
+  fila.querySelector('[data-guardar-edicion]').addEventListener('click', () => guardarEdicionFila(box, ind, registro));
+  fila.querySelector('[data-cancelar-edicion]').addEventListener('click', () => toggleHistorialForzado(box, ind.id));
+}
+
+async function guardarEdicionFila(box, ind, registro) {
+  const fila = box.querySelector(`tr[data-fila="${registro.id}"]`);
+  const fecha = fila.querySelector('.edit-fecha').value;
+  if (!fecha) { mostrarToast('Selecciona la fecha.'); return; }
+
+  const payload = { fecha };
+  fila.querySelectorAll('.edit-campo').forEach(inp => {
+    const val = inp.value.trim();
+    payload['campo_' + inp.dataset.key] = val === '' ? null : Number(val.replace(',', '.'));
+  });
+
+  const { error } = await sb.from('registros').update(payload).eq('id', registro.id);
+  if (error) { mostrarToast('No se pudo editar: ' + error.message); return; }
+
+  mostrarToast('Registro actualizado.');
+  toggleHistorialForzado(box, ind.id);
+  cargarIndicadores();
+}
+
+async function eliminarRegistro(box, ind, registroId) {
+  if (!confirm('¿Eliminar este registro? Esta acción no se puede deshacer.')) return;
+  const { error } = await sb.from('registros').delete().eq('id', registroId);
+  if (error) { mostrarToast('No se pudo eliminar: ' + error.message); return; }
+  mostrarToast('Registro eliminado.');
+  toggleHistorialForzado(box, ind.id);
+  cargarIndicadores();
+}
+
+async function toggleHistorialForzado(box, indicadorId) {
+  box.classList.remove('open');
+  box.innerHTML = '';
+  await toggleHistorial(indicadorId);
 }
 
 // ============================================================
