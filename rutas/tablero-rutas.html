@@ -39,7 +39,18 @@
 
 <div class="header">
   <div class="title" id="titulo">JDH · Tablero de Rutas</div>
-  <div class="clock" id="reloj"></div>
+  <div style="display:flex;align-items:center;gap:14px;">
+    <select id="selector-cedi" style="background:#0f2033;color:#fff;border:1px solid #1e3148;border-radius:6px;padding:6px 10px;font-size:13px;">
+      <option value="BAQ">Barranquilla</option>
+      <option value="BGA">Bucaramanga</option>
+      <option value="BOG">Bogotá</option>
+      <option value="COP">Copacabana</option>
+      <option value="CTG">Cartagena</option>
+      <option value="PER">Pereira</option>
+    </select>
+    <input type="date" id="selector-fecha" style="background:#0f2033;color:#fff;border:1px solid #1e3148;border-radius:6px;padding:6px 10px;font-size:13px;">
+    <div class="clock" id="reloj"></div>
+  </div>
 </div>
 
 <div class="resumen">
@@ -96,8 +107,23 @@ const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 // CEDI a mostrar: por la URL, ej. tablero-rutas.html?cedi=COP
 // Si no se especifica, muestra Copacabana por defecto.
 const params = new URLSearchParams(location.search);
-const CEDI = params.get('cedi') || 'COP';
-const HOY = params.get('fecha') || new Date().toISOString().slice(0, 10);
+let CEDI = params.get('cedi') || 'COP';
+let HOY = params.get('fecha') || new Date().toISOString().slice(0, 10);
+
+document.getElementById('selector-cedi').value = CEDI;
+document.getElementById('selector-fecha').value = HOY;
+
+function actualizarUrlYRecargar() {
+  CEDI = document.getElementById('selector-cedi').value;
+  HOY = document.getElementById('selector-fecha').value;
+  const nuevaUrl = `${location.pathname}?cedi=${encodeURIComponent(CEDI)}&fecha=${encodeURIComponent(HOY)}`;
+  history.replaceState(null, '', nuevaUrl);
+  document.getElementById('titulo').textContent = `JDH ${CEDI} · Tablero de Rutas · ${HOY}`;
+  cargarRutas();
+}
+
+document.getElementById('selector-cedi').addEventListener('change', actualizarUrlYRecargar);
+document.getElementById('selector-fecha').addEventListener('change', actualizarUrlYRecargar);
 
 document.getElementById('titulo').textContent = `JDH ${CEDI} · Tablero de Rutas · ${HOY}`;
 
