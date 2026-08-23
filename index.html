@@ -717,11 +717,15 @@
 
         <div id="view-recepcion-rutas" class="hidden">
           <div class="section-label">Rutas del día</div>
+          <div class="indicator-field" style="margin-bottom:14px;max-width:200px;">
+            <label>Ver rutas de la fecha</label>
+            <input type="date" id="rutas-fecha-vista">
+          </div>
           <div id="rutas-lista"></div>
 
           <div style="margin:20px 0;">
             <button class="btn" id="btn-finalizar-cargues" style="background:var(--crit-dot);">Finalizar Cargues</button>
-            <span style="font-size:12px;color:var(--text-secondary);margin-left:10px;">Archiva las rutas de hoy al histórico y vacía el tablero.</span>
+            <span style="font-size:12px;color:var(--text-secondary);margin-left:10px;">Archiva las rutas de esta fecha al histórico y vacía el tablero.</span>
           </div>
         </div>
 
@@ -869,7 +873,11 @@ function cambiarModulo(modulo) {
   }
   if (modulo === 'torre') cargarTorreControl();
   if (modulo === 'indicadores') cargarIndicadores();
-  if (modulo === 'recepcion-rutas') cargarListaRutas();
+  if (modulo === 'recepcion-rutas') {
+    const inputVista = document.getElementById('rutas-fecha-vista');
+    if (!inputVista.value) inputVista.value = new Date().toISOString().slice(0, 10);
+    cargarListaRutas();
+  }
   if (modulo === 'recepcion-ranking') cargarRankingAuditores();
 }
 
@@ -1337,7 +1345,7 @@ async function importarCargue() {
 let AUDITORES_CACHE = [];
 
 async function cargarListaRutas() {
-  const fecha = document.getElementById('rutas-fecha-import').value || new Date().toISOString().slice(0, 10);
+  const fecha = document.getElementById('rutas-fecha-vista').value || new Date().toISOString().slice(0, 10);
   let q = sb.from('rutas_activas').select('*').eq('fecha', fecha).order('ruta_nombre');
   if (!puedeVerTodosLosCedis()) q = q.eq('cedi', SESION.cedi);
   const { data, error } = await q;
@@ -1451,9 +1459,10 @@ async function cambiarEstadoRuta(rutaId, campo, nuevoEstado) {
 
 // ---------- FINALIZAR CARGUES ----------
 document.getElementById('btn-finalizar-cargues').addEventListener('click', finalizarCargues);
+document.getElementById('rutas-fecha-vista').addEventListener('change', cargarListaRutas);
 
 async function finalizarCargues() {
-  const fecha = document.getElementById('rutas-fecha-import').value || new Date().toISOString().slice(0, 10);
+  const fecha = document.getElementById('rutas-fecha-vista').value || new Date().toISOString().slice(0, 10);
   if (!confirm(`¿Finalizar cargues de ${SESION.cedi} para el ${fecha}? Esto archiva las rutas al histórico y vacía el tablero de hoy.`)) return;
 
   const { data, error } = await sb.rpc('finalizar_cargues', { p_cedi: SESION.cedi, p_fecha: fecha });
