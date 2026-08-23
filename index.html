@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>JDH · Torre de Control</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/dist/tabler-icons.min.css">
 <style>
   :root {
@@ -663,7 +664,7 @@
       <div class="sidebar-item active" data-modulo="torre"><i class="ti ti-broadcast"></i>Torre de control</div>
       <div class="sidebar-item" data-modulo="indicadores"><i class="ti ti-chart-bar"></i>Indicadores</div>
       <div class="sidebar-item locked" data-modulo="inventario"><i class="ti ti-package"></i>Inventario<span class="sidebar-badge">pronto</span></div>
-      <div class="sidebar-item locked" data-modulo="recepcion"><i class="ti ti-truck-delivery"></i>Recepción y despacho<span class="sidebar-badge">pronto</span></div>
+      <div class="sidebar-item" data-modulo="recepcion"><i class="ti ti-truck-delivery"></i>Recepción y despacho</div>
       <div class="sidebar-item locked" data-modulo="reportes"><i class="ti ti-file-analytics"></i>Reportes<span class="sidebar-badge">pronto</span></div>
       <div class="sidebar-item locked" data-modulo="admin"><i class="ti ti-settings"></i>Administración<span class="sidebar-badge">pronto</span></div>
     </div>
@@ -696,6 +697,30 @@
             <h3 id="locked-title">Módulo en construcción</h3>
             <p>Este módulo todavía no está activo. Ya está preparado en la base de datos para cuando lo construyamos.</p>
           </div>
+        </div>
+
+        <div id="view-recepcion" class="hidden">
+          <div class="section-label">Importar cargue del día</div>
+          <div class="indicator-card" style="margin-bottom:20px;">
+            <div class="indicator-fields">
+              <div class="indicator-field"><label>Fecha</label><input type="date" id="rutas-fecha-import" value=""></div>
+              <div class="indicator-field"><label>Archivo (.xlsx)</label><input type="file" id="rutas-archivo" accept=".xlsx"></div>
+              <button class="btn" id="btn-importar-cargue">Importar</button>
+              <button class="btn ghost" id="btn-abrir-tablero"><i class="ti ti-external-link"></i> Abrir tablero de bodega</button>
+            </div>
+            <div id="rutas-import-status" style="font-size:12px;color:var(--text-secondary);margin-top:8px;"></div>
+          </div>
+
+          <div class="section-label">Rutas del día</div>
+          <div id="rutas-lista"></div>
+
+          <div style="margin:20px 0;">
+            <button class="btn" id="btn-finalizar-cargues" style="background:var(--crit-dot);">Finalizar Cargues</button>
+            <span style="font-size:12px;color:var(--text-secondary);margin-left:10px;">Archiva las rutas de hoy al histórico y vacía el tablero.</span>
+          </div>
+
+          <div class="section-label">Ranking de auditores (menor Takt Time)</div>
+          <div id="ranking-auditores"></div>
         </div>
       </div>
     </div>
@@ -819,6 +844,7 @@ function cambiarModulo(modulo) {
 
   document.getElementById('view-torre').classList.toggle('hidden', modulo !== 'torre' || bloqueado);
   document.getElementById('view-indicadores').classList.toggle('hidden', modulo !== 'indicadores' || bloqueado);
+  document.getElementById('view-recepcion').classList.toggle('hidden', modulo !== 'recepcion' || bloqueado);
   document.getElementById('view-locked').classList.toggle('hidden', !bloqueado);
 
   if (bloqueado) {
@@ -827,6 +853,11 @@ function cambiarModulo(modulo) {
   }
   if (modulo === 'torre') cargarTorreControl();
   if (modulo === 'indicadores') cargarIndicadores();
+  if (modulo === 'recepcion') {
+    const inputFecha = document.getElementById('rutas-fecha-import');
+    if (!inputFecha.value) inputFecha.value = new Date().toISOString().slice(0, 10);
+    cargarModuloRutas();
+  }
 }
 
 // Orden lógico según el proceso físico de la bodega (no alfabético).
@@ -1190,6 +1221,204 @@ async function toggleHistorialForzado(box, indicadorId) {
 // ============================================================
 sb.auth.onAuthStateChange((event) => { if (event === 'SIGNED_OUT') mostrarLogin(); });
 cargarSesionYArrancar();
+</script>
+
+<script>
+// ============================================================
+// MÓDULO DE RUTAS — importar cargue, tablero operativo, ranking
+// ============================================================
+
+async function cargarModuloRutas() {
+  await Promise.all([cargarListaRutas(), cargarRankingAuditores()]);
+}
+
+// ---------- IMPORTAR EXCEL (.xlsx) ----------
+document.getElementById('btn-importar-cargue').addEventListener('click', importarCargue);
+
+async function importarCargue() {
+  const fecha = document.getElementById('rutas-fecha-import').value;
+  const archivo = document.getElementById('rutas-archivo').files[0];
+  const estado = document.getElementById('rutas-import-status');
+
+  if (!fecha) { estado.textContent = 'Selecciona la fecha del cargue.'; return; }
+  if (!archivo) { estado.textContent = 'Selecciona el archivo .xlsx.'; return; }
+
+  estado.textContent = 'Leyendo archivo...';
+
+  const buffer = await archivo.arrayBuffer();
+  const wb = XLSX.read(buffer, { type: 'array' });
+  const hoja = wb.Sheets[wb.SheetNames[0]];
+  const filas = XLSX.utils.sheet_to_json(hoja, { defval: '' });
+
+  if (!filas.length) { estado.textContent = 'El archivo está vacío.'; return; }
+
+  // Mapeo de código C.o -> CEDI
+  const { data: mapaCedis } = await sb.from('codigos_cedi').select('*');
+  const mapaCo = {};
+  (mapaCedis || []).forEach(m => { mapaCo[String(m.co_numero)] = m.cedi_codigo; });
+
+  // Agrupar por (cedi, ruta = "Cargue" normalizado)
+  const grupos = {};
+  let sinMapeoCo = new Set();
+
+  filas.forEach(fila => {
+    const co = String(fila['C.o'] ?? '').trim();
+    const cedi = mapaCo[co];
+    if (!cedi) { sinMapeoCo.add(co); return; }
+
+    const rutaNombre = String(fila['Cargue'] ?? '').trim().toUpperCase();
+    if (!rutaNombre) return;
+
+    const key = cedi + '||' + rutaNombre;
+    if (!grupos[key]) {
+      grupos[key] = { cedi, ruta_nombre: rutaNombre, pedidosSet: new Set(), visitasSet: new Set(), lineas: 0, peso: 0 };
+    }
+    const g = grupos[key];
+    g.pedidosSet.add(String(fila['Pedido'] ?? ''));
+    g.visitasSet.add(String(fila['Desc. sucursal despacho'] ?? ''));
+    g.lineas += 1;
+    g.peso += Number(fila['Peso en KL']) || 0;
+  });
+
+  if (sinMapeoCo.size) {
+    estado.textContent = `Códigos "C.o" sin mapear a un CEDI: ${[...sinMapeoCo].join(', ')}. Agrégalos en la tabla codigos_cedi antes de importar.`;
+    return;
+  }
+
+  const registros = Object.values(grupos).map(g => ({
+    cedi: g.cedi,
+    fecha,
+    ruta_nombre: g.ruta_nombre,
+    pedidos: g.pedidosSet.size,
+    lineas: g.lineas,
+    peso: Math.round(g.peso * 100) / 100,
+    visitas: g.visitasSet.size,
+  }));
+
+  estado.textContent = `Importando ${registros.length} ruta(s)...`;
+
+  const { error } = await sb.from('rutas_activas')
+    .upsert(registros, { onConflict: 'cedi,fecha,ruta_nombre' });
+
+  if (error) { estado.textContent = 'Error al importar: ' + error.message; return; }
+
+  estado.textContent = `Listo: ${registros.length} ruta(s) importadas para ${fecha}.`;
+  document.getElementById('rutas-archivo').value = '';
+  cargarListaRutas();
+}
+
+// ---------- LISTA DE RUTAS DEL DÍA ----------
+async function cargarListaRutas() {
+  const fecha = document.getElementById('rutas-fecha-import').value || new Date().toISOString().slice(0, 10);
+  let q = sb.from('rutas_activas').select('*').eq('fecha', fecha).order('ruta_nombre');
+  if (!puedeVerTodosLosCedis()) q = q.eq('cedi', SESION.cedi);
+  const { data, error } = await q;
+  if (error) { mostrarToast('No se pudieron cargar las rutas.'); return; }
+  renderListaRutas(data || []);
+}
+
+function badgeEstado(estado) {
+  const clases = { pendiente: 'neutral', iniciado: 'good', pausado: 'info', finalizado: 'good' };
+  return `<span class="badge ${clases[estado] || 'neutral'}"><span class="dot"></span>${estado.toUpperCase()}</span>`;
+}
+
+function renderListaRutas(rutas) {
+  const cont = document.getElementById('rutas-lista');
+  if (!rutas.length) { cont.innerHTML = '<div class="empty-state">No hay rutas importadas para esta fecha.</div>'; return; }
+
+  cont.innerHTML = rutas.map(r => `
+    <div class="indicator-card" data-ruta="${r.id}">
+      <div class="indicator-top">
+        <div>
+          <div class="indicator-area">${tEsc(r.cedi)}</div>
+          <div class="indicator-name">${tEsc(r.ruta_nombre)}</div>
+          <div class="indicator-meta">${r.pedidos} pedidos · ${r.lineas} líneas · ${Number(r.peso).toLocaleString('es-CO',{maximumFractionDigits:1})} kg · ${r.visitas} visitas</div>
+        </div>
+      </div>
+      <div class="indicator-fields">
+        <div class="indicator-field"><label>Muelle</label><input type="text" class="ruta-muelle" value="${tEsc(r.muelle || '')}" placeholder="Muelle"></div>
+        <div class="indicator-field"><label>Auditor</label><input type="text" class="ruta-auditor" value="${tEsc(r.auditor || '')}" placeholder="Auditor"></div>
+        <div class="indicator-field"><label>Pendientes</label><input type="text" class="ruta-pendientes" inputmode="numeric" value="${r.pendientes}" style="width:80px"></div>
+        <button class="btn" data-guardar-ruta="${r.id}">Guardar</button>
+      </div>
+      <div class="indicator-fields" style="border-top:none;padding-top:0;margin-top:8px;">
+        <div>
+          <label style="font-size:9px;color:var(--text-muted);text-transform:uppercase;display:block;margin-bottom:4px;">Picking</label>
+          ${badgeEstado(r.estado_picking)}
+          ${r.estado_picking === 'pendiente' ? `<button class="hist-toggle" data-picking-accion="iniciado" data-ruta-id="${r.id}">Iniciar</button>` : ''}
+          ${r.estado_picking === 'iniciado' ? `<button class="hist-toggle" data-picking-accion="pausado" data-ruta-id="${r.id}">Pausar</button> · <button class="hist-toggle" data-picking-accion="finalizado" data-ruta-id="${r.id}">Finalizar</button>` : ''}
+          ${r.estado_picking === 'pausado' ? `<button class="hist-toggle" data-picking-accion="iniciado" data-ruta-id="${r.id}">Reanudar</button> · <button class="hist-toggle" data-picking-accion="finalizado" data-ruta-id="${r.id}">Finalizar</button>` : ''}
+        </div>
+        <div>
+          <label style="font-size:9px;color:var(--text-muted);text-transform:uppercase;display:block;margin-bottom:4px;">Packing</label>
+          ${badgeEstado(r.estado_packing)}
+          ${r.estado_packing === 'pendiente' ? `<button class="hist-toggle" data-packing-accion="iniciado" data-ruta-id="${r.id}">Iniciar</button>` : ''}
+          ${r.estado_packing === 'iniciado' ? `<button class="hist-toggle" data-packing-accion="pausado" data-ruta-id="${r.id}">Pausar</button> · <button class="hist-toggle" data-packing-accion="finalizado" data-ruta-id="${r.id}">Finalizar</button>` : ''}
+          ${r.estado_packing === 'pausado' ? `<button class="hist-toggle" data-packing-accion="iniciado" data-ruta-id="${r.id}">Reanudar</button> · <button class="hist-toggle" data-packing-accion="finalizado" data-ruta-id="${r.id}">Finalizar</button>` : ''}
+        </div>
+      </div>
+    </div>
+  `).join('');
+
+  cont.querySelectorAll('[data-guardar-ruta]').forEach(btn => {
+    btn.addEventListener('click', () => guardarCamposRuta(btn.dataset.guardarRuta));
+  });
+  cont.querySelectorAll('[data-picking-accion]').forEach(btn => {
+    btn.addEventListener('click', () => cambiarEstadoRuta(btn.dataset.rutaId, 'estado_picking', btn.dataset.pickingAccion));
+  });
+  cont.querySelectorAll('[data-packing-accion]').forEach(btn => {
+    btn.addEventListener('click', () => cambiarEstadoRuta(btn.dataset.rutaId, 'estado_packing', btn.dataset.packingAccion));
+  });
+}
+
+async function guardarCamposRuta(rutaId) {
+  const card = document.querySelector(`[data-ruta="${rutaId}"]`);
+  const muelle = card.querySelector('.ruta-muelle').value.trim();
+  const auditor = card.querySelector('.ruta-auditor').value.trim();
+  const pendientes = Number(card.querySelector('.ruta-pendientes').value.trim() || 0);
+
+  const { error } = await sb.from('rutas_activas').update({ muelle, auditor, pendientes }).eq('id', rutaId);
+  if (error) { mostrarToast('No se pudo guardar: ' + error.message); return; }
+  mostrarToast('Ruta actualizada.');
+  cargarListaRutas();
+}
+
+async function cambiarEstadoRuta(rutaId, campo, nuevoEstado) {
+  const { error } = await sb.from('rutas_activas').update({ [campo]: nuevoEstado }).eq('id', rutaId);
+  if (error) { mostrarToast('No se pudo cambiar el estado: ' + error.message); return; }
+  cargarListaRutas();
+}
+
+// ---------- FINALIZAR CARGUES ----------
+document.getElementById('btn-finalizar-cargues').addEventListener('click', finalizarCargues);
+
+async function finalizarCargues() {
+  const fecha = document.getElementById('rutas-fecha-import').value || new Date().toISOString().slice(0, 10);
+  if (!confirm(`¿Finalizar cargues de ${SESION.cedi} para el ${fecha}? Esto archiva las rutas al histórico y vacía el tablero de hoy.`)) return;
+
+  const { data, error } = await sb.rpc('finalizar_cargues', { p_cedi: SESION.cedi, p_fecha: fecha });
+  if (error) { mostrarToast('No se pudo finalizar: ' + error.message); return; }
+  mostrarToast(`${data} ruta(s) archivadas al histórico.`);
+  cargarListaRutas();
+  cargarRankingAuditores();
+}
+
+// ---------- RANKING DE AUDITORES ----------
+async function cargarRankingAuditores() {
+  const { data, error } = await sb.rpc('ranking_auditores', { p_cedi: puedeVerTodosLosCedis() ? null : SESION.cedi, p_desde: null, p_hasta: null });
+  const cont = document.getElementById('ranking-auditores');
+  if (error) { cont.innerHTML = '<div class="empty-state">No se pudo cargar el ranking.</div>'; return; }
+  if (!data || !data.length) { cont.innerHTML = '<div class="empty-state">Todavía no hay cargues finalizados para calcular el ranking.</div>'; return; }
+
+  cont.innerHTML = `<table class="hist-table open"><tr><th>#</th><th>Auditor</th><th>Rutas atendidas</th><th>Takt Time promedio</th><th>Fill Rate promedio</th></tr>${
+    data.map((a, i) => `<tr><td>${i + 1}</td><td>${tEsc(a.auditor)}</td><td>${a.rutas_atendidas}</td><td>${a.takt_time_promedio != null ? a.takt_time_promedio + 's' : '—'}</td><td>${a.fill_rate_promedio != null ? a.fill_rate_promedio + '%' : '—'}</td></tr>`).join('')
+  }</table>`;
+}
+
+document.getElementById('btn-abrir-tablero').addEventListener('click', () => {
+  window.open('/rutas/tablero-rutas.html?cedi=' + encodeURIComponent(SESION.cedi), '_blank');
+});
+
 </script>
 </body>
 </html>
