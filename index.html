@@ -703,7 +703,7 @@
           <div class="section-label">Importar cargue del día</div>
           <div class="indicator-card" style="margin-bottom:20px;">
             <div class="indicator-fields">
-              <div class="indicator-field"><label>Fecha</label><input type="date" id="rutas-fecha-import" value=""></div>
+              <div class="indicator-field"><label>Fecha en que SALEN a reparto</label><input type="date" id="rutas-fecha-import" value=""></div>
               <div class="indicator-field"><label>Archivo (.xlsx)</label><input type="file" id="rutas-archivo" accept=".xlsx"></div>
               <button class="btn" id="btn-importar-cargue">Importar</button>
               <button class="btn ghost" id="btn-abrir-tablero"><i class="ti ti-external-link"></i> Abrir tablero de bodega</button>
@@ -854,8 +854,6 @@ function cambiarModulo(modulo) {
   if (modulo === 'torre') cargarTorreControl();
   if (modulo === 'indicadores') cargarIndicadores();
   if (modulo === 'recepcion') {
-    const inputFecha = document.getElementById('rutas-fecha-import');
-    if (!inputFecha.value) inputFecha.value = new Date().toISOString().slice(0, 10);
     cargarModuloRutas();
   }
 }
