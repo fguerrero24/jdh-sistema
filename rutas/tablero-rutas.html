@@ -95,7 +95,7 @@
       <th>Picking</th>
       <th>Packing</th>
       <th>Muelle / Auditor</th>
-      <th>Pendientes</th>
+      <th>Pendientes (Picking / Packing)</th>
     </tr>
   </thead>
   <tbody id="filas"></tbody>
@@ -221,14 +221,14 @@ function actualizarResumenOperacion() {
   const totalCompletos = RUTAS.reduce((s, r) => s + (r.pedidos_completos || 0), 0);
   const fillRate = totalPedidos > 0 ? (totalCompletos / totalPedidos) * 100 : null;
 
-  // OTIF Picking: ruta 100% completa Y Picking finalizado antes de las 4:00 am
+  // OTIF Picking: ruta 100% completa (Pendientes Picking) Y Picking finalizado antes de las 4:00 am
   const conPicking = RUTAS.filter(r => r.picking_finalizado_en);
   const otifPicking = conPicking.length ? conPicking.filter(r => {
     const h = new Date(r.picking_finalizado_en).getHours();
-    return h < 4 && r.pendientes === 0;
+    return h < 4 && r.pendientes_picking === 0;
   }).length / conPicking.length * 100 : null;
 
-  // OTIF Packing: ruta 100% completa Y Packing finalizado antes de las 6:00 am
+  // OTIF Packing: ruta 100% completa (Pendientes Packing) Y Packing finalizado antes de las 6:00 am
   const conPacking = RUTAS.filter(r => r.packing_finalizado_en);
   const otifPacking = conPacking.length ? conPacking.filter(r => {
     const h = new Date(r.packing_finalizado_en).getHours();
@@ -344,7 +344,7 @@ function renderFilas() {
       <td><span class="badge ${r.estado_picking}">${r.estado_picking.toUpperCase()}</span>${tPicking != null ? `<span class="timer ${claseTimerPicking}" data-timer="picking">${formatoTiempo(tPicking)}</span>` : ''}</td>
       <td><span class="badge ${r.estado_packing}">${r.estado_packing.toUpperCase()}</span>${tPacking != null ? `<span class="timer ${claseTimerPacking}" data-timer="packing">${formatoTiempo(tPacking)}</span>` : ''}</td>
       <td>${r.muelle || '—'} · ${r.auditor || '—'}</td>
-      <td class="pend-num">${r.pendientes}</td>
+      <td class="pend-num">${r.pendientes_picking} / ${r.pendientes}</td>
     </tr>`;
   }).join('');
 }
