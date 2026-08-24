@@ -1355,12 +1355,15 @@ async function importarCargue() {
     const rutaNombre = String(valorPor(fila, 'ruta')).trim().toUpperCase();
     if (!rutaNombre) return;
 
+    const pedido = String(valorPor(fila, 'pedido')).trim();
+    if (pedido.toUpperCase().startsWith('SV')) return; // Se excluyen pedidos que empiezan en "SV".
+
     const key = cedi + '||' + rutaNombre;
     if (!grupos[key]) {
       grupos[key] = { cedi, ruta_nombre: rutaNombre, pedidosSet: new Set(), visitasSet: new Set(), lineas: 0, peso: 0 };
     }
     const g = grupos[key];
-    g.pedidosSet.add(String(valorPor(fila, 'pedido')));
+    g.pedidosSet.add(pedido);
     g.visitasSet.add(String(valorPor(fila, 'visita')));
     g.lineas += 1;
     g.peso += Number(valorPor(fila, 'peso')) || 0;
