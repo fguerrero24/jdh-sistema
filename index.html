@@ -670,6 +670,7 @@
       <div class="sidebar-item sidebar-sub hidden" data-modulo="recepcion-rutas" style="padding-left:38px;font-size:11.5px;">Rutas del día</div>
       <div class="sidebar-item sidebar-sub hidden" data-modulo="recepcion-ranking" style="padding-left:38px;font-size:11.5px;">Ranking de auditores</div>
       <div class="sidebar-item locked" data-modulo="reportes"><i class="ti ti-file-analytics"></i>Reportes<span class="sidebar-badge">pronto</span></div>
+      <div class="sidebar-item" data-modulo="rrhh"><i class="ti ti-users"></i>Recursos Humanos</div>
       <div class="sidebar-item" data-modulo="admin"><i class="ti ti-settings"></i>Administración</div>
     </div>
 
@@ -771,6 +772,99 @@
             <div id="admin-usuarios-lista"></div>
           </div>
         </div>
+
+        <div id="view-rrhh" class="hidden">
+          <div id="rrhh-sin-acceso" class="hidden empty-state">No tienes permiso para este módulo. Solo Admin y Director Nacional pueden entrar aquí.</div>
+          <div id="rrhh-contenido">
+            <div class="section-label">Empleados</div>
+
+            <div class="indicator-card" style="margin-bottom:20px;">
+              <div class="indicator-fields">
+                <div class="indicator-field"><label>Importar lista completa (.xlsx, .xls, .csv)</label><input type="file" id="emp-archivo-masivo" accept=".xlsx,.xls,.csv"></div>
+                <div class="indicator-field"><label>CEDI (si el archivo no trae columna CEDI)</label><select id="emp-masivo-cedi-defecto"></select></div>
+                <button class="btn" id="btn-importar-empleados-masivo">Importar lista</button>
+              </div>
+              <div id="emp-masivo-status" style="font-size:12px;color:var(--text-secondary);margin-top:8px;"></div>
+              <div style="font-size:11px;color:var(--text-muted);margin-top:4px;">Columnas que reconoce: CEDI, CÉDULA, NOMBRE COMPLETO (o NOMBRE), SALARIO. Si un nombre ya existe (mismo CEDI), se actualiza su salario y cédula en vez de duplicarlo.</div>
+            </div>
+
+            <div class="indicator-card" style="margin-bottom:20px;">
+              <div class="indicator-fields">
+                <div class="indicator-field"><label>Nombre completo</label><input type="text" id="nuevo-emp-nombre" placeholder="Nombre completo"></div>
+                <div class="indicator-field"><label>Cédula</label><input type="text" id="nuevo-emp-cedula" placeholder="Cédula"></div>
+                <div class="indicator-field"><label>Cargo</label><input type="text" id="nuevo-emp-cargo" placeholder="Cargo"></div>
+                <div class="indicator-field"><label>Salario base</label><input type="text" id="nuevo-emp-salario" inputmode="numeric" placeholder="ej. 1750905"></div>
+                <div class="indicator-field"><label>CEDI</label><select id="nuevo-emp-cedi"></select></div>
+                <button class="btn" id="btn-crear-empleado">Agregar empleado</button>
+              </div>
+              <div id="crear-empleado-status" style="font-size:12px;color:var(--text-secondary);margin-top:8px;"></div>
+            </div>
+            <div id="rrhh-empleados-lista"></div>
+
+            <div class="section-label" style="margin-top:26px;">Entradas y Salidas</div>
+
+            <div class="indicator-card" style="margin-bottom:20px;">
+              <div class="indicator-fields">
+                <div class="indicator-field"><label>Reporte del reloj biométrico (.xls, .xlsx, .csv)</label><input type="file" id="asis-archivo-reloj" accept=".xlsx,.xls,.csv"></div>
+                <button class="btn" id="btn-importar-reloj">Importar desde reloj</button>
+              </div>
+              <div id="asis-import-status" style="font-size:12px;color:var(--text-secondary);margin-top:8px;"></div>
+              <div style="font-size:11px;color:var(--text-muted);margin-top:4px;">Empareja automáticamente cada "Entrada" con la siguiente "Salida" de la misma persona. Los nombres deben coincidir exactamente con los de la lista de Empleados (se corrigen espacios extra solos, pero no se adivinan nombres distintos).</div>
+              <div id="asis-crear-faltantes"></div>
+            </div>
+
+            <div class="indicator-card" style="margin-bottom:20px;">
+              <div class="indicator-fields">
+                <div class="indicator-field"><label>Empleado</label><select id="asis-empleado"></select></div>
+                <div class="indicator-field"><label>Fecha</label><input type="date" id="asis-fecha"></div>
+                <div class="indicator-field"><label>Hora entrada</label><input type="time" id="asis-entrada"></div>
+                <div class="indicator-field"><label>Hora salida</label><input type="time" id="asis-salida"></div>
+                <button class="btn" id="btn-registrar-asistencia">Registrar</button>
+              </div>
+              <div id="asis-status" style="font-size:12px;color:var(--text-secondary);margin-top:8px;"></div>
+              <div style="font-size:11px;color:var(--text-muted);margin-top:4px;">Si la salida es antes que la entrada en el reloj, se asume que cruzó la medianoche (ej. entrada 8:00pm, salida 4:00am = turno nocturno de 8 horas).</div>
+            </div>
+            <div id="asis-lista"></div>
+
+            <div style="margin:14px 0 26px;">
+              <div class="indicator-field" style="display:inline-block;max-width:200px;margin-right:10px;"><label>Desde</label><input type="date" id="asis-finalizar-desde"></div>
+              <div class="indicator-field" style="display:inline-block;max-width:200px;margin-right:10px;"><label>Hasta</label><input type="date" id="asis-finalizar-hasta"></div>
+              <button class="btn" id="btn-guardar-liquidar-asistencia" style="background:var(--crit-dot);">Guardar y liquidar (archiva y vacía este CEDI)</button>
+              <div id="asis-finalizar-status" style="font-size:12px;color:var(--text-secondary);margin-top:8px;"></div>
+            </div>
+
+            <div class="section-label" style="margin-top:26px;">Liquidador de Horas Extras y Recargos Nocturnos</div>
+            <div class="indicator-card" style="margin-bottom:20px;">
+              <div class="indicator-fields">
+                <button class="btn ghost" id="btn-calcular-desde-asistencia">Calcular desde Entradas/Salidas</button>
+                <span style="font-size:11px;color:var(--text-secondary);align-self:center;">Llena las 7 horas de abajo automáticamente para el empleado y periodo elegidos -- revísalas antes de guardar.</span>
+              </div>
+              <div class="indicator-fields">
+                <div class="indicator-field"><label>Empleado</label><select id="liq-empleado"></select></div>
+                <div class="indicator-field"><label>Periodo inicio</label><input type="date" id="liq-inicio"></div>
+                <div class="indicator-field"><label>Periodo fin</label><input type="date" id="liq-fin"></div>
+              </div>
+              <div class="indicator-fields">
+                <div class="indicator-field"><label>Extra diurna (h)</label><input type="text" id="liq-extra-diurna" inputmode="decimal" value="0" style="width:90px"></div>
+                <div class="indicator-field"><label>Extra nocturna (h)</label><input type="text" id="liq-extra-nocturna" inputmode="decimal" value="0" style="width:90px"></div>
+                <div class="indicator-field"><label>Extra dom/fest diurna (h)</label><input type="text" id="liq-extra-domfest-diurna" inputmode="decimal" value="0" style="width:90px"></div>
+                <div class="indicator-field"><label>Extra dom/fest nocturna (h)</label><input type="text" id="liq-extra-domfest-nocturna" inputmode="decimal" value="0" style="width:90px"></div>
+              </div>
+              <div class="indicator-fields">
+                <div class="indicator-field"><label>Recargo nocturno (h)</label><input type="text" id="liq-recargo-nocturno" inputmode="decimal" value="0" style="width:90px"></div>
+                <div class="indicator-field"><label>Recargo dominical (h)</label><input type="text" id="liq-recargo-dominical" inputmode="decimal" value="0" style="width:90px"></div>
+                <div class="indicator-field"><label>Recargo noct+dom (h)</label><input type="text" id="liq-recargo-noctdom" inputmode="decimal" value="0" style="width:90px"></div>
+                <div class="indicator-field"><label>Observaciones</label><input type="text" id="liq-observaciones" placeholder="Opcional"></div>
+                <button class="btn" id="btn-calcular-liquidacion">Calcular y guardar</button>
+              </div>
+              <div id="liq-status" style="font-size:12px;color:var(--text-secondary);margin-top:8px;"></div>
+              <div id="liq-resultado" style="margin-top:10px;"></div>
+            </div>
+
+            <div class="section-label">Historial de liquidaciones</div>
+            <div id="rrhh-liquidaciones-lista"></div>
+          </div>
+        </div>
       </div>
     </div>
   </div>
@@ -783,7 +877,7 @@
 // CONFIGURACIÓN — reemplaza SOLO estos dos valores.
 // ============================================================
 const SUPABASE_URL = 'https://oowfwkrhongqkfavhqeq.supabase.co';
-const SUPABASE_ANON_KEY = 'sb_publishable_g-7cH12m-lLYcNXGbrK3eA_5mG5tydQ';
+const SUPABASE_ANON_KEY = 'PEGA_AQUI_TU_ANON_KEY';
 
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 let SESION = null;
@@ -880,7 +974,7 @@ const NOMBRES_MODULO = {
   'recepcion-importar': 'Recepción y despacho · Importar cargue',
   'recepcion-rutas': 'Recepción y despacho · Rutas del día',
   'recepcion-ranking': 'Recepción y despacho · Ranking de auditores',
-  reportes: 'Reportes', admin: 'Administración'
+  reportes: 'Reportes', admin: 'Administración', rrhh: 'Recursos Humanos'
 };
 
 document.querySelectorAll('.sidebar-item[data-modulo]').forEach(el => {
@@ -904,6 +998,7 @@ function cambiarModulo(modulo) {
   document.getElementById('view-recepcion-rutas').classList.toggle('hidden', modulo !== 'recepcion-rutas' || bloqueado);
   document.getElementById('view-recepcion-ranking').classList.toggle('hidden', modulo !== 'recepcion-ranking' || bloqueado);
   document.getElementById('view-admin').classList.toggle('hidden', modulo !== 'admin' || bloqueado);
+  document.getElementById('view-rrhh').classList.toggle('hidden', modulo !== 'rrhh' || bloqueado);
   document.getElementById('view-locked').classList.toggle('hidden', !bloqueado);
 
   if (bloqueado) {
@@ -919,6 +1014,7 @@ function cambiarModulo(modulo) {
   }
   if (modulo === 'recepcion-ranking') cargarRankingAuditores();
   if (modulo === 'admin') cargarModuloAdmin();
+  if (modulo === 'rrhh') cargarModuloRrhh();
 }
 
 // Orden lógico según el proceso físico de la bodega (no alfabético).
@@ -1313,60 +1409,32 @@ async function importarCargue() {
 
   if (!filas.length) { estado.textContent = 'El archivo está vacío.'; return; }
 
-  // Cada concepto puede venir con distintos nombres de columna según la
-  // sucursal que exporta el archivo. Se prueba cada alias en orden y se usa
-  // el primero que tenga valor en esa fila.
-  const ALIAS = {
-    co: ['C.o', 'Centro operativo'],
-    ruta: ['Cargue', 'Placa'],
-    pedido: ['Nro documento', 'Documento'],
-    visita: ['Desc. sucursal despacho', 'Cliente'],
-    peso: ['Peso en KL', 'Peso'],
-  };
-  function valorPor(fila, conceptos) {
-    for (const nombreCol of ALIAS[conceptos]) {
-      const v = fila[nombreCol];
-      if (v !== undefined && v !== null && String(v).trim() !== '') return v;
-    }
-    return '';
-  }
-
   // Mapeo de código C.o -> CEDI
   const { data: mapaCedis } = await sb.from('codigos_cedi').select('*');
   const mapaCo = {};
   (mapaCedis || []).forEach(m => { mapaCo[String(m.co_numero)] = m.cedi_codigo; });
 
-  // Agrupar por (cedi, ruta)
+  // Agrupar por (cedi, ruta = "Cargue" normalizado)
   const grupos = {};
   let sinMapeoCo = new Set();
 
   filas.forEach(fila => {
-    let co = String(valorPor(fila, 'co')).trim();
-    if (co !== '' && /^\d+$/.test(co)) co = String(parseInt(co, 10)); // quita ceros a la izquierda (ej. "001" -> "1")
-    let cedi;
-    if (co === '') {
-      cedi = SESION.cedi; // Sin columna de CEDI (o vacía) -> se usa el CEDI del usuario que importa.
-      if (!cedi) { sinMapeoCo.add('(sin CEDI en el archivo, y tu usuario no tiene CEDI asignado)'); return; }
-    } else {
-      cedi = mapaCo[co];
-      if (!cedi) { sinMapeoCo.add(co); return; }
-    }
+    const co = String(fila['C.o'] ?? '').trim();
+    const cedi = mapaCo[co];
+    if (!cedi) { sinMapeoCo.add(co); return; }
 
-    const rutaNombre = String(valorPor(fila, 'ruta')).trim().toUpperCase();
+    const rutaNombre = String(fila['Cargue'] ?? '').trim().toUpperCase();
     if (!rutaNombre) return;
-
-    const pedido = String(valorPor(fila, 'pedido')).trim();
-    if (pedido.toUpperCase().startsWith('SV')) return; // Se excluyen pedidos que empiezan en "SV".
 
     const key = cedi + '||' + rutaNombre;
     if (!grupos[key]) {
       grupos[key] = { cedi, ruta_nombre: rutaNombre, pedidosSet: new Set(), visitasSet: new Set(), lineas: 0, peso: 0 };
     }
     const g = grupos[key];
-    g.pedidosSet.add(pedido);
-    g.visitasSet.add(String(valorPor(fila, 'visita')));
+    g.pedidosSet.add(String(fila['Pedido'] ?? ''));
+    g.visitasSet.add(String(fila['Desc. sucursal despacho'] ?? ''));
     g.lineas += 1;
-    g.peso += Number(valorPor(fila, 'peso')) || 0;
+    g.peso += Number(fila['Peso en KL']) || 0;
   });
 
   if (sinMapeoCo.size) {
@@ -1733,6 +1801,463 @@ async function guardarPerfilAdmin(perfilId) {
   if (error) { mostrarToast('No se pudo guardar: ' + error.message); return; }
   mostrarToast('Usuario actualizado.');
   cargarModuloAdmin();
+}
+
+// ============================================================
+// MÓDULO DE RECURSOS HUMANOS — empleados y liquidador de
+// horas extras / recargos nocturnos
+// ============================================================
+async function cargarModuloRrhh() {
+  const esAdmin = SESION.rol === 'admin' || SESION.rol === 'director_nacional';
+  document.getElementById('rrhh-sin-acceso').classList.toggle('hidden', esAdmin);
+  document.getElementById('rrhh-contenido').classList.toggle('hidden', !esAdmin);
+  if (!esAdmin) return;
+
+  const selCedi = document.getElementById('nuevo-emp-cedi');
+  if (!selCedi.options.length) {
+    CEDIS_VALIDOS.forEach(c => selCedi.insertAdjacentHTML('beforeend', `<option value="${c}">${c}</option>`));
+  }
+  const selCediMasivo = document.getElementById('emp-masivo-cedi-defecto');
+  if (!selCediMasivo.options.length) {
+    CEDIS_VALIDOS.forEach(c => selCediMasivo.insertAdjacentHTML('beforeend', `<option value="${c}" ${c === SESION.cedi ? 'selected' : ''}>${c}</option>`));
+  }
+
+  await cargarEmpleados();
+  await cargarAsistencia();
+  await cargarLiquidaciones();
+}
+
+// ---------- ENTRADAS / SALIDAS ----------
+async function cargarAsistencia() {
+  const selAsis = document.getElementById('asis-empleado');
+  const { data: empleados } = await sb.from('empleados').select('*').eq('activo', true).order('nombre');
+  selAsis.innerHTML = (empleados || []).map(e => `<option value="${e.id}" data-cedi="${tEsc(e.cedi)}">${tEsc(e.nombre)} (${tEsc(e.cedi)})</option>`).join('') || '<option value="">No hay empleados activos</option>';
+
+  const { data, error } = await sb.from('registros_asistencia').select('*, empleados(nombre)').order('fecha', { ascending: false }).limit(50);
+  if (error) { return; }
+  const cont = document.getElementById('asis-lista');
+  if (!data || !data.length) { cont.innerHTML = '<div class="empty-state">No hay entradas/salidas registradas todavía.</div>'; return; }
+  cont.innerHTML = `<table class="hist-table open"><tr><th>Empleado</th><th>CEDI</th><th>Fecha</th><th>Entrada</th><th>Salida</th></tr>${
+    data.map(a => `<tr>
+      <td>${tEsc(a.empleados ? a.empleados.nombre : '—')}</td><td>${tEsc(a.cedi)}</td><td>${tEsc(a.fecha)}</td>
+      <td>${new Date(a.hora_entrada).toLocaleTimeString('es-CO',{hour:'2-digit',minute:'2-digit'})}</td>
+      <td>${new Date(a.hora_salida).toLocaleTimeString('es-CO',{hour:'2-digit',minute:'2-digit'})}</td>
+    </tr>`).join('')
+  }</table>`;
+}
+
+// ---------- IMPORTAR DESDE RELOJ BIOMÉTRICO ----------
+document.getElementById('btn-importar-reloj').addEventListener('click', importarReloj);
+
+function normalizarNombre(s) {
+  return String(s || '').replace(/\u00a0/g, ' ').replace(/\s+/g, ' ').trim().toUpperCase();
+}
+
+function parsearFechaReloj(texto) {
+  // Formato del dispositivo: "26/07/2026 9:50:18 p. m." (con espacio normal o de no separación)
+  const limpio = String(texto || '').replace(/\u00a0/g, ' ').trim();
+  const m = limpio.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})\s+(\d{1,2}):(\d{2}):(\d{2})\s*([ap])\.?\s*m\.?/i);
+  if (!m) return null;
+  let [, dia, mes, anio, hora, min, seg, ampm] = m;
+  hora = parseInt(hora, 10);
+  if (ampm.toLowerCase() === 'p' && hora !== 12) hora += 12;
+  if (ampm.toLowerCase() === 'a' && hora === 12) hora = 0;
+  return new Date(parseInt(anio), parseInt(mes) - 1, parseInt(dia), hora, parseInt(min), parseInt(seg));
+}
+
+let ULTIMOS_EVENTOS_RELOJ = null; // se guarda para poder reintentar tras crear empleados, sin re-subir el archivo
+
+async function importarReloj() {
+  const estado = document.getElementById('asis-import-status');
+  const archivo = document.getElementById('asis-archivo-reloj').files[0];
+  if (!archivo) { estado.textContent = 'Selecciona el archivo del reloj.'; return; }
+
+  estado.textContent = 'Leyendo archivo...';
+
+  const buffer = await archivo.arrayBuffer();
+  const wb = XLSX.read(buffer, { type: 'array' });
+  const hoja = wb.Sheets[wb.SheetNames[0]];
+  const filas = XLSX.utils.sheet_to_json(hoja, { defval: '' });
+  if (!filas.length) { estado.textContent = 'El archivo está vacío.'; return; }
+
+  // Agrupar eventos por nombre normalizado, en orden cronológico -- se guarda
+  // en memoria para poder reintentar después sin volver a leer el archivo.
+  const porPersona = {};
+  filas.forEach(fila => {
+    const nombre = normalizarNombre(fila['Nombre']);
+    const fechaEvento = parsearFechaReloj(fila['Tiempo']);
+    const tipoEvento = String(fila['Estado'] ?? '').trim().toLowerCase();
+    if (!nombre || !fechaEvento || (tipoEvento !== 'entrada' && tipoEvento !== 'salida')) return;
+    if (!porPersona[nombre]) porPersona[nombre] = [];
+    porPersona[nombre].push({ fecha: fechaEvento, tipo: tipoEvento });
+  });
+  ULTIMOS_EVENTOS_RELOJ = porPersona;
+
+  await procesarEventosReloj();
+}
+
+async function procesarEventosReloj() {
+  const estado = document.getElementById('asis-import-status');
+  const porPersona = ULTIMOS_EVENTOS_RELOJ;
+  if (!porPersona) return;
+
+  // Empleados activos, para emparejar por nombre (normalizado).
+  const { data: empleados } = await sb.from('empleados').select('id, nombre').eq('activo', true);
+  const mapaEmpleados = {};
+  (empleados || []).forEach(e => { mapaEmpleados[normalizarNombre(e.nombre)] = e.id; });
+
+  const turnos = [];
+  const nombresSinCoincidencia = new Set();
+  const turnosSospechosos = [];
+  let eventosHuerfanos = 0;
+  const MAX_HORAS_TURNO = 16; // ningún turno legítimo debería superar esto
+
+  Object.entries(porPersona).forEach(([nombre, eventos]) => {
+    eventos.sort((a, b) => a.fecha - b.fecha);
+    const empleadoId = mapaEmpleados[nombre];
+
+    let entradaPendiente = null;
+    eventos.forEach(ev => {
+      if (ev.tipo === 'entrada') {
+        if (entradaPendiente) eventosHuerfanos++; // había una entrada sin cerrar -- se descarta la anterior
+        entradaPendiente = ev.fecha;
+      } else if (ev.tipo === 'salida') {
+        if (entradaPendiente) {
+          const horasTurno = (ev.fecha - entradaPendiente) / 3600000;
+          if (horasTurno > MAX_HORAS_TURNO) {
+            turnosSospechosos.push(`${nombre}: ${entradaPendiente.toLocaleString('es-CO')} → ${ev.fecha.toLocaleString('es-CO')} (${horasTurno.toFixed(1)}h)`);
+          } else if (!empleadoId) {
+            nombresSinCoincidencia.add(nombre);
+          } else {
+            turnos.push({
+              empleado_id: empleadoId,
+              cedi: SESION.cedi,
+              fecha: entradaPendiente.toISOString().slice(0, 10),
+              hora_entrada: entradaPendiente.toISOString(),
+              hora_salida: ev.fecha.toISOString(),
+              creado_por: SESION.id,
+            });
+          }
+          entradaPendiente = null;
+        } else {
+          eventosHuerfanos++; // salida sin entrada previa
+        }
+      }
+    });
+    if (entradaPendiente) eventosHuerfanos++; // quedó una entrada sin salida al final del archivo
+  });
+
+  let mensaje = '';
+  if (turnos.length) {
+    const { error } = await sb.from('registros_asistencia').insert(turnos);
+    if (error) { estado.textContent = 'Error al guardar: ' + error.message; return; }
+    mensaje += `${turnos.length} turno(s) importados correctamente. `;
+    document.getElementById('asis-archivo-reloj').value = '';
+    cargarAsistencia();
+  } else {
+    mensaje += 'No se importó ningún turno nuevo. ';
+  }
+  if (eventosHuerfanos) mensaje += `${eventosHuerfanos} evento(s) sueltos (sin su par) fueron ignorados. `;
+  if (turnosSospechosos.length) mensaje += `⚠ ${turnosSospechosos.length} turno(s) descartados por superar ${MAX_HORAS_TURNO}h -- revisa y regístralos manualmente si son válidos: ${turnosSospechosos.join(' | ')} `;
+
+  estado.textContent = mensaje;
+  renderNombresSinCoincidencia([...nombresSinCoincidencia]);
+}
+
+function renderNombresSinCoincidencia(nombres) {
+  const cont = document.getElementById('asis-crear-faltantes');
+  if (!nombres.length) { cont.innerHTML = ''; return; }
+
+  cont.innerHTML = `
+    <div class="section-label" style="margin-top:14px;">Nombres del reloj sin coincidencia (${nombres.length}) -- créalos aquí para importar sus turnos</div>
+    ${nombres.map(n => `
+      <div class="indicator-fields" data-nombre-faltante="${tEsc(n)}">
+        <div class="indicator-field" style="min-width:220px;"><label>Nombre (del reloj)</label><input type="text" class="falt-nombre" value="${tEsc(n)}"></div>
+        <div class="indicator-field"><label>Cargo</label><input type="text" class="falt-cargo" placeholder="Opcional"></div>
+        <div class="indicator-field"><label>Salario base</label><input type="text" class="falt-salario" inputmode="numeric" placeholder="ej. 1750905"></div>
+        <div class="indicator-field"><label>CEDI</label><select class="falt-cedi">${CEDIS_VALIDOS.map(c => `<option value="${c}" ${c === SESION.cedi ? 'selected' : ''}>${c}</option>`).join('')}</select></div>
+      </div>
+    `).join('')}
+    <button class="btn" id="btn-crear-faltantes-reintentar" style="margin-top:10px;">Crear todos y reintentar importación</button>
+  `;
+
+  document.getElementById('btn-crear-faltantes-reintentar').addEventListener('click', crearFaltantesYReintentar);
+}
+
+async function crearFaltantesYReintentar() {
+  const estado = document.getElementById('asis-import-status');
+  const bloques = document.querySelectorAll('[data-nombre-faltante]');
+  const nuevos = [];
+
+  for (const bloque of bloques) {
+    const nombre = bloque.querySelector('.falt-nombre').value.trim();
+    const cargo = bloque.querySelector('.falt-cargo').value.trim();
+    const salario = Number(bloque.querySelector('.falt-salario').value.trim());
+    const cedi = bloque.querySelector('.falt-cedi').value;
+    if (!nombre || !salario || salario <= 0) continue; // se salta los que no tengan salario válido
+    nuevos.push({ nombre, cargo: cargo || null, salario_base: salario, cedi, creado_por: SESION.id });
+  }
+
+  if (!nuevos.length) { estado.textContent = 'Completa al menos el salario base de alguno para crearlo.'; return; }
+
+  const { error } = await sb.from('empleados').insert(nuevos);
+  if (error) { estado.textContent = 'Error al crear empleados: ' + error.message; return; }
+
+  estado.textContent = `${nuevos.length} empleado(s) creado(s). Reintentando importación...`;
+  document.getElementById('asis-crear-faltantes').innerHTML = '';
+  await cargarEmpleados();
+  await procesarEventosReloj();
+}
+
+document.getElementById('btn-registrar-asistencia').addEventListener('click', registrarAsistencia);
+
+async function registrarAsistencia() {
+  const estado = document.getElementById('asis-status');
+  const sel = document.getElementById('asis-empleado');
+  const empleado_id = sel.value;
+  const cedi = sel.options[sel.selectedIndex]?.dataset.cedi;
+  const fecha = document.getElementById('asis-fecha').value;
+  const horaEntrada = document.getElementById('asis-entrada').value;
+  const horaSalida = document.getElementById('asis-salida').value;
+
+  if (!empleado_id || !fecha || !horaEntrada || !horaSalida) {
+    estado.textContent = 'Completa empleado, fecha, entrada y salida.';
+    return;
+  }
+
+  let hora_entrada = new Date(`${fecha}T${horaEntrada}:00`);
+  let hora_salida = new Date(`${fecha}T${horaSalida}:00`);
+  if (hora_salida <= hora_entrada) hora_salida = new Date(hora_salida.getTime() + 24 * 3600 * 1000); // cruzó medianoche
+
+  const { error } = await sb.from('registros_asistencia').insert({
+    empleado_id, cedi, fecha,
+    hora_entrada: hora_entrada.toISOString(),
+    hora_salida: hora_salida.toISOString(),
+    creado_por: SESION.id,
+  });
+
+  if (error) { estado.textContent = 'Error: ' + error.message; return; }
+
+  estado.textContent = 'Registro guardado.';
+  document.getElementById('asis-entrada').value = '';
+  document.getElementById('asis-salida').value = '';
+  cargarAsistencia();
+}
+
+document.getElementById('btn-guardar-liquidar-asistencia').addEventListener('click', guardarYLiquidarAsistencia);
+
+async function guardarYLiquidarAsistencia() {
+  const estado = document.getElementById('asis-finalizar-status');
+  const desde = document.getElementById('asis-finalizar-desde').value;
+  const hasta = document.getElementById('asis-finalizar-hasta').value;
+  if (!desde || !hasta) { estado.textContent = 'Completa el rango de fechas (Desde / Hasta).'; return; }
+
+  if (!confirm(`¿Archivar y BORRAR las entradas/salidas de ${SESION.cedi} entre ${desde} y ${hasta}? Esta acción no se puede deshacer -- el detalle ya calculado queda guardado en el histórico.`)) return;
+
+  const { data, error } = await sb.rpc('finalizar_asistencia_cedi', { p_cedi: SESION.cedi, p_desde: desde, p_hasta: hasta });
+  if (error) { estado.textContent = 'Error: ' + error.message; return; }
+
+  estado.textContent = `${data} registro(s) archivados al histórico y borrados de la tabla de trabajo.`;
+  cargarAsistencia();
+}
+
+document.getElementById('btn-calcular-desde-asistencia').addEventListener('click', calcularDesdeAsistencia);
+
+async function calcularDesdeAsistencia() {
+  const estado = document.getElementById('liq-status');
+  const empleado_id = document.getElementById('liq-empleado').value;
+  const periodo_inicio = document.getElementById('liq-inicio').value;
+  const periodo_fin = document.getElementById('liq-fin').value;
+
+  if (!empleado_id) { estado.textContent = 'Selecciona un empleado.'; return; }
+  if (!periodo_inicio || !periodo_fin) { estado.textContent = 'Completa el periodo (inicio y fin).'; return; }
+
+  const { data, error } = await sb.rpc('calcular_horas_desde_asistencia', { p_empleado_id: empleado_id, p_desde: periodo_inicio, p_hasta: periodo_fin });
+  if (error) { estado.textContent = 'Error: ' + error.message; return; }
+
+  const h = data && data[0];
+  if (!h) { estado.textContent = 'No hay entradas/salidas registradas para ese empleado en ese periodo.'; return; }
+
+  document.getElementById('liq-extra-diurna').value = h.horas_extra_diurna;
+  document.getElementById('liq-extra-nocturna').value = h.horas_extra_nocturna;
+  document.getElementById('liq-extra-domfest-diurna').value = h.horas_extra_dom_fest_diurna;
+  document.getElementById('liq-extra-domfest-nocturna').value = h.horas_extra_dom_fest_nocturna;
+  document.getElementById('liq-recargo-nocturno').value = h.horas_recargo_nocturno;
+  document.getElementById('liq-recargo-dominical').value = h.horas_recargo_dominical;
+  document.getElementById('liq-recargo-noctdom').value = h.horas_recargo_nocturno_dominical;
+
+  estado.textContent = 'Horas calculadas desde Entradas/Salidas -- revísalas y dale "Calcular y guardar" para confirmar.';
+}
+
+async function cargarEmpleados() {
+  const { data, error } = await sb.from('empleados').select('*').order('nombre');
+  if (error) { mostrarToast('No se pudieron cargar los empleados.'); return; }
+  renderEmpleados(data || []);
+  const selLiq = document.getElementById('liq-empleado');
+  selLiq.innerHTML = (data || []).filter(e => e.activo).map(e =>
+    `<option value="${e.id}" data-cedi="${tEsc(e.cedi)}">${tEsc(e.nombre)} (${tEsc(e.cedi)})</option>`
+  ).join('') || '<option value="">No hay empleados activos</option>';
+}
+
+function renderEmpleados(empleados) {
+  const cont = document.getElementById('rrhh-empleados-lista');
+  if (!empleados.length) { cont.innerHTML = '<div class="empty-state">No hay empleados registrados.</div>'; return; }
+  cont.innerHTML = `<table class="hist-table open"><tr><th>Nombre</th><th>Cédula</th><th>Cargo</th><th>CEDI</th><th>Salario base</th><th>Estado</th></tr>${
+    empleados.map(e => `<tr>
+      <td>${tEsc(e.nombre)}</td><td>${tEsc(e.cedula || '—')}</td><td>${tEsc(e.cargo || '—')}</td><td>${tEsc(e.cedi)}</td>
+      <td>${Number(e.salario_base).toLocaleString('es-CO')}</td>
+      <td>${e.activo ? 'Activo' : 'Inactivo'}</td>
+    </tr>`).join('')
+  }</table>`;
+}
+
+// ---------- IMPORTAR LISTA MASIVA DE EMPLEADOS ----------
+document.getElementById('btn-importar-empleados-masivo').addEventListener('click', importarEmpleadosMasivo);
+
+async function importarEmpleadosMasivo() {
+  const estado = document.getElementById('emp-masivo-status');
+  const archivo = document.getElementById('emp-archivo-masivo').files[0];
+  const cediDefecto = document.getElementById('emp-masivo-cedi-defecto').value;
+  if (!archivo) { estado.textContent = 'Selecciona el archivo.'; return; }
+
+  estado.textContent = 'Leyendo archivo...';
+
+  const buffer = await archivo.arrayBuffer();
+  const wb = XLSX.read(buffer, { type: 'array' });
+  const hoja = wb.Sheets[wb.SheetNames[0]];
+  const filas = XLSX.utils.sheet_to_json(hoja, { defval: '' });
+  if (!filas.length) { estado.textContent = 'El archivo está vacío.'; return; }
+
+  const registros = [];
+  let sinNombre = 0, sinSalario = 0;
+
+  filas.forEach(fila => {
+    const nombre = String(fila['NOMBRE COMPLETO'] ?? fila['NOMBRE'] ?? '').trim();
+    const salario = Number(fila['SALARIO']);
+    const cedula = String(fila['CÉDULA'] ?? fila['CEDULA'] ?? '').trim();
+    const cediArchivo = String(fila['CEDI'] ?? '').trim().toUpperCase();
+    const cedi = CEDIS_VALIDOS.includes(cediArchivo) ? cediArchivo : cediDefecto;
+
+    if (!nombre) { sinNombre++; return; }
+    if (!salario || salario <= 0) { sinSalario++; return; }
+
+    registros.push({ nombre, cedula: cedula || null, salario_base: salario, cedi, creado_por: SESION.id });
+  });
+
+  if (!registros.length) { estado.textContent = 'No hay filas válidas para importar (revisa nombre y salario).'; return; }
+
+  estado.textContent = `Importando ${registros.length} colaborador(es)...`;
+
+  const { error } = await sb.from('empleados').upsert(registros, { onConflict: 'cedi,nombre_normalizado' });
+  if (error) { estado.textContent = 'Error al importar: ' + error.message; return; }
+
+  let mensaje = `${registros.length} colaborador(es) importados/actualizados correctamente.`;
+  if (sinNombre) mensaje += ` ${sinNombre} fila(s) sin nombre fueron ignoradas.`;
+  if (sinSalario) mensaje += ` ${sinSalario} fila(s) sin salario válido fueron ignoradas.`;
+  estado.textContent = mensaje;
+  document.getElementById('emp-archivo-masivo').value = '';
+  cargarEmpleados();
+}
+
+document.getElementById('btn-crear-empleado').addEventListener('click', crearEmpleado);
+
+async function crearEmpleado() {
+  const nombre = document.getElementById('nuevo-emp-nombre').value.trim();
+  const cedula = document.getElementById('nuevo-emp-cedula').value.trim();
+  const cargo = document.getElementById('nuevo-emp-cargo').value.trim();
+  const salario = Number(document.getElementById('nuevo-emp-salario').value.trim());
+  const cedi = document.getElementById('nuevo-emp-cedi').value;
+  const estado = document.getElementById('crear-empleado-status');
+
+  if (!nombre || !salario || salario <= 0) {
+    estado.textContent = 'Completa al menos el nombre y un salario base válido.';
+    return;
+  }
+
+  const { error } = await sb.from('empleados').insert({
+    nombre, cedula: cedula || null, cargo: cargo || null, salario_base: salario, cedi, creado_por: SESION.id,
+  });
+
+  if (error) { estado.textContent = 'Error: ' + error.message; return; }
+
+  estado.textContent = `Empleado "${nombre}" agregado.`;
+  document.getElementById('nuevo-emp-nombre').value = '';
+  document.getElementById('nuevo-emp-cedula').value = '';
+  document.getElementById('nuevo-emp-cargo').value = '';
+  document.getElementById('nuevo-emp-salario').value = '';
+  cargarEmpleados();
+}
+
+document.getElementById('btn-calcular-liquidacion').addEventListener('click', calcularLiquidacion);
+
+async function calcularLiquidacion() {
+  const estado = document.getElementById('liq-status');
+  const empleado_id = document.getElementById('liq-empleado').value;
+  const periodo_inicio = document.getElementById('liq-inicio').value;
+  const periodo_fin = document.getElementById('liq-fin').value;
+
+  if (!empleado_id) { estado.textContent = 'Selecciona un empleado.'; return; }
+  if (!periodo_inicio || !periodo_fin) { estado.textContent = 'Completa el periodo (inicio y fin).'; return; }
+
+  const num = (id) => Number(document.getElementById(id).value.trim().replace(',', '.')) || 0;
+
+  const payload = {
+    empleado_id,
+    cedi: document.querySelector(`#liq-empleado option[value="${empleado_id}"]`)?.dataset.cedi || SESION.cedi,
+    periodo_inicio, periodo_fin,
+    horas_extra_diurna: num('liq-extra-diurna'),
+    horas_extra_nocturna: num('liq-extra-nocturna'),
+    horas_extra_dom_fest_diurna: num('liq-extra-domfest-diurna'),
+    horas_extra_dom_fest_nocturna: num('liq-extra-domfest-nocturna'),
+    horas_recargo_nocturno: num('liq-recargo-nocturno'),
+    horas_recargo_dominical: num('liq-recargo-dominical'),
+    horas_recargo_nocturno_dominical: num('liq-recargo-noctdom'),
+    observaciones: document.getElementById('liq-observaciones').value.trim() || null,
+    calculado_por: SESION.id,
+  };
+
+  const { data, error } = await sb.from('liquidaciones_horas_extras').insert(payload).select().single();
+  if (error) { estado.textContent = 'Error: ' + error.message; return; }
+
+  estado.textContent = 'Liquidación calculada y guardada.';
+  mostrarResultadoLiquidacion(data);
+  ['liq-extra-diurna','liq-extra-nocturna','liq-extra-domfest-diurna','liq-extra-domfest-nocturna','liq-recargo-nocturno','liq-recargo-dominical','liq-recargo-noctdom'].forEach(id => document.getElementById(id).value = '0');
+  document.getElementById('liq-observaciones').value = '';
+  cargarLiquidaciones();
+}
+
+function fmt$(v) { return v == null ? '—' : '$ ' + Number(v).toLocaleString('es-CO', { maximumFractionDigits: 0 }); }
+
+function mostrarResultadoLiquidacion(l) {
+  document.getElementById('liq-resultado').innerHTML = `
+    <table class="hist-table open">
+      <tr><th>Concepto</th><th>Horas</th><th>Valor</th></tr>
+      <tr><td>Extra diurna (125%)</td><td>${l.horas_extra_diurna}</td><td>${fmt$(l.valor_extra_diurna)}</td></tr>
+      <tr><td>Extra nocturna (175%)</td><td>${l.horas_extra_nocturna}</td><td>${fmt$(l.valor_extra_nocturna)}</td></tr>
+      <tr><td>Extra dom/fest diurna (215%)</td><td>${l.horas_extra_dom_fest_diurna}</td><td>${fmt$(l.valor_extra_dom_fest_diurna)}</td></tr>
+      <tr><td>Extra dom/fest nocturna (265%)</td><td>${l.horas_extra_dom_fest_nocturna}</td><td>${fmt$(l.valor_extra_dom_fest_nocturna)}</td></tr>
+      <tr><td>Recargo nocturno (135%)</td><td>${l.horas_recargo_nocturno}</td><td>${fmt$(l.valor_recargo_nocturno)}</td></tr>
+      <tr><td>Recargo dominical (190%)</td><td>${l.horas_recargo_dominical}</td><td>${fmt$(l.valor_recargo_dominical)}</td></tr>
+      <tr><td>Recargo nocturno+dominical (225%)</td><td>${l.horas_recargo_nocturno_dominical}</td><td>${fmt$(l.valor_recargo_nocturno_dominical)}</td></tr>
+      <tr style="font-weight:700;"><td colspan="2">TOTAL A PAGAR</td><td>${fmt$(l.valor_total)}</td></tr>
+    </table>
+  `;
+}
+
+async function cargarLiquidaciones() {
+  const { data, error } = await sb.from('liquidaciones_horas_extras')
+    .select('*, empleados(nombre)').order('creado_en', { ascending: false }).limit(30);
+  if (error) { return; }
+  const cont = document.getElementById('rrhh-liquidaciones-lista');
+  if (!data || !data.length) { cont.innerHTML = '<div class="empty-state">Todavía no hay liquidaciones guardadas.</div>'; return; }
+  cont.innerHTML = `<table class="hist-table open"><tr><th>Empleado</th><th>Periodo</th><th>Total</th><th>Observaciones</th></tr>${
+    data.map(l => `<tr>
+      <td>${tEsc(l.empleados ? l.empleados.nombre : '—')}</td>
+      <td>${tEsc(l.periodo_inicio)} a ${tEsc(l.periodo_fin)}</td>
+      <td>${fmt$(l.valor_total)}</td>
+      <td>${tEsc(l.observaciones || '')}</td>
+    </tr>`).join('')
+  }</table>`;
 }
 
 </script>
