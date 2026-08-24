@@ -670,7 +670,10 @@
       <div class="sidebar-item sidebar-sub hidden" data-modulo="recepcion-rutas" style="padding-left:38px;font-size:11.5px;">Rutas del día</div>
       <div class="sidebar-item sidebar-sub hidden" data-modulo="recepcion-ranking" style="padding-left:38px;font-size:11.5px;">Ranking de auditores</div>
       <div class="sidebar-item locked" data-modulo="reportes"><i class="ti ti-file-analytics"></i>Reportes<span class="sidebar-badge">pronto</span></div>
-      <div class="sidebar-item" data-modulo="rrhh"><i class="ti ti-users"></i>Recursos Humanos</div>
+      <div class="sidebar-item" data-modulo-grupo="rrhh" id="grupo-rrhh"><i class="ti ti-users"></i>Recursos Humanos<i class="ti ti-chevron-down" style="margin-left:auto;font-size:13px;"></i></div>
+      <div class="sidebar-item sidebar-sub hidden" data-modulo="rrhh-empleados" style="padding-left:38px;font-size:11.5px;">Empleados y Asistencia</div>
+      <div class="sidebar-item sidebar-sub hidden" data-modulo="rrhh-liquidador" style="padding-left:38px;font-size:11.5px;">Liquidador individual</div>
+      <div class="sidebar-item sidebar-sub hidden" data-modulo="rrhh-cedi" style="padding-left:38px;font-size:11.5px;">Liquidación por CEDI</div>
       <div class="sidebar-item" data-modulo="admin"><i class="ti ti-settings"></i>Administración</div>
     </div>
 
@@ -773,9 +776,9 @@
           </div>
         </div>
 
-        <div id="view-rrhh" class="hidden">
+        <div id="view-rrhh-empleados" class="hidden">
           <div id="rrhh-sin-acceso" class="hidden empty-state">No tienes permiso para este módulo. Solo Admin y Director Nacional pueden entrar aquí.</div>
-          <div id="rrhh-contenido">
+          <div id="rrhh-contenido-empleados">
             <div class="section-label">Empleados</div>
 
             <div class="indicator-card" style="margin-bottom:20px;">
@@ -832,8 +835,13 @@
               <button class="btn" id="btn-guardar-liquidar-asistencia" style="background:var(--crit-dot);">Guardar y liquidar (archiva y vacía este CEDI)</button>
               <div id="asis-finalizar-status" style="font-size:12px;color:var(--text-secondary);margin-top:8px;"></div>
             </div>
+          </div>
+        </div>
 
-            <div class="section-label" style="margin-top:26px;">Liquidador de Horas Extras y Recargos Nocturnos</div>
+        <div id="view-rrhh-liquidador" class="hidden">
+          <div id="rrhh-sin-acceso-2" class="hidden empty-state">No tienes permiso para este módulo. Solo Admin y Director Nacional pueden entrar aquí.</div>
+          <div id="rrhh-contenido-liquidador">
+            <div class="section-label">Liquidador de Horas Extras y Recargos Nocturnos (individual)</div>
             <div class="indicator-card" style="margin-bottom:20px;">
               <div class="indicator-fields">
                 <button class="btn ghost" id="btn-calcular-desde-asistencia">Calcular desde Entradas/Salidas</button>
@@ -863,6 +871,31 @@
 
             <div class="section-label">Historial de liquidaciones</div>
             <div id="rrhh-liquidaciones-lista"></div>
+          </div>
+        </div>
+
+        <div id="view-rrhh-cedi" class="hidden">
+          <div id="rrhh-sin-acceso-3" class="hidden empty-state">No tienes permiso para este módulo. Solo Admin y Director Nacional pueden entrar aquí.</div>
+          <div id="rrhh-contenido-cedi">
+            <div class="section-label">Liquidación por CEDI</div>
+            <div class="indicator-card" style="margin-bottom:20px;">
+              <div class="indicator-fields">
+                <div class="indicator-field"><label>CEDI</label><select id="cedi-liq-cedi"></select></div>
+                <div class="indicator-field"><label>Desde</label><input type="date" id="cedi-liq-desde"></div>
+                <div class="indicator-field"><label>Hasta</label><input type="date" id="cedi-liq-hasta"></div>
+                <button class="btn" id="btn-consultar-liquidacion-cedi">Consultar</button>
+                <button class="btn ghost" id="btn-generar-indicadores-rrhh">Generar indicadores en Torre de Control</button>
+              </div>
+              <div id="cedi-liq-status" style="font-size:12px;color:var(--text-secondary);margin-top:8px;"></div>
+            </div>
+
+            <div class="kpi-grid" id="cedi-liq-kpis"></div>
+
+            <div class="section-label" style="margin-top:20px;">Alerta: operarios con más horas extra (candidatos a compensatorio)</div>
+            <div id="cedi-liq-alerta"></div>
+
+            <div class="section-label" style="margin-top:20px;">Registros consolidados del CEDI</div>
+            <div id="cedi-liq-consolidado"></div>
           </div>
         </div>
       </div>
@@ -974,7 +1007,10 @@ const NOMBRES_MODULO = {
   'recepcion-importar': 'Recepción y despacho · Importar cargue',
   'recepcion-rutas': 'Recepción y despacho · Rutas del día',
   'recepcion-ranking': 'Recepción y despacho · Ranking de auditores',
-  reportes: 'Reportes', admin: 'Administración', rrhh: 'Recursos Humanos'
+  reportes: 'Reportes', admin: 'Administración',
+  'rrhh-empleados': 'Recursos Humanos · Empleados y Asistencia',
+  'rrhh-liquidador': 'Recursos Humanos · Liquidador individual',
+  'rrhh-cedi': 'Recursos Humanos · Liquidación por CEDI'
 };
 
 document.querySelectorAll('.sidebar-item[data-modulo]').forEach(el => {
@@ -982,7 +1018,10 @@ document.querySelectorAll('.sidebar-item[data-modulo]').forEach(el => {
 });
 
 document.getElementById('grupo-recepcion').addEventListener('click', () => {
-  document.querySelectorAll('.sidebar-sub').forEach(el => el.classList.toggle('hidden'));
+  document.querySelectorAll('#grupo-recepcion ~ .sidebar-sub[data-modulo^="recepcion-"]').forEach(el => el.classList.toggle('hidden'));
+});
+document.getElementById('grupo-rrhh').addEventListener('click', () => {
+  document.querySelectorAll('.sidebar-sub[data-modulo^="rrhh-"]').forEach(el => el.classList.toggle('hidden'));
 });
 
 function cambiarModulo(modulo) {
@@ -998,7 +1037,9 @@ function cambiarModulo(modulo) {
   document.getElementById('view-recepcion-rutas').classList.toggle('hidden', modulo !== 'recepcion-rutas' || bloqueado);
   document.getElementById('view-recepcion-ranking').classList.toggle('hidden', modulo !== 'recepcion-ranking' || bloqueado);
   document.getElementById('view-admin').classList.toggle('hidden', modulo !== 'admin' || bloqueado);
-  document.getElementById('view-rrhh').classList.toggle('hidden', modulo !== 'rrhh' || bloqueado);
+  document.getElementById('view-rrhh-empleados').classList.toggle('hidden', modulo !== 'rrhh-empleados' || bloqueado);
+  document.getElementById('view-rrhh-liquidador').classList.toggle('hidden', modulo !== 'rrhh-liquidador' || bloqueado);
+  document.getElementById('view-rrhh-cedi').classList.toggle('hidden', modulo !== 'rrhh-cedi' || bloqueado);
   document.getElementById('view-locked').classList.toggle('hidden', !bloqueado);
 
   if (bloqueado) {
@@ -1014,7 +1055,9 @@ function cambiarModulo(modulo) {
   }
   if (modulo === 'recepcion-ranking') cargarRankingAuditores();
   if (modulo === 'admin') cargarModuloAdmin();
-  if (modulo === 'rrhh') cargarModuloRrhh();
+  if (modulo === 'rrhh-empleados') cargarModuloRrhhEmpleados();
+  if (modulo === 'rrhh-liquidador') cargarModuloRrhhLiquidador();
+  if (modulo === 'rrhh-cedi') cargarModuloRrhhCedi();
 }
 
 // Orden lógico según el proceso físico de la bodega (no alfabético).
@@ -1807,10 +1850,10 @@ async function guardarPerfilAdmin(perfilId) {
 // MÓDULO DE RECURSOS HUMANOS — empleados y liquidador de
 // horas extras / recargos nocturnos
 // ============================================================
-async function cargarModuloRrhh() {
+async function cargarModuloRrhhEmpleados() {
   const esAdmin = SESION.rol === 'admin' || SESION.rol === 'director_nacional';
   document.getElementById('rrhh-sin-acceso').classList.toggle('hidden', esAdmin);
-  document.getElementById('rrhh-contenido').classList.toggle('hidden', !esAdmin);
+  document.getElementById('rrhh-contenido-empleados').classList.toggle('hidden', !esAdmin);
   if (!esAdmin) return;
 
   const selCedi = document.getElementById('nuevo-emp-cedi');
@@ -1824,7 +1867,103 @@ async function cargarModuloRrhh() {
 
   await cargarEmpleados();
   await cargarAsistencia();
+}
+
+async function cargarModuloRrhhLiquidador() {
+  const esAdmin = SESION.rol === 'admin' || SESION.rol === 'director_nacional';
+  document.getElementById('rrhh-sin-acceso-2').classList.toggle('hidden', esAdmin);
+  document.getElementById('rrhh-contenido-liquidador').classList.toggle('hidden', !esAdmin);
+  if (!esAdmin) return;
+
+  await cargarEmpleados(); // llena el selector #liq-empleado también
   await cargarLiquidaciones();
+}
+
+async function cargarModuloRrhhCedi() {
+  const esAdmin = SESION.rol === 'admin' || SESION.rol === 'director_nacional';
+  document.getElementById('rrhh-sin-acceso-3').classList.toggle('hidden', esAdmin);
+  document.getElementById('rrhh-contenido-cedi').classList.toggle('hidden', !esAdmin);
+  if (!esAdmin) return;
+
+  const sel = document.getElementById('cedi-liq-cedi');
+  if (!sel.options.length) {
+    CEDIS_VALIDOS.forEach(c => sel.insertAdjacentHTML('beforeend', `<option value="${c}" ${c === SESION.cedi ? 'selected' : ''}>${c}</option>`));
+  }
+}
+
+document.getElementById('btn-consultar-liquidacion-cedi').addEventListener('click', consultarLiquidacionCedi);
+document.getElementById('btn-generar-indicadores-rrhh').addEventListener('click', generarIndicadoresRrhh);
+
+async function consultarLiquidacionCedi() {
+  const estado = document.getElementById('cedi-liq-status');
+  const cedi = document.getElementById('cedi-liq-cedi').value;
+  const desde = document.getElementById('cedi-liq-desde').value;
+  const hasta = document.getElementById('cedi-liq-hasta').value;
+  if (!desde || !hasta) { estado.textContent = 'Completa el rango de fechas.'; return; }
+
+  const { data, error } = await sb.from('liquidaciones_horas_extras')
+    .select('*, empleados(nombre)')
+    .eq('cedi', cedi)
+    .gte('periodo_inicio', desde)
+    .lte('periodo_fin', hasta);
+
+  if (error) { estado.textContent = 'Error: ' + error.message; return; }
+  if (!data || !data.length) { estado.textContent = 'No hay liquidaciones guardadas para ese CEDI y periodo.'; document.getElementById('cedi-liq-kpis').innerHTML = ''; document.getElementById('cedi-liq-alerta').innerHTML = ''; document.getElementById('cedi-liq-consolidado').innerHTML = ''; return; }
+  estado.textContent = `${data.length} liquidación(es) encontradas.`;
+
+  // KPIs del periodo
+  const totalHorasExtra = data.reduce((s, l) => s + Number(l.horas_extra_diurna) + Number(l.horas_extra_nocturna) + Number(l.horas_extra_dom_fest_diurna) + Number(l.horas_extra_dom_fest_nocturna), 0);
+  const totalValor = data.reduce((s, l) => s + Number(l.valor_total || 0), 0);
+  const operariosUnicos = new Set(data.map(l => l.empleado_id)).size;
+  const promedioHorasExtra = operariosUnicos ? totalHorasExtra / operariosUnicos : 0;
+
+  document.getElementById('cedi-liq-kpis').innerHTML = `
+    <div class="kpi-card"><div class="kpi-label">Operarios liquidados</div><div class="kpi-value">${operariosUnicos}</div></div>
+    <div class="kpi-card"><div class="kpi-label">Total horas extra</div><div class="kpi-value">${totalHorasExtra.toFixed(1)} h</div></div>
+    <div class="kpi-card"><div class="kpi-label">Promedio h. extra / operario</div><div class="kpi-value ${promedioHorasExtra > 20 ? 'bad' : 'ok'}">${promedioHorasExtra.toFixed(1)} h</div></div>
+    <div class="kpi-card"><div class="kpi-label">Total a pagar</div><div class="kpi-value">$ ${totalValor.toLocaleString('es-CO', { maximumFractionDigits: 0 })}</div></div>
+  `;
+
+  // Alerta: horas extra acumuladas por empleado, de mayor a menor
+  const porEmpleado = {};
+  data.forEach(l => {
+    const nombre = l.empleados ? l.empleados.nombre : '—';
+    const horasExtra = Number(l.horas_extra_diurna) + Number(l.horas_extra_nocturna) + Number(l.horas_extra_dom_fest_diurna) + Number(l.horas_extra_dom_fest_nocturna);
+    if (!porEmpleado[nombre]) porEmpleado[nombre] = { horasExtra: 0, valor: 0 };
+    porEmpleado[nombre].horasExtra += horasExtra;
+    porEmpleado[nombre].valor += Number(l.valor_total || 0);
+  });
+  const ranking = Object.entries(porEmpleado).sort((a, b) => b[1].horasExtra - a[1].horasExtra);
+
+  document.getElementById('cedi-liq-alerta').innerHTML = `<table class="hist-table open"><tr><th>#</th><th>Empleado</th><th>Horas extra acumuladas</th><th>Valor a pagar</th><th>Días compensatorios posibles (÷8h)</th></tr>${
+    ranking.map(([nombre, v], i) => `<tr ${v.horasExtra > 20 ? 'style="background:var(--crit-bg)"' : ''}>
+      <td>${i + 1}</td><td>${tEsc(nombre)}</td><td>${v.horasExtra.toFixed(1)} h</td>
+      <td>$ ${v.valor.toLocaleString('es-CO', { maximumFractionDigits: 0 })}</td>
+      <td>${Math.floor(v.horasExtra / 8)}</td>
+    </tr>`).join('')
+  }</table>`;
+
+  // Registros consolidados (detalle)
+  document.getElementById('cedi-liq-consolidado').innerHTML = `<table class="hist-table open"><tr><th>Empleado</th><th>Periodo</th><th>Horas extra</th><th>Valor</th></tr>${
+    data.map(l => `<tr>
+      <td>${tEsc(l.empleados ? l.empleados.nombre : '—')}</td>
+      <td>${tEsc(l.periodo_inicio)} a ${tEsc(l.periodo_fin)}</td>
+      <td>${(Number(l.horas_extra_diurna) + Number(l.horas_extra_nocturna) + Number(l.horas_extra_dom_fest_diurna) + Number(l.horas_extra_dom_fest_nocturna)).toFixed(1)} h</td>
+      <td>$ ${Number(l.valor_total || 0).toLocaleString('es-CO', { maximumFractionDigits: 0 })}</td>
+    </tr>`).join('')
+  }</table>`;
+}
+
+async function generarIndicadoresRrhh() {
+  const estado = document.getElementById('cedi-liq-status');
+  const cedi = document.getElementById('cedi-liq-cedi').value;
+  const desde = document.getElementById('cedi-liq-desde').value;
+  const hasta = document.getElementById('cedi-liq-hasta').value;
+  if (!desde || !hasta) { estado.textContent = 'Completa el rango de fechas.'; return; }
+
+  const { error } = await sb.rpc('generar_indicadores_rrhh', { p_cedi: cedi, p_desde: desde, p_hasta: hasta });
+  if (error) { estado.textContent = 'Error: ' + error.message; return; }
+  estado.textContent = 'Indicadores generados en la Torre de Control (Promedio Horas Extra y Costo de Recargos).';
 }
 
 // ---------- ENTRADAS / SALIDAS ----------
