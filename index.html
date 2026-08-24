@@ -1386,6 +1386,7 @@ function renderListaRutas(rutas) {
           <div class="indicator-name">${tEsc(r.ruta_nombre)}</div>
           <div class="indicator-meta">${r.pedidos} pedidos · ${r.lineas} líneas · ${Number(r.peso).toLocaleString('es-CO',{maximumFractionDigits:1})} kg · ${r.visitas} visitas</div>
         </div>
+        <button class="hist-toggle" data-eliminar-ruta="${r.id}" style="color:var(--crit-dot)">Eliminar ruta</button>
       </div>
       <div class="indicator-fields">
         <div class="indicator-field"><label>Muelle</label><input type="text" class="ruta-muelle" value="${tEsc(r.muelle || '')}" placeholder="Muelle"></div>
@@ -1421,6 +1422,9 @@ function renderListaRutas(rutas) {
   cont.querySelectorAll('[data-packing-accion]').forEach(btn => {
     btn.addEventListener('click', () => cambiarEstadoRuta(btn.dataset.rutaId, 'estado_packing', btn.dataset.packingAccion));
   });
+  cont.querySelectorAll('[data-eliminar-ruta]').forEach(btn => {
+    btn.addEventListener('click', () => eliminarRuta(btn.dataset.eliminarRuta));
+  });
   cont.querySelectorAll('.ruta-auditor').forEach(sel => {
     sel.addEventListener('change', async () => {
       if (sel.value !== '__nuevo__') return;
@@ -1454,6 +1458,17 @@ async function guardarCamposRuta(rutaId) {
 async function cambiarEstadoRuta(rutaId, campo, nuevoEstado) {
   const { error } = await sb.from('rutas_activas').update({ [campo]: nuevoEstado }).eq('id', rutaId);
   if (error) { mostrarToast('No se pudo cambiar el estado: ' + error.message); return; }
+  cargarListaRutas();
+}
+
+async function eliminarRuta(rutaId) {
+  const card = document.querySelector(`[data-ruta="${rutaId}"]`);
+  const nombreRuta = card ? card.querySelector('.indicator-name').textContent : 'esta ruta';
+  if (!confirm(`¿Eliminar "${nombreRuta}" por completo? No va a quedar registro de ella en ningún lado (ni en el histórico). Esta acción no se puede deshacer.`)) return;
+
+  const { error } = await sb.from('rutas_activas').delete().eq('id', rutaId);
+  if (error) { mostrarToast('No se pudo eliminar: ' + error.message); return; }
+  mostrarToast('Ruta eliminada.');
   cargarListaRutas();
 }
 
