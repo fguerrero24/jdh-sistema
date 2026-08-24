@@ -54,6 +54,7 @@
   <div class="title" id="titulo">JDH · Tablero de Rutas</div>
   <div style="display:flex;align-items:center;gap:14px;">
     <select id="selector-cedi" style="background:#0f2033;color:#fff;border:1px solid #1e3148;border-radius:6px;padding:6px 10px;font-size:13px;">
+      <option value="__todos__">Todos los CEDIs</option>
       <option value="BAQ">Barranquilla</option>
       <option value="BGA">Bucaramanga</option>
       <option value="BOG">Bogotá</option>
@@ -67,6 +68,22 @@
 </div>
 
 <div class="alerta-banner" id="alerta-banner"></div>
+
+<div id="vista-todos-cedis" class="hidden">
+  <div class="op-resumen" id="comparacion-cedis-kpis"></div>
+  <div class="dona-label" style="margin:16px 0 8px;">Comparación entre CEDIs</div>
+  <table>
+    <thead>
+      <tr>
+        <th>CEDI</th><th>Rutas</th><th>Finalizadas</th><th>Fill Rate</th>
+        <th>OTIF Picking</th><th>OTIF Packing</th><th>Total Kilos</th><th>Total Líneas</th>
+      </tr>
+    </thead>
+    <tbody id="comparacion-cedis-filas"></tbody>
+  </table>
+</div>
+
+<div id="vista-un-cedi">
 
 <div class="op-resumen" id="op-resumen"></div>
 
@@ -113,6 +130,8 @@
   <div class="empty hidden" id="ranking-vacio">Todavía no hay rutas con auditor asignado hoy.</div>
 </div>
 
+</div>
+
 <script>
 // ============================================================
 // CONFIGURACIÓN
@@ -135,8 +154,19 @@ function actualizarUrlYRecargar() {
   HOY = document.getElementById('selector-fecha').value;
   const nuevaUrl = `${location.pathname}?cedi=${encodeURIComponent(CEDI)}&fecha=${encodeURIComponent(HOY)}`;
   history.replaceState(null, '', nuevaUrl);
-  document.getElementById('titulo').textContent = `JDH ${CEDI} · Tablero de Rutas · ${HOY}`;
-  cargarRutas();
+
+  if (CEDI === '__todos__') {
+    document.getElementById('titulo').textContent = `JDH · Comparación entre CEDIs · ${HOY}`;
+    document.getElementById('vista-todos-cedis').classList.remove('hidden');
+    document.getElementById('vista-un-cedi').classList.add('hidden');
+    document.getElementById('alerta-banner').classList.remove('visible');
+    cargarComparacionTodosCedis();
+  } else {
+    document.getElementById('titulo').textContent = `JDH ${CEDI} · Tablero de Rutas · ${HOY}`;
+    document.getElementById('vista-todos-cedis').classList.add('hidden');
+    document.getElementById('vista-un-cedi').classList.remove('hidden');
+    cargarRutas();
+  }
 }
 
 document.getElementById('selector-cedi').addEventListener('change', actualizarUrlYRecargar);
@@ -168,6 +198,18 @@ function segundosTranscurridos(iniciadoEn, pausadoDesde, segundosPausados, final
   else if (pausadoDesde) fin = new Date(pausadoDesde).getTime();
   else fin = Date.now();
   return Math.floor((fin - inicio) / 1000) - (segundosPausados || 0);
+}
+
+// "Antes de las 4am" significa antes de las 4am QUE SIGUE al inicio del
+// turno, no la hora del reloj sin más contexto -- si el turno empezó a las
+// 6pm y terminó a las 11pm, eso SÍ es antes de las 4am del día siguiente,
+// aunque "23" no sea menor que "4" como número suelto.
+function antesDelLimite(inicio, fin, horaLimite) {
+  if (!inicio || !fin) return false;
+  const limite = new Date(inicio);
+  limite.setHours(horaLimite, 0, 0, 0);
+  if (limite <= new Date(inicio)) limite.setDate(limite.getDate() + 1);
+  return new Date(fin) <= limite;
 }
 
 let RUTAS = [];
@@ -217,23 +259,29 @@ function actualizarResumenOperacion() {
 
   const totalKilos = RUTAS.reduce((s, r) => s + (Number(r.peso) || 0), 0);
   const totalLineas = RUTAS.reduce((s, r) => s + (r.lineas || 0), 0);
-  const totalPedidos = RUTAS.reduce((s, r) => s + (r.pedidos || 0), 0);
-  const totalCompletos = RUTAS.reduce((s, r) => s + (r.pedidos_completos || 0), 0);
+
+  // Fill Rate: solo cuenta rutas con Packing YA finalizado -- una ruta que
+  // ni siquiera ha empezado no puede contar como "100% completa" solo
+  // porque Pendientes todavía está en su valor por defecto (0).
+  const rutasParaFillRate = RUTAS.filter(r => r.estado_packing === 'finalizado');
+  const totalPedidos = rutasParaFillRate.reduce((s, r) => s + (r.pedidos || 0), 0);
+  const totalCompletos = rutasParaFillRate.reduce((s, r) => s + (r.pedidos_completos || 0), 0);
   const fillRate = totalPedidos > 0 ? (totalCompletos / totalPedidos) * 100 : null;
+
+  // "Antes de las 4am" significa antes de las 4am QUE SIGUE al inicio del
+  // turno (ver función antesDelLimite, definida arriba con las demás).
 
   // OTIF Picking: ruta 100% completa (Pendientes Picking) Y Picking finalizado antes de las 4:00 am
   const conPicking = RUTAS.filter(r => r.picking_finalizado_en);
-  const otifPicking = conPicking.length ? conPicking.filter(r => {
-    const h = new Date(r.picking_finalizado_en).getHours();
-    return h < 4 && r.pendientes_picking === 0;
-  }).length / conPicking.length * 100 : null;
+  const otifPicking = conPicking.length ? conPicking.filter(r =>
+    antesDelLimite(r.picking_iniciado_en, r.picking_finalizado_en, 4) && r.pendientes_picking === 0
+  ).length / conPicking.length * 100 : null;
 
   // OTIF Packing: ruta 100% completa (Pendientes Packing) Y Packing finalizado antes de las 6:00 am
   const conPacking = RUTAS.filter(r => r.packing_finalizado_en);
-  const otifPacking = conPacking.length ? conPacking.filter(r => {
-    const h = new Date(r.packing_finalizado_en).getHours();
-    return h < 6 && r.pendientes === 0;
-  }).length / conPacking.length * 100 : null;
+  const otifPacking = conPacking.length ? conPacking.filter(r =>
+    antesDelLimite(r.packing_iniciado_en, r.packing_finalizado_en, 6) && r.pendientes === 0
+  ).length / conPacking.length * 100 : null;
 
   const rutasFinalizadas = RUTAS.filter(r => r.estado_picking === 'finalizado' && r.estado_packing === 'finalizado').length;
 
@@ -254,16 +302,36 @@ function actualizarResumenOperacion() {
   const ranking = calcularRankingHoy();
   const auditorLento = ranking.length ? ranking[ranking.length - 1] : null;
 
-  // Proyección de fin, basada en el ritmo de rutas ya finalizadas
+  // Proyección de fin, basada en el ritmo REAL por línea de las rutas ya
+  // finalizadas (no por "ruta completa" -- una ruta de 100 líneas no es lo
+  // mismo que una de 30). Se ignoran rutas terminadas sospechosamente rápido
+  // (probable prueba de botón, no trabajo real) para no distorsionar el dato.
+  const MIN_MINUTOS_RUTA_VALIDA = 3; // menos que esto entre Picking y Packing = no se cuenta como dato real
+  const rutasFinalizadasConfiables = RUTAS.filter(r => {
+    if (r.estado_picking !== 'finalizado' || r.estado_packing !== 'finalizado') return false;
+    const duracionTotalSeg = segundosTranscurridos(r.picking_iniciado_en, null, r.picking_segundos_pausados, r.picking_finalizado_en)
+      + segundosTranscurridos(r.packing_iniciado_en, null, r.packing_segundos_pausados, r.packing_finalizado_en);
+    return duracionTotalSeg >= MIN_MINUTOS_RUTA_VALIDA * 60;
+  });
+
   let proyeccion = '—';
-  if (rutasFinalizadas > 0 && rutasFinalizadas < RUTAS.length && inicioOperacion) {
-    const transcurrido = (Date.now() - inicioOperacion.getTime()) / 1000;
-    const ritmoPorRuta = transcurrido / rutasFinalizadas;
-    const faltantes = RUTAS.length - rutasFinalizadas;
-    const horaProyectada = new Date(Date.now() + ritmoPorRuta * faltantes * 1000);
-    proyeccion = formatoHora(horaProyectada);
-  } else if (rutasFinalizadas === RUTAS.length && RUTAS.length > 0) {
+  if (rutasFinalizadas === RUTAS.length && RUTAS.length > 0) {
     proyeccion = 'Completado';
+  } else if (rutasFinalizadasConfiables.length < 2) {
+    proyeccion = 'Necesita más datos (mín. 2 rutas reales terminadas)';
+  } else {
+    const segTotales = rutasFinalizadasConfiables.reduce((s, r) =>
+      s + segundosTranscurridos(r.picking_iniciado_en, null, r.picking_segundos_pausados, r.picking_finalizado_en)
+        + segundosTranscurridos(r.packing_iniciado_en, null, r.packing_segundos_pausados, r.packing_finalizado_en), 0);
+    const lineasTotales = rutasFinalizadasConfiables.reduce((s, r) => s + (r.lineas || 0), 0);
+    const ritmoPorLinea = lineasTotales > 0 ? segTotales / lineasTotales : null;
+
+    if (ritmoPorLinea != null) {
+      const lineasFaltantes = RUTAS.filter(r => !(r.estado_picking === 'finalizado' && r.estado_packing === 'finalizado'))
+        .reduce((s, r) => s + (r.lineas || 0), 0);
+      const horaProyectada = new Date(Date.now() + ritmoPorLinea * lineasFaltantes * 1000);
+      proyeccion = formatoHora(horaProyectada);
+    }
   }
 
   const tarjeta = (label, valor, clase) => `<div class="op-card"><div class="op-label">${label}</div><div class="op-valor ${clase || ''}">${valor}</div></div>`;
@@ -273,7 +341,7 @@ function actualizarResumenOperacion() {
     tarjeta('Fin operación', finOperacion ? formatoHora(finOperacion) : 'En curso'),
     tarjeta('Duración total', duracionSeg != null ? formatoTiempo(duracionSeg) : '—'),
     tarjeta('Proyección de fin', proyeccion),
-    tarjeta('Total kilos', totalKilos.toLocaleString('es-CO', { maximumFractionDigits: 1 }) + ' kg'),
+    tarjeta('Total kilos', totalKilos.toLocaleString('es-CO', { maximumFractionDigits: 0 }) + ' kg'),
     tarjeta('Total líneas', totalLineas),
     tarjeta('Rutas finalizadas', `${rutasFinalizadas}/${RUTAS.length}`),
     tarjeta('Fill Rate', fillRate != null ? fillRate.toFixed(1) + '%' : '—', fillRate != null && fillRate < 95 ? 'bad' : 'ok'),
@@ -337,7 +405,7 @@ function renderFilas() {
         <div class="datos-ruta">
           <div class="dato-item"><span class="dato-label">Pedidos</span><span class="dato-valor">${r.pedidos}</span></div>
           <div class="dato-item"><span class="dato-label">Líneas</span><span class="dato-valor">${r.lineas}</span></div>
-          <div class="dato-item"><span class="dato-label">Peso</span><span class="dato-valor">${Number(r.peso).toLocaleString('es-CO',{maximumFractionDigits:1})} kg</span></div>
+          <div class="dato-item"><span class="dato-label">Peso</span><span class="dato-valor">${Number(r.peso).toLocaleString('es-CO',{maximumFractionDigits:0})} kg</span></div>
           <div class="dato-item"><span class="dato-label">Visitas</span><span class="dato-valor">${r.visitas}</span></div>
         </div>
       </td>
@@ -394,7 +462,7 @@ function renderRankingHoy() {
       <td>${a.auditor}</td>
       <td>${a.rutas}</td>
       <td>${a.lineas}</td>
-      <td>${a.peso.toLocaleString('es-CO', { maximumFractionDigits: 1 })} kg</td>
+      <td>${a.peso.toLocaleString('es-CO', { maximumFractionDigits: 0 })} kg</td>
       <td>${a.taktTime != null ? a.taktTime.toFixed(1) + 's' : '—'}</td>
     </tr>
   `).join('');
@@ -414,8 +482,78 @@ async function cargarRutas() {
   renderRankingHoy();
 }
 
-cargarRutas();
-setInterval(cargarRutas, 8000); // se refresca solo cada 8 segundos
+// ---------- COMPARACIÓN ENTRE TODOS LOS CEDIS ----------
+const CEDIS_LISTA = ['BAQ', 'BGA', 'BOG', 'COP', 'CTG', 'PER'];
+
+async function cargarComparacionTodosCedis() {
+  const fecha = document.getElementById('selector-fecha').value || new Date().toISOString().slice(0, 10);
+  const { data, error } = await sb.from('rutas_activas').select('*').eq('fecha', fecha);
+  if (error) { console.error(error); return; }
+  const todas = data || [];
+
+  let totalRutas = 0, totalFinalizadas = 0, totalKilosGlobal = 0, totalLineasGlobal = 0;
+  const filas = CEDIS_LISTA.map(cedi => {
+    const rutasCedi = todas.filter(r => r.cedi === cedi);
+    const finalizadas = rutasCedi.filter(r => r.estado_picking === 'finalizado' && r.estado_packing === 'finalizado');
+    const totalKilos = rutasCedi.reduce((s, r) => s + (Number(r.peso) || 0), 0);
+    const totalLineas = rutasCedi.reduce((s, r) => s + (r.lineas || 0), 0);
+
+    // Fill Rate: solo rutas con Packing finalizado (mismo criterio ya corregido)
+    const paraFillRate = rutasCedi.filter(r => r.estado_packing === 'finalizado');
+    const totalPedidos = paraFillRate.reduce((s, r) => s + (r.pedidos || 0), 0);
+    const totalCompletos = paraFillRate.reduce((s, r) => s + (r.pedidos_completos || 0), 0);
+    const fillRate = totalPedidos > 0 ? (totalCompletos / totalPedidos) * 100 : null;
+
+    // OTIF: mismo criterio ya corregido (antes del próximo límite después del inicio)
+    const conPicking = rutasCedi.filter(r => r.picking_finalizado_en);
+    const otifPicking = conPicking.length ? conPicking.filter(r =>
+      antesDelLimite(r.picking_iniciado_en, r.picking_finalizado_en, 4) && r.pendientes_picking === 0
+    ).length / conPicking.length * 100 : null;
+
+    const conPacking = rutasCedi.filter(r => r.packing_finalizado_en);
+    const otifPacking = conPacking.length ? conPacking.filter(r =>
+      antesDelLimite(r.packing_iniciado_en, r.packing_finalizado_en, 6) && r.pendientes === 0
+    ).length / conPacking.length * 100 : null;
+
+    totalRutas += rutasCedi.length;
+    totalFinalizadas += finalizadas.length;
+    totalKilosGlobal += totalKilos;
+    totalLineasGlobal += totalLineas;
+
+    return `<tr>
+      <td style="font-weight:700;">${cedi}</td>
+      <td>${rutasCedi.length}</td>
+      <td>${finalizadas.length}/${rutasCedi.length}</td>
+      <td style="color:${fillRate != null && fillRate < 95 ? '#fbbf5c' : '#4ade9e'}">${fillRate != null ? fillRate.toFixed(1) + '%' : '—'}</td>
+      <td style="color:${otifPicking != null && otifPicking < 90 ? '#fbbf5c' : '#4ade9e'}">${otifPicking != null ? otifPicking.toFixed(1) + '%' : '—'}</td>
+      <td style="color:${otifPacking != null && otifPacking < 90 ? '#fbbf5c' : '#4ade9e'}">${otifPacking != null ? otifPacking.toFixed(1) + '%' : '—'}</td>
+      <td>${totalKilos.toLocaleString('es-CO', { maximumFractionDigits: 0 })} kg</td>
+      <td>${totalLineas}</td>
+    </tr>`;
+  }).join('');
+
+  document.getElementById('comparacion-cedis-filas').innerHTML = filas;
+
+  document.getElementById('comparacion-cedis-kpis').innerHTML = `
+    <div class="op-card"><div class="op-label">CEDIs con datos hoy</div><div class="op-valor">${CEDIS_LISTA.filter(c => todas.some(r => r.cedi === c)).length}/${CEDIS_LISTA.length}</div></div>
+    <div class="op-card"><div class="op-label">Rutas totales</div><div class="op-valor">${totalRutas}</div></div>
+    <div class="op-card"><div class="op-label">Rutas finalizadas</div><div class="op-valor">${totalFinalizadas}/${totalRutas}</div></div>
+    <div class="op-card"><div class="op-label">Total kilos (todos los CEDIs)</div><div class="op-valor">${totalKilosGlobal.toLocaleString('es-CO', { maximumFractionDigits: 0 })} kg</div></div>
+    <div class="op-card"><div class="op-label">Total líneas (todos los CEDIs)</div><div class="op-valor">${totalLineasGlobal}</div></div>
+  `;
+}
+
+if (CEDI === '__todos__') {
+  document.getElementById('vista-todos-cedis').classList.remove('hidden');
+  document.getElementById('vista-un-cedi').classList.add('hidden');
+  cargarComparacionTodosCedis();
+} else {
+  cargarRutas();
+}
+setInterval(() => {
+  if (document.getElementById('selector-cedi').value === '__todos__') cargarComparacionTodosCedis();
+  else cargarRutas();
+}, 8000); // se refresca solo cada 8 segundos
 </script>
 </body>
 </html>
