@@ -722,9 +722,19 @@
 
         <div id="view-recepcion-rutas" class="hidden">
           <div class="section-label">Rutas del día</div>
-          <div class="indicator-field" style="margin-bottom:14px;max-width:200px;">
-            <label>Ver rutas de la fecha</label>
-            <input type="date" id="rutas-fecha-vista">
+          <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:14px;">
+            <div class="indicator-field" style="max-width:200px;">
+              <label>Ver rutas de la fecha</label>
+              <input type="date" id="rutas-fecha-vista">
+            </div>
+            <div class="indicator-field" style="max-width:220px;">
+              <label>Buscar ruta</label>
+              <input type="text" id="rutas-filtro-nombre" placeholder="ej. NORTE">
+            </div>
+            <div class="indicator-field" style="max-width:220px;">
+              <label>Filtrar por auditor</label>
+              <select id="rutas-filtro-auditor"><option value="">Todos</option></select>
+            </div>
           </div>
           <div id="rutas-lista"></div>
 
@@ -919,6 +929,18 @@ let SESION = null;
 // UTILIDADES
 // ============================================================
 function tEsc(v) { return String(v ?? '').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m])); }
+
+// Algunos archivos traen varias hojas (ej. un resumen/tabla dinámica antes de
+// los datos reales). En vez de asumir que los datos están en la primera,
+// se elige la hoja con más filas -- casi siempre es la que tiene los datos.
+function hojaConMasFilas(wb) {
+  let mejorHoja = null, mejorFilas = -1, mejorNombre = '';
+  wb.SheetNames.forEach(nombre => {
+    const filas = XLSX.utils.sheet_to_json(wb.Sheets[nombre], { defval: '' });
+    if (filas.length > mejorFilas) { mejorFilas = filas.length; mejorHoja = filas; mejorNombre = nombre; }
+  });
+  return mejorHoja || [];
+}
 function mostrarToast(msg) {
   const t = document.getElementById('toast');
   t.textContent = msg;
@@ -1447,8 +1469,7 @@ async function importarCargue() {
 
   const buffer = await archivo.arrayBuffer();
   const wb = XLSX.read(buffer, { type: 'array' });
-  const hoja = wb.Sheets[wb.SheetNames[0]];
-  const filas = XLSX.utils.sheet_to_json(hoja, { defval: '' });
+  const filas = hojaConMasFilas(wb);
 
   if (!filas.length) { estado.textContent = 'El archivo está vacío.'; return; }
 
@@ -1460,12 +1481,23 @@ async function importarCargue() {
     ruta: ['Cargue', 'Placa'],
     pedido: ['Nro documento', 'Documento'],
     visita: ['Desc. sucursal despacho', 'Cliente'],
-    peso: ['Peso en KL', 'Peso'],
+    peso: ['Peso en KL', 'Peso', 'Pedida en KL'],
   };
   function valorPor(fila, concepto) {
     for (const nombreCol of ALIAS[concepto]) {
-      const v = fila[nombreCol];
+      const v = fila[nombreCol]; // intento exacto primero (más rápido)
       if (v !== undefined && v !== null && String(v).trim() !== '') return v;
+    }
+    // Si no hubo match exacto, reintenta ignorando espacios extra en el
+    // nombre de la columna del archivo (ej. "Pedida en KL  " con espacios al final).
+    const clavesFila = Object.keys(fila);
+    for (const nombreCol of ALIAS[concepto]) {
+      const objetivo = nombreCol.trim().toLowerCase();
+      const clave = clavesFila.find(k => k.trim().toLowerCase() === objetivo);
+      if (clave) {
+        const v = fila[clave];
+        if (v !== undefined && v !== null && String(v).trim() !== '') return v;
+      }
     }
     return '';
   }
@@ -1552,6 +1584,8 @@ async function importarCargue() {
 // ---------- LISTA DE RUTAS DEL DÍA ----------
 let AUDITORES_CACHE = [];
 
+let RUTAS_DEL_DIA_CACHE = [];
+
 async function cargarListaRutas() {
   const fecha = document.getElementById('rutas-fecha-vista').value || new Date().toISOString().slice(0, 10);
   let q = sb.from('rutas_activas').select('*').eq('fecha', fecha).order('ruta_nombre');
@@ -1564,8 +1598,33 @@ async function cargarListaRutas() {
   const { data: auditores } = await qa;
   AUDITORES_CACHE = auditores || [];
 
-  renderListaRutas(data || []);
+  RUTAS_DEL_DIA_CACHE = data || [];
+  llenarFiltroAuditores();
+  aplicarFiltrosRutas();
 }
+
+function llenarFiltroAuditores() {
+  const sel = document.getElementById('rutas-filtro-auditor');
+  const valorActual = sel.value;
+  const nombres = [...new Set(RUTAS_DEL_DIA_CACHE.map(r => r.auditor).filter(Boolean))].sort();
+  sel.innerHTML = '<option value="">Todos</option>' + nombres.map(n => `<option value="${tEsc(n)}">${tEsc(n)}</option>`).join('');
+  sel.value = nombres.includes(valorActual) ? valorActual : '';
+}
+
+function aplicarFiltrosRutas() {
+  const textoNombre = document.getElementById('rutas-filtro-nombre').value.trim().toUpperCase();
+  const auditorElegido = document.getElementById('rutas-filtro-auditor').value;
+
+  const filtradas = RUTAS_DEL_DIA_CACHE.filter(r => {
+    const pasaNombre = !textoNombre || r.ruta_nombre.toUpperCase().includes(textoNombre);
+    const pasaAuditor = !auditorElegido || r.auditor === auditorElegido;
+    return pasaNombre && pasaAuditor;
+  });
+  renderListaRutas(filtradas);
+}
+
+document.getElementById('rutas-filtro-nombre').addEventListener('input', aplicarFiltrosRutas);
+document.getElementById('rutas-filtro-auditor').addEventListener('change', aplicarFiltrosRutas);
 
 function badgeEstado(estado) {
   const clases = { pendiente: 'neutral', iniciado: 'good', pausado: 'info', finalizado: 'good' };
@@ -1584,7 +1643,7 @@ function opcionesAuditores(cedi, seleccionado) {
 
 function renderListaRutas(rutas) {
   const cont = document.getElementById('rutas-lista');
-  if (!rutas.length) { cont.innerHTML = '<div class="empty-state">No hay rutas importadas para esta fecha.</div>'; return; }
+  if (!rutas.length) { cont.innerHTML = '<div class="empty-state">No hay rutas que coincidan con el filtro.</div>'; return; }
 
   cont.innerHTML = rutas.map(r => `
     <div class="indicator-card" data-ruta="${r.id}" data-cedi="${tEsc(r.cedi)}">
@@ -1592,7 +1651,7 @@ function renderListaRutas(rutas) {
         <div>
           <div style="display:inline-block;background:var(--jdh-blue);color:#fff;font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px;margin-bottom:4px;">${tEsc(r.cedi)}</div>
           <div class="indicator-name">${tEsc(r.ruta_nombre)}</div>
-          <div class="indicator-meta">${r.pedidos} pedidos · ${r.lineas} líneas · ${Number(r.peso).toLocaleString('es-CO',{maximumFractionDigits:1})} kg · ${r.visitas} visitas</div>
+          <div class="indicator-meta">${r.pedidos} pedidos · ${r.lineas} líneas · ${Number(r.peso).toLocaleString('es-CO',{maximumFractionDigits:0})} kg · ${r.visitas} visitas</div>
         </div>
         <button class="hist-toggle" data-eliminar-ruta="${r.id}" style="color:var(--crit-dot)">Eliminar ruta</button>
       </div>
@@ -2046,8 +2105,7 @@ async function importarReloj() {
 
   const buffer = await archivo.arrayBuffer();
   const wb = XLSX.read(buffer, { type: 'array' });
-  const hoja = wb.Sheets[wb.SheetNames[0]];
-  const filas = XLSX.utils.sheet_to_json(hoja, { defval: '' });
+  const filas = hojaConMasFilas(wb);
   if (!filas.length) { estado.textContent = 'El archivo está vacío.'; return; }
 
   // Agrupar eventos por "Número" del dispositivo (más confiable que el texto
@@ -2423,8 +2481,7 @@ async function importarEmpleadosMasivo() {
 
   const buffer = await archivo.arrayBuffer();
   const wb = XLSX.read(buffer, { type: 'array' });
-  const hoja = wb.Sheets[wb.SheetNames[0]];
-  const filas = XLSX.utils.sheet_to_json(hoja, { defval: '' });
+  const filas = hojaConMasFilas(wb);
   if (!filas.length) { estado.textContent = 'El archivo está vacío.'; return; }
 
   const registrosMapa = new Map(); // clave = cedi + nombre normalizado -- se queda con la última fila si hay repetidos
