@@ -1324,8 +1324,14 @@ async function importarCargue() {
 
   filas.forEach(fila => {
     const co = String(fila['C.o'] ?? '').trim();
-    const cedi = mapaCo[co];
-    if (!cedi) { sinMapeoCo.add(co); return; }
+    let cedi;
+    if (co === '') {
+      cedi = SESION.cedi; // Sin columna "C.o" (o vacía) -> se usa el CEDI del usuario que importa.
+      if (!cedi) { sinMapeoCo.add('(sin C.o, y tu usuario no tiene CEDI asignado)'); return; }
+    } else {
+      cedi = mapaCo[co];
+      if (!cedi) { sinMapeoCo.add(co); return; }
+    }
 
     const rutaNombre = String(fila['Cargue'] ?? '').trim().toUpperCase();
     if (!rutaNombre) return;
