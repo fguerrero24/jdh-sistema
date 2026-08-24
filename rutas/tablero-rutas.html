@@ -76,7 +76,7 @@
     <thead>
       <tr>
         <th>CEDI</th><th>Rutas</th><th>Finalizadas</th><th>Fill Rate</th>
-        <th>OTIF Picking</th><th>OTIF Packing</th><th>Total Kilos</th><th>Total Líneas</th>
+        <th>OTIF Picking</th><th>OTIF Packing</th><th>Total Kilos</th><th>Total Líneas</th><th>Takt Time</th><th>Proyección de fin</th>
       </tr>
     </thead>
     <tbody id="comparacion-cedis-filas"></tbody>
@@ -212,6 +212,48 @@ function antesDelLimite(inicio, fin, horaLimite) {
   return new Date(fin) <= limite;
 }
 
+// Proyección de fin (ritmo real por línea, ignorando rutas "de prueba") y
+// Takt Time promedio (solo Packing ÷ líneas) -- reutilizable para el
+// tablero de un CEDI y para la comparación entre todos los CEDIs.
+function calcularProyeccionYTakt(rutas, rutasFinalizadasCount) {
+  const MIN_MINUTOS_RUTA_VALIDA = 3;
+  const finalizadasConfiables = rutas.filter(r => {
+    if (r.estado_picking !== 'finalizado' || r.estado_packing !== 'finalizado') return false;
+    const duracionTotalSeg = segundosTranscurridos(r.picking_iniciado_en, null, r.picking_segundos_pausados, r.picking_finalizado_en)
+      + segundosTranscurridos(r.packing_iniciado_en, null, r.packing_segundos_pausados, r.packing_finalizado_en);
+    return duracionTotalSeg >= MIN_MINUTOS_RUTA_VALIDA * 60;
+  });
+
+  let proyeccionTexto = '—';
+  if (rutas.length > 0 && rutasFinalizadasCount === rutas.length) {
+    proyeccionTexto = 'Completado';
+  } else if (finalizadasConfiables.length < 2) {
+    proyeccionTexto = rutas.length ? 'Necesita más datos' : '—';
+  } else {
+    const segTotales = finalizadasConfiables.reduce((s, r) =>
+      s + segundosTranscurridos(r.picking_iniciado_en, null, r.picking_segundos_pausados, r.picking_finalizado_en)
+        + segundosTranscurridos(r.packing_iniciado_en, null, r.packing_segundos_pausados, r.packing_finalizado_en), 0);
+    const lineasTotales = finalizadasConfiables.reduce((s, r) => s + (r.lineas || 0), 0);
+    const ritmoPorLinea = lineasTotales > 0 ? segTotales / lineasTotales : null;
+    if (ritmoPorLinea != null) {
+      const lineasFaltantes = rutas.filter(r => !(r.estado_picking === 'finalizado' && r.estado_packing === 'finalizado'))
+        .reduce((s, r) => s + (r.lineas || 0), 0);
+      proyeccionTexto = formatoHora(new Date(Date.now() + ritmoPorLinea * lineasFaltantes * 1000));
+    }
+  }
+
+  // Takt Time promedio -- solo Packing ÷ líneas (no Picking), de las rutas confiables.
+  const taktsPorRuta = finalizadasConfiables
+    .map(r => {
+      const segPacking = segundosTranscurridos(r.packing_iniciado_en, null, r.packing_segundos_pausados, r.packing_finalizado_en);
+      return r.lineas > 0 ? segPacking / r.lineas : null;
+    })
+    .filter(t => t != null);
+  const taktPromedio = taktsPorRuta.length ? taktsPorRuta.reduce((a, b) => a + b, 0) / taktsPorRuta.length : null;
+
+  return { proyeccionTexto, taktPromedio };
+}
+
 let RUTAS = [];
 
 function dibujarDona(svgId, conteos) {
@@ -302,37 +344,7 @@ function actualizarResumenOperacion() {
   const ranking = calcularRankingHoy();
   const auditorLento = ranking.length ? ranking[ranking.length - 1] : null;
 
-  // Proyección de fin, basada en el ritmo REAL por línea de las rutas ya
-  // finalizadas (no por "ruta completa" -- una ruta de 100 líneas no es lo
-  // mismo que una de 30). Se ignoran rutas terminadas sospechosamente rápido
-  // (probable prueba de botón, no trabajo real) para no distorsionar el dato.
-  const MIN_MINUTOS_RUTA_VALIDA = 3; // menos que esto entre Picking y Packing = no se cuenta como dato real
-  const rutasFinalizadasConfiables = RUTAS.filter(r => {
-    if (r.estado_picking !== 'finalizado' || r.estado_packing !== 'finalizado') return false;
-    const duracionTotalSeg = segundosTranscurridos(r.picking_iniciado_en, null, r.picking_segundos_pausados, r.picking_finalizado_en)
-      + segundosTranscurridos(r.packing_iniciado_en, null, r.packing_segundos_pausados, r.packing_finalizado_en);
-    return duracionTotalSeg >= MIN_MINUTOS_RUTA_VALIDA * 60;
-  });
-
-  let proyeccion = '—';
-  if (rutasFinalizadas === RUTAS.length && RUTAS.length > 0) {
-    proyeccion = 'Completado';
-  } else if (rutasFinalizadasConfiables.length < 2) {
-    proyeccion = 'Necesita más datos (mín. 2 rutas reales terminadas)';
-  } else {
-    const segTotales = rutasFinalizadasConfiables.reduce((s, r) =>
-      s + segundosTranscurridos(r.picking_iniciado_en, null, r.picking_segundos_pausados, r.picking_finalizado_en)
-        + segundosTranscurridos(r.packing_iniciado_en, null, r.packing_segundos_pausados, r.packing_finalizado_en), 0);
-    const lineasTotales = rutasFinalizadasConfiables.reduce((s, r) => s + (r.lineas || 0), 0);
-    const ritmoPorLinea = lineasTotales > 0 ? segTotales / lineasTotales : null;
-
-    if (ritmoPorLinea != null) {
-      const lineasFaltantes = RUTAS.filter(r => !(r.estado_picking === 'finalizado' && r.estado_packing === 'finalizado'))
-        .reduce((s, r) => s + (r.lineas || 0), 0);
-      const horaProyectada = new Date(Date.now() + ritmoPorLinea * lineasFaltantes * 1000);
-      proyeccion = formatoHora(horaProyectada);
-    }
-  }
+  const proyeccion = calcularProyeccionYTakt(RUTAS, rutasFinalizadas).proyeccionTexto;
 
   const tarjeta = (label, valor, clase) => `<div class="op-card"><div class="op-label">${label}</div><div class="op-valor ${clase || ''}">${valor}</div></div>`;
 
@@ -515,6 +527,8 @@ async function cargarComparacionTodosCedis() {
       antesDelLimite(r.packing_iniciado_en, r.packing_finalizado_en, 6) && r.pendientes === 0
     ).length / conPacking.length * 100 : null;
 
+    const { proyeccionTexto, taktPromedio } = calcularProyeccionYTakt(rutasCedi, finalizadas.length);
+
     totalRutas += rutasCedi.length;
     totalFinalizadas += finalizadas.length;
     totalKilosGlobal += totalKilos;
@@ -529,6 +543,8 @@ async function cargarComparacionTodosCedis() {
       <td style="color:${otifPacking != null && otifPacking < 90 ? '#fbbf5c' : '#4ade9e'}">${otifPacking != null ? otifPacking.toFixed(1) + '%' : '—'}</td>
       <td>${totalKilos.toLocaleString('es-CO', { maximumFractionDigits: 0 })} kg</td>
       <td>${totalLineas}</td>
+      <td>${taktPromedio != null ? taktPromedio.toFixed(1) + 's' : '—'}</td>
+      <td>${proyeccionTexto}</td>
     </tr>`;
   }).join('');
 
