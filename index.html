@@ -1452,32 +1452,61 @@ async function importarCargue() {
 
   if (!filas.length) { estado.textContent = 'El archivo está vacío.'; return; }
 
+  // Cada concepto puede venir con distintos nombres de columna según la
+  // sucursal que exporta el archivo. Se prueba cada alias en orden y se usa
+  // el primero que tenga valor en esa fila.
+  const ALIAS = {
+    co: ['C.o', 'Centro operativo'],
+    ruta: ['Cargue', 'Placa'],
+    pedido: ['Nro documento', 'Documento'],
+    visita: ['Desc. sucursal despacho', 'Cliente'],
+    peso: ['Peso en KL', 'Peso'],
+  };
+  function valorPor(fila, concepto) {
+    for (const nombreCol of ALIAS[concepto]) {
+      const v = fila[nombreCol];
+      if (v !== undefined && v !== null && String(v).trim() !== '') return v;
+    }
+    return '';
+  }
+
   // Mapeo de código C.o -> CEDI
   const { data: mapaCedis } = await sb.from('codigos_cedi').select('*');
   const mapaCo = {};
   (mapaCedis || []).forEach(m => { mapaCo[String(m.co_numero)] = m.cedi_codigo; });
 
-  // Agrupar por (cedi, ruta = "Cargue" normalizado)
+  // Agrupar por (cedi, ruta)
   const grupos = {};
   let sinMapeoCo = new Set();
 
   filas.forEach(fila => {
-    const co = String(fila['C.o'] ?? '').trim();
-    const cedi = mapaCo[co];
-    if (!cedi) { sinMapeoCo.add(co); return; }
+    let co = String(valorPor(fila, 'co')).trim();
+    if (co !== '' && /^\d+$/.test(co)) co = String(parseInt(co, 10)); // quita ceros a la izquierda (ej. "001" -> "1")
 
-    const rutaNombre = String(fila['Cargue'] ?? '').trim().toUpperCase();
+    let cedi;
+    if (co === '') {
+      cedi = SESION.cedi; // Sin columna de CEDI (o vacía) -> se usa el CEDI del usuario que importa.
+      if (!cedi) { sinMapeoCo.add('(sin CEDI en el archivo, y tu usuario no tiene CEDI asignado)'); return; }
+    } else {
+      cedi = mapaCo[co];
+      if (!cedi) { sinMapeoCo.add(co); return; }
+    }
+
+    const rutaNombre = String(valorPor(fila, 'ruta')).trim().toUpperCase();
     if (!rutaNombre) return;
+
+    const pedido = String(valorPor(fila, 'pedido')).trim();
+    if (pedido.toUpperCase().startsWith('SV')) return; // Se excluyen pedidos que empiezan en "SV".
 
     const key = cedi + '||' + rutaNombre;
     if (!grupos[key]) {
       grupos[key] = { cedi, ruta_nombre: rutaNombre, pedidosSet: new Set(), visitasSet: new Set(), lineas: 0, peso: 0 };
     }
     const g = grupos[key];
-    g.pedidosSet.add(String(fila['Pedido'] ?? ''));
-    g.visitasSet.add(String(fila['Desc. sucursal despacho'] ?? ''));
+    g.pedidosSet.add(pedido);
+    g.visitasSet.add(String(valorPor(fila, 'visita')));
     g.lineas += 1;
-    g.peso += Number(fila['Peso en KL']) || 0;
+    g.peso += Number(valorPor(fila, 'peso')) || 0;
   });
 
   if (sinMapeoCo.size) {
@@ -2536,4 +2565,4 @@ async function cargarLiquidaciones() {
 
 </script>
 </body>
-</html>F
+</html>
