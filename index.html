@@ -1865,7 +1865,9 @@ function parsearFechaReloj(texto) {
   return new Date(parseInt(anio), parseInt(mes) - 1, parseInt(dia), hora, parseInt(min), parseInt(seg));
 }
 
-let ULTIMOS_EVENTOS_RELOJ = null; // se guarda para poder reintentar tras crear empleados, sin re-subir el archivo
+let ULTIMOS_EVENTOS_RELOJ = null; // se guarda para poder reintentar tras crear/mapear empleados, sin re-subir el archivo
+
+function fechaClave(d) { return d.toISOString().slice(0, 10); }
 
 async function importarReloj() {
   const estado = document.getElementById('asis-import-status');
@@ -1880,72 +1882,144 @@ async function importarReloj() {
   const filas = XLSX.utils.sheet_to_json(hoja, { defval: '' });
   if (!filas.length) { estado.textContent = 'El archivo está vacío.'; return; }
 
-  // Agrupar eventos por nombre normalizado, en orden cronológico -- se guarda
-  // en memoria para poder reintentar después sin volver a leer el archivo.
-  const porPersona = {};
+  // Agrupar eventos por "Número" del dispositivo (más confiable que el texto
+  // del nombre, que puede venir escrito distinto entre marcaciones) -- se
+  // guarda en memoria para reintentar después sin volver a leer el archivo.
+  const porNumero = {};
   filas.forEach(fila => {
+    const numero = String(fila['Número'] ?? '').trim();
     const nombre = normalizarNombre(fila['Nombre']);
     const fechaEvento = parsearFechaReloj(fila['Tiempo']);
     const tipoEvento = String(fila['Estado'] ?? '').trim().toLowerCase();
-    if (!nombre || !fechaEvento || (tipoEvento !== 'entrada' && tipoEvento !== 'salida')) return;
-    if (!porPersona[nombre]) porPersona[nombre] = [];
-    porPersona[nombre].push({ fecha: fechaEvento, tipo: tipoEvento });
+    if (!numero || !nombre || !fechaEvento || (tipoEvento !== 'entrada' && tipoEvento !== 'salida')) return;
+    if (!porNumero[numero]) porNumero[numero] = { nombres: {}, eventos: [] };
+    porNumero[numero].nombres[nombre] = (porNumero[numero].nombres[nombre] || 0) + 1;
+    porNumero[numero].eventos.push({ fecha: fechaEvento, tipo: tipoEvento });
   });
-  ULTIMOS_EVENTOS_RELOJ = porPersona;
+  ULTIMOS_EVENTOS_RELOJ = porNumero;
 
   await procesarEventosReloj();
 }
 
 async function procesarEventosReloj() {
   const estado = document.getElementById('asis-import-status');
-  const porPersona = ULTIMOS_EVENTOS_RELOJ;
-  if (!porPersona) return;
+  const porNumero = ULTIMOS_EVENTOS_RELOJ;
+  if (!porNumero) return;
 
-  // Empleados activos, para emparejar por nombre (normalizado).
-  const { data: empleados } = await sb.from('empleados').select('id, nombre').eq('activo', true);
-  const mapaEmpleados = {};
-  (empleados || []).forEach(e => { mapaEmpleados[normalizarNombre(e.nombre)] = e.id; });
+  // Empleados activos: primero por numero_dispositivo (match directo y
+  // confiable), y de respaldo por nombre normalizado para números que
+  // todavía no están vinculados a nadie.
+  const { data: empleados } = await sb.from('empleados').select('id, nombre, numero_dispositivo').eq('activo', true);
+  const mapaPorNumero = {};
+  const mapaPorNombre = {};
+  (empleados || []).forEach(e => {
+    if (e.numero_dispositivo) mapaPorNumero[e.numero_dispositivo] = e.id;
+    mapaPorNombre[normalizarNombre(e.nombre)] = e.id;
+  });
 
-  const turnos = [];
-  const nombresSinCoincidencia = new Set();
-  const turnosSospechosos = [];
-  let eventosHuerfanos = 0;
-  const MAX_HORAS_TURNO = 16; // ningún turno legítimo debería superar esto
+  // ---------- PRIMERA PASADA: separar turnos completos de eventos sueltos,
+  // por cada número, sin estimar nada todavía. ----------
+  const porNumeroCompletos = {};
+  const porNumeroSueltos = {};
 
-  Object.entries(porPersona).forEach(([nombre, eventos]) => {
-    eventos.sort((a, b) => a.fecha - b.fecha);
-    const empleadoId = mapaEmpleados[nombre];
-
+  for (const [numero, info] of Object.entries(porNumero)) {
+    const eventos = [...info.eventos].sort((a, b) => a.fecha - b.fecha);
+    const completos = [];
+    const sueltos = [];
     let entradaPendiente = null;
     eventos.forEach(ev => {
       if (ev.tipo === 'entrada') {
-        if (entradaPendiente) eventosHuerfanos++; // había una entrada sin cerrar -- se descarta la anterior
+        if (entradaPendiente) sueltos.push({ tipo: 'entrada', fecha: entradaPendiente }); // le faltó la salida
         entradaPendiente = ev.fecha;
-      } else if (ev.tipo === 'salida') {
+      } else {
         if (entradaPendiente) {
-          const horasTurno = (ev.fecha - entradaPendiente) / 3600000;
-          if (horasTurno > MAX_HORAS_TURNO) {
-            turnosSospechosos.push(`${nombre}: ${entradaPendiente.toLocaleString('es-CO')} → ${ev.fecha.toLocaleString('es-CO')} (${horasTurno.toFixed(1)}h)`);
-          } else if (!empleadoId) {
-            nombresSinCoincidencia.add(nombre);
-          } else {
-            turnos.push({
-              empleado_id: empleadoId,
-              cedi: SESION.cedi,
-              fecha: entradaPendiente.toISOString().slice(0, 10),
-              hora_entrada: entradaPendiente.toISOString(),
-              hora_salida: ev.fecha.toISOString(),
-              creado_por: SESION.id,
-            });
-          }
+          completos.push({ entrada: entradaPendiente, salida: ev.fecha });
           entradaPendiente = null;
         } else {
-          eventosHuerfanos++; // salida sin entrada previa
+          sueltos.push({ tipo: 'salida', fecha: ev.fecha }); // le faltó la entrada
         }
       }
     });
-    if (entradaPendiente) eventosHuerfanos++; // quedó una entrada sin salida al final del archivo
-  });
+    if (entradaPendiente) sueltos.push({ tipo: 'entrada', fecha: entradaPendiente });
+    porNumeroCompletos[numero] = completos;
+    porNumeroSueltos[numero] = sueltos;
+  }
+
+  // ---------- Grupo global de todos los turnos completos (de TODOS los
+  // operarios), para poder comparar contra "los demás" al rellenar. ----------
+  const MAX_DIF_BUSQUEDA_MS = 4 * 3600 * 1000; // no tomar un compañero a más de 4h de diferencia
+  function buscarCompaneroMasCercano(fechaBuscada, tipoFaltante, numeroExcluir) {
+    // tipoFaltante 'entrada' => falta la SALIDA: buscamos el compañero cuya
+    //   ENTRADA quedó más cerca de esta fecha, y le tomamos SU salida.
+    // tipoFaltante 'salida'  => falta la ENTRADA: buscamos el compañero cuya
+    //   SALIDA quedó más cerca de esta fecha, y le tomamos SU entrada.
+    let mejor = null, mejorDif = Infinity;
+    for (const [num, completos] of Object.entries(porNumeroCompletos)) {
+      if (num === numeroExcluir) continue;
+      for (const c of completos) {
+        const puntoComparar = tipoFaltante === 'entrada' ? c.entrada : c.salida;
+        const dif = Math.abs(puntoComparar.getTime() - fechaBuscada.getTime());
+        if (dif < mejorDif) { mejorDif = dif; mejor = c; }
+      }
+    }
+    if (!mejor || mejorDif > MAX_DIF_BUSQUEDA_MS) return null;
+    return tipoFaltante === 'entrada' ? mejor.salida : mejor.entrada;
+  }
+
+  // ---------- SEGUNDA PASADA: rellenar cada evento suelto usando al
+  // compañero más cercano (no min/max -- evita que alguien que marcó muy
+  // temprano o muy tarde a propósito distorsione la estimación). ----------
+  const turnos = [];
+  const numerosSinCoincidencia = [];
+  const turnosSospechosos = [];
+  let eventosHuerfanos = 0;
+  let eventosRellenadosPorCompanero = 0;
+  const MAX_HORAS_TURNO = 16;
+  const vincularNumero = [];
+
+  for (const [numero, info] of Object.entries(porNumero)) {
+    const nombreMasComun = Object.entries(info.nombres).sort((a, b) => b[1] - a[1])[0][0];
+    let empleadoId = mapaPorNumero[numero] || mapaPorNombre[nombreMasComun] || null;
+    if (empleadoId && !mapaPorNumero[numero]) vincularNumero.push({ empleado_id: empleadoId, numero });
+
+    const completos = [...porNumeroCompletos[numero]];
+    porNumeroSueltos[numero].forEach(s => {
+      const valorEncontrado = buscarCompaneroMasCercano(s.fecha, s.tipo, numero);
+      if (valorEncontrado) {
+        if (s.tipo === 'entrada') completos.push({ entrada: s.fecha, salida: valorEncontrado, estimado: true });
+        else completos.push({ entrada: valorEncontrado, salida: s.fecha, estimado: true });
+        eventosRellenadosPorCompanero++;
+      } else {
+        eventosHuerfanos++; // no hay ningún compañero cercano ese turno para estimar
+      }
+    });
+
+    let algunoSinEmparejarPorFaltaDeEmpleado = false;
+    completos.forEach(c => {
+      const horas = (c.salida - c.entrada) / 3600000;
+      if (horas <= 0 || horas > MAX_HORAS_TURNO) {
+        turnosSospechosos.push(`${nombreMasComun}: ${c.entrada.toLocaleString('es-CO')} → ${c.salida.toLocaleString('es-CO')} (${horas.toFixed(1)}h)${c.estimado ? ' [estimado]' : ''}`);
+      } else if (!empleadoId) {
+        algunoSinEmparejarPorFaltaDeEmpleado = true;
+      } else {
+        turnos.push({
+          empleado_id: empleadoId,
+          cedi: SESION.cedi,
+          fecha: c.entrada.toISOString().slice(0, 10),
+          hora_entrada: c.entrada.toISOString(),
+          hora_salida: c.salida.toISOString(),
+          creado_por: SESION.id,
+        });
+      }
+    });
+    if (algunoSinEmparejarPorFaltaDeEmpleado) numerosSinCoincidencia.push({ numero, nombre: nombreMasComun });
+  }
+
+  // Vincula el numero_dispositivo de los que se emparejaron por nombre, para
+  // que la próxima importación ya no dependa del texto del nombre.
+  for (const v of vincularNumero) {
+    await sb.from('empleados').update({ numero_dispositivo: v.numero }).eq('id', v.empleado_id);
+  }
 
   let mensaje = '';
   if (turnos.length) {
@@ -1957,22 +2031,24 @@ async function procesarEventosReloj() {
   } else {
     mensaje += 'No se importó ningún turno nuevo. ';
   }
-  if (eventosHuerfanos) mensaje += `${eventosHuerfanos} evento(s) sueltos (sin su par) fueron ignorados. `;
+  if (eventosRellenadosPorCompanero) mensaje += `${eventosRellenadosPorCompanero} marcación(es) sin su par fueron completadas usando el punch del compañero de turno más cercano. `;
+  if (eventosHuerfanos) mensaje += `${eventosHuerfanos} evento(s) sueltos sin ningún compañero cercano (dentro de 4h) para estimar fueron ignorados. `;
   if (turnosSospechosos.length) mensaje += `⚠ ${turnosSospechosos.length} turno(s) descartados por superar ${MAX_HORAS_TURNO}h -- revisa y regístralos manualmente si son válidos: ${turnosSospechosos.join(' | ')} `;
 
   estado.textContent = mensaje;
-  renderNombresSinCoincidencia([...nombresSinCoincidencia]);
+  renderNumerosSinCoincidencia(numerosSinCoincidencia);
 }
 
-function renderNombresSinCoincidencia(nombres) {
+function renderNumerosSinCoincidencia(items) {
   const cont = document.getElementById('asis-crear-faltantes');
-  if (!nombres.length) { cont.innerHTML = ''; return; }
+  if (!items.length) { cont.innerHTML = ''; return; }
 
   cont.innerHTML = `
-    <div class="section-label" style="margin-top:14px;">Nombres del reloj sin coincidencia (${nombres.length}) -- créalos aquí para importar sus turnos</div>
-    ${nombres.map(n => `
-      <div class="indicator-fields" data-nombre-faltante="${tEsc(n)}">
-        <div class="indicator-field" style="min-width:220px;"><label>Nombre (del reloj)</label><input type="text" class="falt-nombre" value="${tEsc(n)}"></div>
+    <div class="section-label" style="margin-top:14px;">Números del reloj sin empleado vinculado (${items.length}) -- créalos aquí para importar sus turnos</div>
+    ${items.map(it => `
+      <div class="indicator-fields" data-numero-faltante="${tEsc(it.numero)}">
+        <div class="indicator-field"><label>Número (dispositivo)</label><input type="text" class="falt-numero" value="${tEsc(it.numero)}" disabled></div>
+        <div class="indicator-field" style="min-width:220px;"><label>Nombre</label><input type="text" class="falt-nombre" value="${tEsc(it.nombre)}"></div>
         <div class="indicator-field"><label>Cargo</label><input type="text" class="falt-cargo" placeholder="Opcional"></div>
         <div class="indicator-field"><label>Salario base</label><input type="text" class="falt-salario" inputmode="numeric" placeholder="ej. 1750905"></div>
         <div class="indicator-field"><label>CEDI</label><select class="falt-cedi">${CEDIS_VALIDOS.map(c => `<option value="${c}" ${c === SESION.cedi ? 'selected' : ''}>${c}</option>`).join('')}</select></div>
@@ -1986,16 +2062,17 @@ function renderNombresSinCoincidencia(nombres) {
 
 async function crearFaltantesYReintentar() {
   const estado = document.getElementById('asis-import-status');
-  const bloques = document.querySelectorAll('[data-nombre-faltante]');
+  const bloques = document.querySelectorAll('[data-numero-faltante]');
   const nuevos = [];
 
   for (const bloque of bloques) {
+    const numero_dispositivo = bloque.dataset.numeroFaltante;
     const nombre = bloque.querySelector('.falt-nombre').value.trim();
     const cargo = bloque.querySelector('.falt-cargo').value.trim();
     const salario = Number(bloque.querySelector('.falt-salario').value.trim());
     const cedi = bloque.querySelector('.falt-cedi').value;
-    if (!nombre || !salario || salario <= 0) continue; // se salta los que no tengan salario válido
-    nuevos.push({ nombre, cargo: cargo || null, salario_base: salario, cedi, creado_por: SESION.id });
+    if (!nombre || !salario || salario <= 0) continue;
+    nuevos.push({ nombre, cargo: cargo || null, salario_base: salario, cedi, numero_dispositivo, creado_por: SESION.id });
   }
 
   if (!nuevos.length) { estado.textContent = 'Completa al menos el salario base de alguno para crearlo.'; return; }
@@ -2003,7 +2080,7 @@ async function crearFaltantesYReintentar() {
   const { error } = await sb.from('empleados').insert(nuevos);
   if (error) { estado.textContent = 'Error al crear empleados: ' + error.message; return; }
 
-  estado.textContent = `${nuevos.length} empleado(s) creado(s). Reintentando importación...`;
+  estado.textContent = `${nuevos.length} empleado(s) creado(s) y vinculados a su número de dispositivo. Reintentando importación...`;
   document.getElementById('asis-crear-faltantes').innerHTML = '';
   await cargarEmpleados();
   await procesarEventosReloj();
