@@ -1912,10 +1912,56 @@ async function procesarEventosReloj() {
   const { data: empleados } = await sb.from('empleados').select('id, nombre, numero_dispositivo').eq('activo', true);
   const mapaPorNumero = {};
   const mapaPorNombre = {};
+  const empleadosConPalabras = [];
   (empleados || []).forEach(e => {
     if (e.numero_dispositivo) mapaPorNumero[e.numero_dispositivo] = e.id;
     mapaPorNombre[normalizarNombre(e.nombre)] = e.id;
+    empleadosConPalabras.push({ id: e.id, palabras: new Set(normalizarNombre(e.nombre).split(' ').filter(w => w.length > 1)) });
   });
+
+  // El reloj suele guardar "NOMBRE APELLIDO", pero el archivo de empleados a
+  // veces trae "APELLIDO NOMBRE" -- si no hay match exacto, busca por las
+  // mismas palabras sin importar el orden. Solo asigna si hay un ÚNICO
+  // empleado posible (si hay más de uno, no adivina).
+  function buscarPorPalabras(nombreReloj) {
+    const palabrasReloj = new Set(nombreReloj.split(' ').filter(w => w.length > 1));
+    const candidatos = empleadosConPalabras.filter(e =>
+      [...palabrasReloj].every(p => e.palabras.has(p))
+    );
+    return candidatos.length === 1 ? candidatos[0].id : null;
+  }
+
+  // Limpieza de marcaciones antes de emparejar:
+  //  1) Duplicado (<2 min, mismo estado): se conserva la PRIMERA.
+  //  2) Racha del mismo estado sin alternancia (2+ Entradas o Salidas
+  //     seguidas, con más de 2 min entre ellas): Entrada repetida se
+  //     resuelve con la PRIMERA, Salida repetida con la ÚLTIMA.
+  function limpiarMarcaciones(eventos) {
+    const ordenados = [...eventos].sort((a, b) => a.fecha - b.fecha);
+    // Paso 1: quitar duplicados casi-simultáneos del mismo estado.
+    const sinDuplicados = [];
+    ordenados.forEach(ev => {
+      const anterior = sinDuplicados[sinDuplicados.length - 1];
+      const esDuplicado = anterior && anterior.tipo === ev.tipo && (ev.fecha - anterior.fecha) < 2 * 60000;
+      if (!esDuplicado) sinDuplicados.push(ev);
+    });
+    // Paso 2: colapsar rachas del mismo estado (sin alternancia).
+    const resultado = [];
+    let i = 0;
+    while (i < sinDuplicados.length) {
+      let j = i;
+      while (j + 1 < sinDuplicados.length && sinDuplicados[j + 1].tipo === sinDuplicados[i].tipo) j++;
+      if (i === j) {
+        resultado.push(sinDuplicados[i]);
+      } else if (sinDuplicados[i].tipo === 'entrada') {
+        resultado.push(sinDuplicados[i]); // racha de Entradas -> la primera
+      } else {
+        resultado.push(sinDuplicados[j]); // racha de Salidas -> la última
+      }
+      i = j + 1;
+    }
+    return resultado;
+  }
 
   // ---------- PRIMERA PASADA: separar turnos completos de eventos sueltos,
   // por cada número, sin estimar nada todavía. ----------
@@ -1923,7 +1969,7 @@ async function procesarEventosReloj() {
   const porNumeroSueltos = {};
 
   for (const [numero, info] of Object.entries(porNumero)) {
-    const eventos = [...info.eventos].sort((a, b) => a.fecha - b.fecha);
+    const eventos = limpiarMarcaciones(info.eventos);
     const completos = [];
     const sueltos = [];
     let entradaPendiente = null;
@@ -1979,7 +2025,7 @@ async function procesarEventosReloj() {
 
   for (const [numero, info] of Object.entries(porNumero)) {
     const nombreMasComun = Object.entries(info.nombres).sort((a, b) => b[1] - a[1])[0][0];
-    let empleadoId = mapaPorNumero[numero] || mapaPorNombre[nombreMasComun] || null;
+    let empleadoId = mapaPorNumero[numero] || mapaPorNombre[nombreMasComun] || buscarPorPalabras(nombreMasComun) || null;
     if (empleadoId && !mapaPorNumero[numero]) vincularNumero.push({ empleado_id: empleadoId, numero });
 
     const completos = [...porNumeroCompletos[numero]];
@@ -2205,8 +2251,8 @@ async function importarEmpleadosMasivo() {
   const filas = XLSX.utils.sheet_to_json(hoja, { defval: '' });
   if (!filas.length) { estado.textContent = 'El archivo está vacío.'; return; }
 
-  const registros = [];
-  let sinNombre = 0, sinSalario = 0;
+  const registrosMapa = new Map(); // clave = cedi + nombre normalizado -- se queda con la última fila si hay repetidos
+  let sinNombre = 0, sinSalario = 0, duplicadosEnArchivo = 0;
 
   filas.forEach(fila => {
     const nombre = String(fila['NOMBRE COMPLETO'] ?? fila['NOMBRE'] ?? '').trim();
@@ -2218,9 +2264,12 @@ async function importarEmpleadosMasivo() {
     if (!nombre) { sinNombre++; return; }
     if (!salario || salario <= 0) { sinSalario++; return; }
 
-    registros.push({ nombre, cedula: cedula || null, salario_base: salario, cedi, creado_por: SESION.id });
+    const clave = cedi + '||' + normalizarNombre(nombre);
+    if (registrosMapa.has(clave)) duplicadosEnArchivo++;
+    registrosMapa.set(clave, { nombre, cedula: cedula || null, salario_base: salario, cedi, creado_por: SESION.id });
   });
 
+  const registros = [...registrosMapa.values()];
   if (!registros.length) { estado.textContent = 'No hay filas válidas para importar (revisa nombre y salario).'; return; }
 
   estado.textContent = `Importando ${registros.length} colaborador(es)...`;
@@ -2229,6 +2278,7 @@ async function importarEmpleadosMasivo() {
   if (error) { estado.textContent = 'Error al importar: ' + error.message; return; }
 
   let mensaje = `${registros.length} colaborador(es) importados/actualizados correctamente.`;
+  if (duplicadosEnArchivo) mensaje += ` ${duplicadosEnArchivo} fila(s) del archivo eran el mismo nombre repetido (se dejó solo la última).`;
   if (sinNombre) mensaje += ` ${sinNombre} fila(s) sin nombre fueron ignoradas.`;
   if (sinSalario) mensaje += ` ${sinSalario} fila(s) sin salario válido fueron ignoradas.`;
   estado.textContent = mensaje;
