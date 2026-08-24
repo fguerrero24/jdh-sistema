@@ -37,6 +37,15 @@
   .timer.pausado { color:#fbbf5c; }
   .pend-num { font-size:19px; font-weight:700; color:#fbbf5c; }
   .empty { text-align:center; padding:60px; color:#6b829a; font-size:16px; }
+
+  .op-resumen { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:10px; background:#0f2033; border-radius:12px; padding:16px 20px; margin-bottom:14px; }
+  .op-card { }
+  .op-label { color:#6b829a; font-size:10px; text-transform:uppercase; margin-bottom:4px; }
+  .op-valor { font-size:19px; font-weight:700; color:#fff; font-variant-numeric:tabular-nums; }
+  .op-valor.ok { color:#4ade9e; }
+  .op-valor.bad { color:#fbbf5c; }
+  .alerta-banner { background:#3a1f1a; border:1px solid #6b3226; color:#ff9d7a; border-radius:10px; padding:12px 18px; margin-bottom:14px; font-size:14px; font-weight:700; display:none; }
+  .alerta-banner.visible { display:block; }
 </style>
 </head>
 <body>
@@ -56,6 +65,10 @@
     <div class="clock" id="reloj"></div>
   </div>
 </div>
+
+<div class="alerta-banner" id="alerta-banner"></div>
+
+<div class="op-resumen" id="op-resumen"></div>
 
 <div class="resumen">
   <div class="dona-block">
@@ -184,6 +197,110 @@ function dibujarLeyenda(elId, conteos) {
   ).join('');
 }
 
+function formatoHora(fechaIso) {
+  if (!fechaIso) return '—';
+  return new Date(fechaIso).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' });
+}
+
+function actualizarResumenOperacion() {
+  const cont = document.getElementById('op-resumen');
+  if (!RUTAS.length) { cont.innerHTML = ''; return; }
+
+  const iniciosPicking = RUTAS.map(r => r.picking_iniciado_en).filter(Boolean).map(f => new Date(f).getTime());
+  const inicioOperacion = iniciosPicking.length ? new Date(Math.min(...iniciosPicking)) : null;
+
+  const todasFinalizadas = RUTAS.every(r => r.estado_picking === 'finalizado' && r.estado_packing === 'finalizado');
+  const finesPacking = RUTAS.map(r => r.packing_finalizado_en).filter(Boolean).map(f => new Date(f).getTime());
+  const finOperacion = (todasFinalizadas && finesPacking.length) ? new Date(Math.max(...finesPacking)) : null;
+
+  const duracionSeg = inicioOperacion ? Math.floor(((finOperacion ? finOperacion.getTime() : Date.now()) - inicioOperacion.getTime()) / 1000) : null;
+
+  const totalKilos = RUTAS.reduce((s, r) => s + (Number(r.peso) || 0), 0);
+  const totalLineas = RUTAS.reduce((s, r) => s + (r.lineas || 0), 0);
+  const totalPedidos = RUTAS.reduce((s, r) => s + (r.pedidos || 0), 0);
+  const totalCompletos = RUTAS.reduce((s, r) => s + (r.pedidos_completos || 0), 0);
+  const fillRate = totalPedidos > 0 ? (totalCompletos / totalPedidos) * 100 : null;
+
+  // OTIF Picking: ruta 100% completa Y Picking finalizado antes de las 4:00 am
+  const conPicking = RUTAS.filter(r => r.picking_finalizado_en);
+  const otifPicking = conPicking.length ? conPicking.filter(r => {
+    const h = new Date(r.picking_finalizado_en).getHours();
+    return h < 4 && r.pendientes === 0;
+  }).length / conPicking.length * 100 : null;
+
+  // OTIF Packing: ruta 100% completa Y Packing finalizado antes de las 6:00 am
+  const conPacking = RUTAS.filter(r => r.packing_finalizado_en);
+  const otifPacking = conPacking.length ? conPacking.filter(r => {
+    const h = new Date(r.packing_finalizado_en).getHours();
+    return h < 6 && r.pendientes === 0;
+  }).length / conPacking.length * 100 : null;
+
+  const rutasFinalizadas = RUTAS.filter(r => r.estado_picking === 'finalizado' && r.estado_packing === 'finalizado').length;
+
+  // Ruta más rápida / más lenta (Takt Time = tiempo de Packing ÷ líneas)
+  const rutasConTakt = RUTAS
+    .map(r => {
+      const seg = segundosTranscurridos(r.packing_iniciado_en, r.packing_pausado_desde, r.packing_segundos_pausados, r.packing_finalizado_en);
+      return seg != null && r.lineas > 0 ? { ruta: r.ruta_nombre, takt: seg / r.lineas } : null;
+    })
+    .filter(Boolean);
+  let rutaRapida = null, rutaLenta = null;
+  if (rutasConTakt.length) {
+    rutaRapida = rutasConTakt.reduce((a, b) => (a.takt < b.takt ? a : b));
+    rutaLenta = rutasConTakt.reduce((a, b) => (a.takt > b.takt ? a : b));
+  }
+
+  // Auditor más lento (del ranking en vivo)
+  const ranking = calcularRankingHoy();
+  const auditorLento = ranking.length ? ranking[ranking.length - 1] : null;
+
+  // Proyección de fin, basada en el ritmo de rutas ya finalizadas
+  let proyeccion = '—';
+  if (rutasFinalizadas > 0 && rutasFinalizadas < RUTAS.length && inicioOperacion) {
+    const transcurrido = (Date.now() - inicioOperacion.getTime()) / 1000;
+    const ritmoPorRuta = transcurrido / rutasFinalizadas;
+    const faltantes = RUTAS.length - rutasFinalizadas;
+    const horaProyectada = new Date(Date.now() + ritmoPorRuta * faltantes * 1000);
+    proyeccion = formatoHora(horaProyectada);
+  } else if (rutasFinalizadas === RUTAS.length && RUTAS.length > 0) {
+    proyeccion = 'Completado';
+  }
+
+  const tarjeta = (label, valor, clase) => `<div class="op-card"><div class="op-label">${label}</div><div class="op-valor ${clase || ''}">${valor}</div></div>`;
+
+  cont.innerHTML = [
+    tarjeta('Inicio operación', inicioOperacion ? formatoHora(inicioOperacion) : '—'),
+    tarjeta('Fin operación', finOperacion ? formatoHora(finOperacion) : 'En curso'),
+    tarjeta('Duración total', duracionSeg != null ? formatoTiempo(duracionSeg) : '—'),
+    tarjeta('Proyección de fin', proyeccion),
+    tarjeta('Total kilos', totalKilos.toLocaleString('es-CO', { maximumFractionDigits: 1 }) + ' kg'),
+    tarjeta('Total líneas', totalLineas),
+    tarjeta('Rutas finalizadas', `${rutasFinalizadas}/${RUTAS.length}`),
+    tarjeta('Fill Rate', fillRate != null ? fillRate.toFixed(1) + '%' : '—', fillRate != null && fillRate < 95 ? 'bad' : 'ok'),
+    tarjeta('OTIF Picking (< 4am)', otifPicking != null ? otifPicking.toFixed(1) + '%' : '—', otifPicking != null && otifPicking < 90 ? 'bad' : 'ok'),
+    tarjeta('OTIF Packing (< 6am)', otifPacking != null ? otifPacking.toFixed(1) + '%' : '—', otifPacking != null && otifPacking < 90 ? 'bad' : 'ok'),
+    tarjeta('Ruta más rápida', rutaRapida ? `${rutaRapida.ruta} · ${rutaRapida.takt.toFixed(1)}s` : '—', 'ok'),
+    tarjeta('Ruta más lenta', rutaLenta ? `${rutaLenta.ruta} · ${rutaLenta.takt.toFixed(1)}s` : '—', 'bad'),
+    tarjeta('Auditor más lento', auditorLento ? `${auditorLento.auditor} · ${auditorLento.taktTime != null ? auditorLento.taktTime.toFixed(1) + 's' : '—'}` : '—', 'bad'),
+  ].join('');
+
+  // Alerta si ya pasó la hora límite y quedan rutas sin terminar
+  const ahora = new Date();
+  const horaActual = ahora.getHours() + ahora.getMinutes() / 60;
+  const pickingSinTerminar = RUTAS.filter(r => r.estado_picking !== 'finalizado').length;
+  const packingSinTerminar = RUTAS.filter(r => r.estado_packing !== 'finalizado').length;
+  const banner = document.getElementById('alerta-banner');
+  if (horaActual < 12 && horaActual >= 4 && pickingSinTerminar > 0) {
+    banner.textContent = `⚠ Ya pasaron las 4:00am y hay ${pickingSinTerminar} ruta(s) con Picking sin terminar.`;
+    banner.classList.add('visible');
+  } else if (horaActual < 12 && horaActual >= 6 && packingSinTerminar > 0) {
+    banner.textContent = `⚠ Ya pasaron las 6:00am y hay ${packingSinTerminar} ruta(s) con Packing sin terminar.`;
+    banner.classList.add('visible');
+  } else {
+    banner.classList.remove('visible');
+  }
+}
+
 function actualizarResumen() {
   const conteoPicking = { pendiente:0, iniciado:0, pausado:0, finalizado:0 };
   const conteoPacking = { pendiente:0, iniciado:0, pausado:0, finalizado:0 };
@@ -246,7 +363,7 @@ function tickTimers() {
     }
   });
 }
-setInterval(() => { tickTimers(); renderRankingHoy(); }, 1000);
+setInterval(() => { tickTimers(); renderRankingHoy(); actualizarResumenOperacion(); }, 1000);
 
 function calcularRankingHoy() {
   const porAuditor = {};
@@ -260,7 +377,7 @@ function calcularRankingHoy() {
     a.rutas += 1;
     a.lineas += r.lineas;
     a.peso += Number(r.peso) || 0;
-    a.tiempoTotal += segPicking + segPacking;
+    a.tiempoTotal += segPacking;
   });
 
   return Object.values(porAuditor)
@@ -293,6 +410,7 @@ async function cargarRutas() {
   RUTAS = data || [];
   renderFilas();
   actualizarResumen();
+  actualizarResumenOperacion();
   renderRankingHoy();
 }
 
