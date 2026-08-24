@@ -669,7 +669,7 @@
       <div class="sidebar-item sidebar-sub hidden" data-modulo="recepcion-rutas" style="padding-left:38px;font-size:11.5px;">Rutas del día</div>
       <div class="sidebar-item sidebar-sub hidden" data-modulo="recepcion-ranking" style="padding-left:38px;font-size:11.5px;">Ranking de auditores</div>
       <div class="sidebar-item locked" data-modulo="reportes"><i class="ti ti-file-analytics"></i>Reportes<span class="sidebar-badge">pronto</span></div>
-      <div class="sidebar-item locked" data-modulo="admin"><i class="ti ti-settings"></i>Administración<span class="sidebar-badge">pronto</span></div>
+      <div class="sidebar-item" data-modulo="admin"><i class="ti ti-settings"></i>Administración</div>
     </div>
 
     <div class="main-content">
@@ -732,6 +732,43 @@
         <div id="view-recepcion-ranking" class="hidden">
           <div class="section-label">Ranking de auditores (menor Takt Time)</div>
           <div id="ranking-auditores"></div>
+        </div>
+
+        <div id="view-admin" class="hidden">
+          <div id="admin-sin-acceso" class="hidden empty-state">No tienes permiso para administrar usuarios. Solo Admin y Director Nacional pueden entrar aquí.</div>
+          <div id="admin-contenido">
+            <div class="section-label">Crear usuario nuevo</div>
+            <div class="indicator-card" style="margin-bottom:20px;">
+              <div class="indicator-fields">
+                <div class="indicator-field"><label>Usuario (para iniciar sesión)</label><input type="text" id="nuevo-usuario-login" placeholder="ej. Juan.Perez"></div>
+                <div class="indicator-field"><label>Nombre completo</label><input type="text" id="nuevo-usuario-nombre" placeholder="Nombre completo"></div>
+                <div class="indicator-field"><label>Contraseña temporal</label><input type="text" id="nuevo-usuario-password" placeholder="Mínimo 6 caracteres"></div>
+              </div>
+              <div class="indicator-fields" style="border-top:none;padding-top:0;margin-top:8px;">
+                <div class="indicator-field">
+                  <label>Cargo</label>
+                  <select id="nuevo-usuario-cargo">
+                    <option value="">Sin cargo</option>
+                  </select>
+                </div>
+                <div class="indicator-field">
+                  <label>Rol</label>
+                  <select id="nuevo-usuario-rol"></select>
+                </div>
+                <div class="indicator-field">
+                  <label>CEDI</label>
+                  <select id="nuevo-usuario-cedi">
+                    <option value="">Sin CEDI</option>
+                  </select>
+                </div>
+                <button class="btn" id="btn-crear-usuario">Crear usuario</button>
+              </div>
+              <div id="crear-usuario-status" style="font-size:12px;color:var(--text-secondary);margin-top:8px;"></div>
+            </div>
+
+            <div class="section-label">Usuarios</div>
+            <div id="admin-usuarios-lista"></div>
+          </div>
         </div>
       </div>
     </div>
@@ -865,6 +902,7 @@ function cambiarModulo(modulo) {
   document.getElementById('view-recepcion-importar').classList.toggle('hidden', modulo !== 'recepcion-importar' || bloqueado);
   document.getElementById('view-recepcion-rutas').classList.toggle('hidden', modulo !== 'recepcion-rutas' || bloqueado);
   document.getElementById('view-recepcion-ranking').classList.toggle('hidden', modulo !== 'recepcion-ranking' || bloqueado);
+  document.getElementById('view-admin').classList.toggle('hidden', modulo !== 'admin' || bloqueado);
   document.getElementById('view-locked').classList.toggle('hidden', !bloqueado);
 
   if (bloqueado) {
@@ -879,6 +917,7 @@ function cambiarModulo(modulo) {
     cargarListaRutas();
   }
   if (modulo === 'recepcion-ranking') cargarRankingAuditores();
+  if (modulo === 'admin') cargarModuloAdmin();
 }
 
 // Orden lógico según el proceso físico de la bodega (no alfabético).
@@ -1391,7 +1430,8 @@ function renderListaRutas(rutas) {
       <div class="indicator-fields">
         <div class="indicator-field"><label>Muelle</label><input type="text" class="ruta-muelle" value="${tEsc(r.muelle || '')}" placeholder="Muelle"></div>
         <div class="indicator-field"><label>Auditor</label><select class="ruta-auditor">${opcionesAuditores(r.cedi, r.auditor)}</select></div>
-        <div class="indicator-field"><label>Pendientes</label><input type="text" class="ruta-pendientes" inputmode="numeric" value="${r.pendientes}" style="width:80px"></div>
+        <div class="indicator-field"><label>Pendientes Picking</label><input type="text" class="ruta-pendientes-picking" inputmode="numeric" value="${r.pendientes_picking}" style="width:80px"></div>
+        <div class="indicator-field"><label>Pendientes Packing</label><input type="text" class="ruta-pendientes" inputmode="numeric" value="${r.pendientes}" style="width:80px"></div>
         <button class="btn" data-guardar-ruta="${r.id}">Guardar</button>
       </div>
       <div class="indicator-fields" style="border-top:none;padding-top:0;margin-top:8px;">
@@ -1448,8 +1488,9 @@ async function guardarCamposRuta(rutaId) {
   const muelle = card.querySelector('.ruta-muelle').value.trim();
   const auditor = card.querySelector('.ruta-auditor').value.trim();
   const pendientes = Number(card.querySelector('.ruta-pendientes').value.trim() || 0);
+  const pendientesPicking = Number(card.querySelector('.ruta-pendientes-picking').value.trim() || 0);
 
-  const { error } = await sb.from('rutas_activas').update({ muelle, auditor, pendientes }).eq('id', rutaId);
+  const { error } = await sb.from('rutas_activas').update({ muelle, auditor, pendientes, pendientes_picking: pendientesPicking }).eq('id', rutaId);
   if (error) { mostrarToast('No se pudo guardar: ' + error.message); return; }
   mostrarToast('Ruta actualizada.');
   cargarListaRutas();
@@ -1502,6 +1543,168 @@ async function cargarRankingAuditores() {
 document.getElementById('btn-abrir-tablero').addEventListener('click', () => {
   window.open('/rutas/tablero-rutas.html?cedi=' + encodeURIComponent(SESION.cedi), '_blank');
 });
+
+// ============================================================
+// MÓDULO DE ADMINISTRACIÓN — gestionar usuarios y permisos
+// ============================================================
+const ROLES_VALIDOS = [
+  { id: 'usuario', label: 'Usuario' },
+  { id: 'coordinador_operaciones', label: 'Coordinador de Operaciones' },
+  { id: 'director_logistico', label: 'Director Logístico' },
+  { id: 'supply_chain', label: 'Supply Chain' },
+  { id: 'director_nacional', label: 'Director Nacional' },
+  { id: 'admin', label: 'Administrador' },
+];
+const CARGOS_VALIDOS = ['Coordinador de Inventario','Coordinador de Operaciones','Supervisor','Director Logístico','Supply Chain','Director Nacional de Inventarios'];
+const CEDIS_VALIDOS = ['BAQ','BGA','BOG','COP','CTG','PER'];
+
+async function cargarModuloAdmin() {
+  const esAdmin = SESION.rol === 'admin' || SESION.rol === 'director_nacional';
+  document.getElementById('admin-sin-acceso').classList.toggle('hidden', esAdmin);
+  document.getElementById('admin-contenido').classList.toggle('hidden', !esAdmin);
+  if (!esAdmin) return;
+
+  llenarSelectoresNuevoUsuario();
+
+  const { data, error } = await sb.from('perfiles').select('*').order('nombre');
+  if (error) { mostrarToast('No se pudieron cargar los usuarios.'); return; }
+  renderUsuariosAdmin(data || []);
+}
+
+function llenarSelectoresNuevoUsuario() {
+  const selCargo = document.getElementById('nuevo-usuario-cargo');
+  if (selCargo.options.length <= 1) {
+    CARGOS_VALIDOS.forEach(c => selCargo.insertAdjacentHTML('beforeend', `<option value="${c}">${c}</option>`));
+  }
+  const selRol = document.getElementById('nuevo-usuario-rol');
+  if (!selRol.options.length) {
+    ROLES_VALIDOS.forEach(r => selRol.insertAdjacentHTML('beforeend', `<option value="${r.id}">${r.label}</option>`));
+  }
+  const selCedi = document.getElementById('nuevo-usuario-cedi');
+  if (selCedi.options.length <= 1) {
+    CEDIS_VALIDOS.forEach(c => selCedi.insertAdjacentHTML('beforeend', `<option value="${c}">${c}</option>`));
+  }
+}
+
+document.getElementById('btn-crear-usuario').addEventListener('click', crearUsuarioNuevo);
+
+async function crearUsuarioNuevo() {
+  const usuario = document.getElementById('nuevo-usuario-login').value.trim();
+  const nombre = document.getElementById('nuevo-usuario-nombre').value.trim();
+  const password = document.getElementById('nuevo-usuario-password').value;
+  const cargo = document.getElementById('nuevo-usuario-cargo').value || null;
+  const rol = document.getElementById('nuevo-usuario-rol').value;
+  const cedi = document.getElementById('nuevo-usuario-cedi').value || null;
+  const estado = document.getElementById('crear-usuario-status');
+
+  if (!usuario || !nombre || !password) {
+    estado.textContent = 'Completa usuario, nombre y contraseña.';
+    return;
+  }
+  if (password.length < 6) {
+    estado.textContent = 'La contraseña debe tener al menos 6 caracteres.';
+    return;
+  }
+
+  estado.textContent = 'Creando usuario...';
+
+  const { data, error } = await sb.functions.invoke('rapid-task', {
+    body: { usuario, nombre, cargo, rol, cedi, password },
+  });
+
+  if (error || (data && data.error)) {
+    estado.textContent = 'Error: ' + (data?.error || error.message);
+    return;
+  }
+
+  estado.textContent = `Usuario "${usuario}" creado correctamente. Avísale su contraseña temporal por fuera de la app.`;
+  document.getElementById('nuevo-usuario-login').value = '';
+  document.getElementById('nuevo-usuario-nombre').value = '';
+  document.getElementById('nuevo-usuario-password').value = '';
+  cargarModuloAdmin();
+}
+
+function renderUsuariosAdmin(usuarios) {
+  const cont = document.getElementById('admin-usuarios-lista');
+  if (!usuarios.length) { cont.innerHTML = '<div class="empty-state">No hay usuarios.</div>'; return; }
+
+  cont.innerHTML = usuarios.map(u => `
+    <div class="indicator-card" data-perfil="${u.id}">
+      <div class="indicator-top">
+        <div>
+          <div class="indicator-name">${tEsc(u.nombre || u.usuario)}</div>
+          <div class="indicator-meta">Usuario: ${tEsc(u.usuario || '—')}</div>
+        </div>
+        <span class="badge ${u.activo ? 'good' : 'crit'}"><span class="dot"></span>${u.activo ? 'ACTIVO' : 'INACTIVO'}</span>
+      </div>
+      <div class="indicator-fields">
+        <div class="indicator-field">
+          <label>Cargo</label>
+          <select class="admin-cargo">
+            <option value="">Sin cargo</option>
+            ${CARGOS_VALIDOS.map(c => `<option value="${c}" ${u.cargo === c ? 'selected' : ''}>${c}</option>`).join('')}
+          </select>
+        </div>
+        <div class="indicator-field">
+          <label>Rol</label>
+          <select class="admin-rol">
+            ${ROLES_VALIDOS.map(r => `<option value="${r.id}" ${u.rol === r.id ? 'selected' : ''}>${r.label}</option>`).join('')}
+          </select>
+        </div>
+        <div class="indicator-field">
+          <label>CEDI</label>
+          <select class="admin-cedi">
+            <option value="">Sin CEDI</option>
+            ${CEDIS_VALIDOS.map(c => `<option value="${c}" ${u.cedi === c ? 'selected' : ''}>${c}</option>`).join('')}
+          </select>
+        </div>
+        <div class="indicator-field">
+          <label>Activo</label>
+          <select class="admin-activo">
+            <option value="true" ${u.activo ? 'selected' : ''}>Sí</option>
+            <option value="false" ${!u.activo ? 'selected' : ''}>No</option>
+          </select>
+        </div>
+        <button class="btn" data-guardar-perfil="${u.id}">Guardar</button>
+      </div>
+      <div class="indicator-fields" style="border-top:none;padding-top:0;margin-top:8px;">
+        <label style="font-size:11px;color:var(--text-secondary);display:flex;align-items:center;gap:6px;">
+          <input type="checkbox" class="admin-puede-editar" ${u.puede_editar_registros ? 'checked' : ''}> Puede editar registros
+        </label>
+        <label style="font-size:11px;color:var(--text-secondary);display:flex;align-items:center;gap:6px;">
+          <input type="checkbox" class="admin-puede-eliminar" ${u.puede_eliminar_registros ? 'checked' : ''}> Puede eliminar registros
+        </label>
+      </div>
+    </div>
+  `).join('');
+
+  cont.querySelectorAll('[data-guardar-perfil]').forEach(btn => {
+    btn.addEventListener('click', () => guardarPerfilAdmin(btn.dataset.guardarPerfil));
+  });
+}
+
+async function guardarPerfilAdmin(perfilId) {
+  const card = document.querySelector(`[data-perfil="${perfilId}"]`);
+  const cargo = card.querySelector('.admin-cargo').value || null;
+  const rol = card.querySelector('.admin-rol').value;
+  const cedi = card.querySelector('.admin-cedi').value || null;
+  const activo = card.querySelector('.admin-activo').value === 'true';
+  const puede_editar_registros = card.querySelector('.admin-puede-editar').checked;
+  const puede_eliminar_registros = card.querySelector('.admin-puede-eliminar').checked;
+
+  if (perfilId === SESION.id && !activo) {
+    mostrarToast('No puedes desactivar tu propio usuario.');
+    return;
+  }
+
+  const { error } = await sb.from('perfiles')
+    .update({ cargo, rol, cedi, activo, puede_editar_registros, puede_eliminar_registros })
+    .eq('id', perfilId);
+
+  if (error) { mostrarToast('No se pudo guardar: ' + error.message); return; }
+  mostrarToast('Usuario actualizado.');
+  cargarModuloAdmin();
+}
 
 </script>
 </body>
