@@ -614,7 +614,7 @@
   .indicator-fields { display:flex; gap:8px; align-items:flex-end; margin-top:12px; padding-top:12px; border-top:1px dashed var(--line); flex-wrap:wrap; }
   .indicator-field { display:flex; flex-direction:column; gap:3px; }
   .indicator-field label { font-size:9px; color:var(--text-muted); text-transform:uppercase; letter-spacing:.2px; }
-  .indicator-field input { font-size:12px; padding:6px 9px; border-radius:6px; height:32px; box-sizing:border-box; }
+  .indicator-field input { font-size:12px; padding:6px 9px; border-radius:6px; height:32px !important; min-height:32px !important; max-height:32px !important; line-height:20px; box-sizing:border-box; resize:none; vertical-align:middle; }
   .indicator-fields .fecha-field { width:135px; }
   .indicator-fields .valor-field { flex:1 1 150px; min-width:150px; }
   .indicator-fields button.btn { height:32px; padding:0 16px; font-size:12px; align-self:flex-end; }
@@ -623,6 +623,7 @@
     .indicator-fields { flex-direction:column; align-items:stretch; }
     .indicator-fields .fecha-field, .indicator-fields .valor-field { width:100%; }
   }
+
 </style>
 </head>
 <body>
@@ -707,7 +708,7 @@
           <div class="indicator-card" style="margin-bottom:20px;">
             <div class="indicator-fields">
               <div class="indicator-field"><label>Fecha en que SALEN a reparto</label><input type="date" id="rutas-fecha-import" value=""></div>
-              <div class="indicator-field"><label>Archivo (.xlsx)</label><input type="file" id="rutas-archivo" accept=".xlsx"></div>
+              <div class="indicator-field"><label>Archivo (.xlsx, .xls, .csv)</label><input type="file" id="rutas-archivo" accept=".xlsx,.xls,.csv"></div>
               <button class="btn" id="btn-importar-cargue">Importar</button>
               <button class="btn ghost" id="btn-abrir-tablero"><i class="ti ti-external-link"></i> Abrir tablero de bodega</button>
             </div>
