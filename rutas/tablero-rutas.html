@@ -311,9 +311,31 @@ function calcularProyeccionYTakt(rutas, rutasFinalizadasCount) {
   } else if (taktPromedio == null) {
     proyeccionTexto = rutas.length ? 'Necesita más datos' : '—';
   } else {
-    const lineasFaltantes = rutas.filter(r => !(r.estado_picking === 'finalizado' && r.estado_packing === 'finalizado'))
-      .reduce((s, r) => s + (r.lineas || 0), 0);
-    proyeccionTexto = formatoHora(new Date(Date.now() + lineasFaltantes * taktPromedio * 1000));
+    // Para una ruta con Packing ya "Iniciado" (no Pendiente), no se cuentan
+    // sus líneas completas -- se descuenta lo que ya lleva de avance
+    // (segundos transcurridos ÷ Takt Time = líneas ya empacadas estimadas).
+    const lineasFaltantes = rutas
+      .filter(r => !(r.estado_picking === 'finalizado' && r.estado_packing === 'finalizado'))
+      .reduce((s, r) => {
+        if (r.estado_packing === 'iniciado' && r.packing_iniciado_en) {
+          const segTranscurridos = segundosTranscurridos(r.packing_iniciado_en, r.packing_pausado_desde, r.packing_segundos_pausados, null) || 0;
+          const lineasYaHechas = taktPromedio > 0 ? segTranscurridos / taktPromedio : 0;
+          return s + Math.max(0, (r.lineas || 0) - lineasYaHechas);
+        }
+        return s + (r.lineas || 0);
+      }, 0);
+    // Trabajo en paralelo: varios auditores distintos empacan rutas al
+    // mismo tiempo, no uno detrás de otro. Se divide el tiempo total entre
+    // la cantidad de auditores que tienen una ruta "Iniciada" AHORA MISMO
+    // (Picking o Packing en curso) -- no todos los que trabajaron ese CEDI
+    // en el día, para no contar gente que ya terminó o de otro turno.
+    const auditoresActivosAhora = new Set(
+      rutas
+        .filter(r => r.estado_picking === 'iniciado' || r.estado_packing === 'iniciado')
+        .map(r => r.auditor)
+        .filter(Boolean)
+    ).size || 1;
+    proyeccionTexto = formatoHora(new Date(Date.now() + (lineasFaltantes * taktPromedio / auditoresActivosAhora) * 1000));
   }
 
   return { proyeccionTexto, taktPromedio };
