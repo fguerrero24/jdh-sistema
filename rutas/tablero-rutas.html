@@ -100,7 +100,7 @@
     <thead>
       <tr>
         <th>CEDI</th><th>Rutas</th><th>Finalizadas</th><th>Fill Rate</th>
-        <th>OTIF Picking</th><th>OTIF Packing</th><th>Total Kilos</th><th>Total Líneas</th><th>Takt Time</th><th>Proyección de fin</th>
+        <th>OTIF Picking</th><th>OTIF Packing</th><th>Total Kilos</th><th>Total Líneas</th><th>Duración</th><th>Takt Time</th><th>Proyección de fin</th>
       </tr>
     </thead>
     <tbody id="comparacion-cedis-filas"></tbody>
@@ -347,18 +347,24 @@ function formatoHora(fechaIso) {
   return new Date(fechaIso).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' });
 }
 
+function calcularDuracionOperacion(listaRutas) {
+  if (!listaRutas.length) return { inicioOperacion: null, finOperacion: null, duracionSeg: null };
+  const iniciosPicking = listaRutas.map(r => r.picking_iniciado_en).filter(Boolean).map(f => new Date(f).getTime());
+  const inicioOperacion = iniciosPicking.length ? new Date(Math.min(...iniciosPicking)) : null;
+
+  const todasFinalizadas = listaRutas.every(r => r.estado_picking === 'finalizado' && r.estado_packing === 'finalizado');
+  const finesPacking = listaRutas.map(r => r.packing_finalizado_en).filter(Boolean).map(f => new Date(f).getTime());
+  const finOperacion = (todasFinalizadas && finesPacking.length) ? new Date(Math.max(...finesPacking)) : null;
+
+  const duracionSeg = inicioOperacion ? Math.floor(((finOperacion ? finOperacion.getTime() : Date.now()) - inicioOperacion.getTime()) / 1000) : null;
+  return { inicioOperacion, finOperacion, duracionSeg };
+}
+
 function actualizarResumenOperacion() {
   const cont = document.getElementById('op-resumen');
   if (!RUTAS.length) { cont.innerHTML = ''; return; }
 
-  const iniciosPicking = RUTAS.map(r => r.picking_iniciado_en).filter(Boolean).map(f => new Date(f).getTime());
-  const inicioOperacion = iniciosPicking.length ? new Date(Math.min(...iniciosPicking)) : null;
-
-  const todasFinalizadas = RUTAS.every(r => r.estado_picking === 'finalizado' && r.estado_packing === 'finalizado');
-  const finesPacking = RUTAS.map(r => r.packing_finalizado_en).filter(Boolean).map(f => new Date(f).getTime());
-  const finOperacion = (todasFinalizadas && finesPacking.length) ? new Date(Math.max(...finesPacking)) : null;
-
-  const duracionSeg = inicioOperacion ? Math.floor(((finOperacion ? finOperacion.getTime() : Date.now()) - inicioOperacion.getTime()) / 1000) : null;
+  const { inicioOperacion, finOperacion, duracionSeg } = calcularDuracionOperacion(RUTAS);
 
   const totalKilos = RUTAS.reduce((s, r) => s + (Number(r.peso) || 0), 0);
   const totalLineas = RUTAS.reduce((s, r) => s + (r.lineas || 0), 0);
@@ -504,7 +510,13 @@ function tickTimers() {
     }
   });
 }
-setInterval(() => { tickTimers(); renderRankingHoy(); actualizarResumenOperacion(); }, 1000);
+setInterval(() => {
+  if (document.getElementById('selector-cedi').value === '__todos__') {
+    actualizarDuracionesEnVivo();
+  } else {
+    tickTimers(); renderRankingHoy(); actualizarResumenOperacion();
+  }
+}, 1000);
 
 function calcularRankingHoy(listaRutas = RUTAS) {
   const porAuditor = {};
@@ -578,11 +590,42 @@ async function cargarRutas() {
 // ---------- COMPARACIÓN ENTRE TODOS LOS CEDIS ----------
 const CEDIS_LISTA = ['BAQ', 'BGA', 'BOG', 'COP', 'CTG', 'PER'];
 
+let TODAS_RUTAS_CACHE = [];
+
+function actualizarDuracionesEnVivo() {
+  CEDIS_LISTA.forEach(cedi => {
+    const celda = document.querySelector(`[data-duracion-cedi="${cedi}"]`);
+    if (!celda) return;
+    const rutasCedi = TODAS_RUTAS_CACHE.filter(r => r.cedi === cedi);
+    const { duracionSeg } = calcularDuracionOperacion(rutasCedi);
+    if (duracionSeg != null) {
+      celda.textContent = formatoTiempo(duracionSeg);
+      celda.style.color = '';
+    } else {
+      celda.textContent = 'Sin iniciar';
+      celda.style.color = '#f05b5b';
+    }
+  });
+
+  const elGlobal = document.getElementById('duracion-global');
+  if (elGlobal) {
+    const { duracionSeg } = calcularDuracionOperacion(TODAS_RUTAS_CACHE);
+    if (duracionSeg != null) {
+      elGlobal.textContent = formatoTiempo(duracionSeg);
+      elGlobal.style.color = '';
+    } else {
+      elGlobal.textContent = 'Sin iniciar';
+      elGlobal.style.color = '#f05b5b';
+    }
+  }
+}
+
 async function cargarComparacionTodosCedis() {
   const fecha = document.getElementById('selector-fecha').value || new Date().toISOString().slice(0, 10);
   const { data, error } = await sb.from('rutas_activas').select('*').eq('fecha', fecha);
   if (error) { console.error(error); return; }
   const todas = data || [];
+  TODAS_RUTAS_CACHE = todas;
 
   let totalRutas = 0, totalFinalizadas = 0, totalKilosGlobal = 0, totalLineasGlobal = 0;
   const filas = CEDIS_LISTA.map(cedi => {
@@ -615,7 +658,7 @@ async function cargarComparacionTodosCedis() {
     totalKilosGlobal += totalKilos;
     totalLineasGlobal += totalLineas;
 
-    return `<tr>
+    return `<tr data-cedi-fila="${cedi}">
       <td style="font-weight:700;">${cedi}</td>
       <td>${rutasCedi.length}</td>
       <td>${finalizadas.length}/${rutasCedi.length}</td>
@@ -624,6 +667,7 @@ async function cargarComparacionTodosCedis() {
       <td style="color:${otifPacking != null && otifPacking < 90 ? '#fbbf5c' : '#4ade9e'}">${otifPacking != null ? otifPacking.toFixed(1) + '%' : '—'}</td>
       <td>${totalKilos.toLocaleString('es-CO', { maximumFractionDigits: 0 })} kg</td>
       <td>${totalLineas}</td>
+      <td data-duracion-cedi="${cedi}">—</td>
       <td>${taktPromedio != null ? taktPromedio.toFixed(1) + 's' : '—'}</td>
       <td>${proyeccionTexto}</td>
     </tr>`;
@@ -637,7 +681,10 @@ async function cargarComparacionTodosCedis() {
     <div class="op-card"><div class="op-label">Rutas finalizadas</div><div class="op-valor">${totalFinalizadas}/${totalRutas}</div></div>
     <div class="op-card"><div class="op-label">Total kilos (todos los CEDIs)</div><div class="op-valor">${totalKilosGlobal.toLocaleString('es-CO', { maximumFractionDigits: 0 })} kg</div></div>
     <div class="op-card"><div class="op-label">Total líneas (todos los CEDIs)</div><div class="op-valor">${totalLineasGlobal}</div></div>
+    <div class="op-card"><div class="op-label">Duración total (global)</div><div class="op-valor" id="duracion-global">—</div></div>
   `;
+
+  actualizarDuracionesEnVivo();
 
   // Donas globales de Picking/Packing (sumando TODAS las rutas de TODOS los CEDIs)
   const conteoPickingGlobal = { pendiente: 0, iniciado: 0, pausado: 0, finalizado: 0 };
