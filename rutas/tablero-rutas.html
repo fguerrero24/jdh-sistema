@@ -100,7 +100,7 @@
     <thead>
       <tr>
         <th>CEDI</th><th>Rutas</th><th>Finalizadas</th><th>Fill Rate</th>
-        <th>OTIF Picking</th><th>OTIF Packing</th><th>Total Kilos</th><th>Total Líneas</th><th>Duración</th><th>Takt Time</th><th>Proyección de fin</th>
+        <th>OTIF Picking</th><th>Picking tarde (&gt;4am)</th><th>OTIF Packing</th><th>Packing tarde (&gt;6am)</th><th>Total Kilos</th><th>Total Líneas</th><th>Duración</th><th>Takt Time</th><th>Proyección de fin</th>
       </tr>
     </thead>
     <tbody id="comparacion-cedis-filas"></tbody>
@@ -411,12 +411,14 @@ function actualizarResumenOperacion() {
   const otifPicking = conPicking.length ? conPicking.filter(r =>
     antesDelLimite(r.picking_iniciado_en, r.picking_finalizado_en, 4) && r.pendientes_picking === 0
   ).length / conPicking.length * 100 : null;
+  const pickingTarde = conPicking.filter(r => !antesDelLimite(r.picking_iniciado_en, r.picking_finalizado_en, 4)).length;
 
   // OTIF Packing: ruta 100% completa (Pendientes Packing) Y Packing finalizado antes de las 6:00 am
   const conPacking = RUTAS.filter(r => r.packing_finalizado_en);
   const otifPacking = conPacking.length ? conPacking.filter(r =>
     antesDelLimite(r.packing_iniciado_en, r.packing_finalizado_en, 6) && r.pendientes === 0
   ).length / conPacking.length * 100 : null;
+  const packingTarde = conPacking.filter(r => !antesDelLimite(r.packing_iniciado_en, r.packing_finalizado_en, 6)).length;
 
   const rutasFinalizadas = RUTAS.filter(r => r.estado_picking === 'finalizado' && r.estado_packing === 'finalizado').length;
 
@@ -451,7 +453,9 @@ function actualizarResumenOperacion() {
     tarjeta('Rutas finalizadas', `${rutasFinalizadas}/${RUTAS.length}`),
     tarjeta('Fill Rate', fillRate != null ? fillRate.toFixed(1) + '%' : '—', fillRate != null && fillRate < 95 ? 'bad' : 'ok'),
     tarjeta('OTIF Picking (< 4am)', otifPicking != null ? otifPicking.toFixed(1) + '%' : '—', otifPicking != null && otifPicking < 90 ? 'bad' : 'ok'),
+    tarjeta('Picking tarde (>4am)', pickingTarde, pickingTarde > 0 ? 'bad' : 'ok'),
     tarjeta('OTIF Packing (< 6am)', otifPacking != null ? otifPacking.toFixed(1) + '%' : '—', otifPacking != null && otifPacking < 90 ? 'bad' : 'ok'),
+    tarjeta('Packing tarde (>6am)', packingTarde, packingTarde > 0 ? 'bad' : 'ok'),
     tarjeta('Ruta más rápida', rutaRapida ? `${rutaRapida.ruta} · ${rutaRapida.takt.toFixed(1)}s` : '—', 'ok'),
     tarjeta('Ruta más lenta', rutaLenta ? `${rutaLenta.ruta} · ${rutaLenta.takt.toFixed(1)}s` : '—', 'bad'),
     tarjeta('Auditor más lento', auditorLento ? `${auditorLento.auditor} · ${auditorLento.taktTime != null ? auditorLento.taktTime.toFixed(1) + 's' : '—'}` : '—', 'bad'),
@@ -653,7 +657,7 @@ async function cargarComparacionTodosCedis() {
   const todas = data || [];
   TODAS_RUTAS_CACHE = todas;
 
-  let totalRutas = 0, totalFinalizadas = 0, totalKilosGlobal = 0, totalLineasGlobal = 0;
+  let totalRutas = 0, totalFinalizadas = 0, totalKilosGlobal = 0, totalLineasGlobal = 0, pickingTardeGlobal = 0, packingTardeGlobal = 0;
   const filas = CEDIS_LISTA.map(cedi => {
     const rutasCedi = todas.filter(r => r.cedi === cedi);
     const finalizadas = rutasCedi.filter(r => r.estado_picking === 'finalizado' && r.estado_packing === 'finalizado');
@@ -671,11 +675,13 @@ async function cargarComparacionTodosCedis() {
     const otifPicking = conPicking.length ? conPicking.filter(r =>
       antesDelLimite(r.picking_iniciado_en, r.picking_finalizado_en, 4) && r.pendientes_picking === 0
     ).length / conPicking.length * 100 : null;
+    const pickingTarde = conPicking.filter(r => !antesDelLimite(r.picking_iniciado_en, r.picking_finalizado_en, 4)).length;
 
     const conPacking = rutasCedi.filter(r => r.packing_finalizado_en);
     const otifPacking = conPacking.length ? conPacking.filter(r =>
       antesDelLimite(r.packing_iniciado_en, r.packing_finalizado_en, 6) && r.pendientes === 0
     ).length / conPacking.length * 100 : null;
+    const packingTarde = conPacking.filter(r => !antesDelLimite(r.packing_iniciado_en, r.packing_finalizado_en, 6)).length;
 
     const { proyeccionTexto, taktPromedio } = calcularProyeccionYTakt(rutasCedi, finalizadas.length);
 
@@ -683,6 +689,8 @@ async function cargarComparacionTodosCedis() {
     totalFinalizadas += finalizadas.length;
     totalKilosGlobal += totalKilos;
     totalLineasGlobal += totalLineas;
+    pickingTardeGlobal += pickingTarde;
+    packingTardeGlobal += packingTarde;
 
     return `<tr data-cedi-fila="${cedi}">
       <td style="font-weight:700;">${cedi}</td>
@@ -690,7 +698,9 @@ async function cargarComparacionTodosCedis() {
       <td>${finalizadas.length}/${rutasCedi.length}</td>
       <td style="color:${fillRate != null && fillRate < 95 ? '#fbbf5c' : '#4ade9e'}">${fillRate != null ? fillRate.toFixed(1) + '%' : '—'}</td>
       <td style="color:${otifPicking != null && otifPicking < 90 ? '#fbbf5c' : '#4ade9e'}">${otifPicking != null ? otifPicking.toFixed(1) + '%' : '—'}</td>
+      <td style="color:${pickingTarde > 0 ? '#f05b5b' : '#4ade9e'}">${pickingTarde}</td>
       <td style="color:${otifPacking != null && otifPacking < 90 ? '#fbbf5c' : '#4ade9e'}">${otifPacking != null ? otifPacking.toFixed(1) + '%' : '—'}</td>
+      <td style="color:${packingTarde > 0 ? '#f05b5b' : '#4ade9e'}">${packingTarde}</td>
       <td>${totalKilos.toLocaleString('es-CO', { maximumFractionDigits: 0 })} kg</td>
       <td>${totalLineas}</td>
       <td data-duracion-cedi="${cedi}">—</td>
@@ -708,6 +718,8 @@ async function cargarComparacionTodosCedis() {
     <div class="op-card"><div class="op-label">Total kilos (todos los CEDIs)</div><div class="op-valor">${totalKilosGlobal.toLocaleString('es-CO', { maximumFractionDigits: 0 })} kg</div></div>
     <div class="op-card"><div class="op-label">Total líneas (todos los CEDIs)</div><div class="op-valor">${totalLineasGlobal}</div></div>
     <div class="op-card"><div class="op-label">Duración total (global)</div><div class="op-valor" id="duracion-global">—</div></div>
+    <div class="op-card"><div class="op-label">Picking tarde (&gt;4am, global)</div><div class="op-valor ${pickingTardeGlobal > 0 ? 'bad' : 'ok'}">${pickingTardeGlobal}</div></div>
+    <div class="op-card"><div class="op-label">Packing tarde (&gt;6am, global)</div><div class="op-valor ${packingTardeGlobal > 0 ? 'bad' : 'ok'}">${packingTardeGlobal}</div></div>
   `;
 
   actualizarDuracionesEnVivo();
