@@ -2636,11 +2636,26 @@ async function calcularDesdeAsistencia() {
   if (!empleado_id) { estado.textContent = 'Selecciona un empleado.'; return; }
   if (!periodo_inicio || !periodo_fin) { estado.textContent = 'Completa el periodo (inicio y fin).'; return; }
 
+  // Primero verifica que SÍ existan registros de entrada/salida en ese
+  // rango -- la función de cálculo siempre devuelve una fila (con ceros
+  // si no hay nada), así que sin este chequeo no había forma de distinguir
+  // "no hay datos" de "sí hay datos, pero suman cero".
+  const { count } = await sb.from('registros_asistencia')
+    .select('id', { count: 'exact', head: true })
+    .eq('empleado_id', empleado_id)
+    .gte('fecha', periodo_inicio)
+    .lte('fecha', periodo_fin);
+
+  if (!count) {
+    estado.textContent = 'No hay registros de Entrada/Salida para este empleado en este periodo (revisa si ya se archivaron con "Guardar y liquidar", o si de verdad no se han importado).';
+    return;
+  }
+
   const { data, error } = await sb.rpc('calcular_horas_desde_asistencia', { p_empleado_id: empleado_id, p_desde: periodo_inicio, p_hasta: periodo_fin });
   if (error) { estado.textContent = 'Error: ' + error.message; return; }
 
   const h = data && data[0];
-  if (!h) { estado.textContent = 'No hay entradas/salidas registradas para ese empleado en ese periodo.'; return; }
+  if (!h) { estado.textContent = 'No se pudo calcular (respuesta vacía del servidor).'; return; }
 
   document.getElementById('liq-extra-diurna').value = h.horas_extra_diurna;
   document.getElementById('liq-extra-nocturna').value = h.horas_extra_nocturna;
@@ -2650,7 +2665,7 @@ async function calcularDesdeAsistencia() {
   document.getElementById('liq-recargo-dominical').value = h.horas_recargo_dominical;
   document.getElementById('liq-recargo-noctdom').value = h.horas_recargo_nocturno_dominical;
 
-  estado.textContent = 'Horas calculadas desde Entradas/Salidas -- revísalas y dale "Calcular y guardar" para confirmar.';
+  estado.textContent = `Se encontraron ${count} registro(s) de asistencia en ese periodo. Horas calculadas -- revísalas y dale "Calcular y guardar" para confirmar.`;
 }
 
 async function cargarEmpleados() {
