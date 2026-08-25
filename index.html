@@ -672,8 +672,12 @@
       <div class="sidebar-item locked" data-modulo="reportes"><i class="ti ti-file-analytics"></i>Reportes<span class="sidebar-badge">pronto</span></div>
       <div class="sidebar-item" data-modulo-grupo="rrhh" id="grupo-rrhh"><i class="ti ti-users"></i>Recursos Humanos<i class="ti ti-chevron-down" style="margin-left:auto;font-size:13px;"></i></div>
       <div class="sidebar-item sidebar-sub hidden" data-modulo="rrhh-empleados" style="padding-left:38px;font-size:11.5px;">Empleados y Asistencia</div>
+      <div class="sidebar-item sidebar-sub hidden" data-modulo="rrhh-registros" style="padding-left:38px;font-size:11.5px;">Registros</div>
+      <div class="sidebar-item sidebar-sub hidden" data-modulo="rrhh-nomina" style="padding-left:38px;font-size:11.5px;">Liquidador de Nómina</div>
+      <div class="sidebar-item sidebar-sub hidden" data-modulo="rrhh-control-semana" style="padding-left:38px;font-size:11.5px;">Control Semana</div>
       <div class="sidebar-item sidebar-sub hidden" data-modulo="rrhh-liquidador" style="padding-left:38px;font-size:11.5px;">Liquidador individual</div>
       <div class="sidebar-item sidebar-sub hidden" data-modulo="rrhh-cedi" style="padding-left:38px;font-size:11.5px;">Liquidación por CEDI</div>
+      <div class="sidebar-item sidebar-sub hidden" data-modulo="rrhh-compensatorios" style="padding-left:38px;font-size:11.5px;">Compensatorios</div>
       <div class="sidebar-item" data-modulo="admin"><i class="ti ti-settings"></i>Administración</div>
     </div>
 
@@ -691,6 +695,14 @@
           <div class="kpi-grid" id="torre-kpis"></div>
           <div class="section-label">Alertas activas</div>
           <div id="torre-alertas"></div>
+
+          <div id="torre-comparacion-cedis" class="hidden">
+            <div class="section-label" style="margin-top:26px;">Comparación entre CEDIs</div>
+            <div class="kpi-grid" id="torre-resumen-cedis"></div>
+
+            <div class="section-label" style="margin-top:18px;">Mapa de indicadores por CEDI</div>
+            <div id="torre-mapa-calor" style="overflow-x:auto;"></div>
+          </div>
         </div>
 
         <div id="view-indicadores" class="hidden">
@@ -848,6 +860,78 @@
           </div>
         </div>
 
+        <div id="view-rrhh-registros" class="hidden">
+          <div id="rrhh-sin-acceso-5" class="hidden empty-state">No tienes permiso para este módulo. Solo Admin y Director Nacional pueden entrar aquí.</div>
+          <div id="rrhh-contenido-registros">
+            <div class="section-label">Registros de entrada/salida</div>
+
+            <div class="indicator-card" style="margin-bottom:16px;">
+              <div class="indicator-fields">
+                <div class="indicator-field"><label>CEDI</label><select id="reg-filtro-cedi"><option value="">Todos</option></select></div>
+                <div class="indicator-field" style="min-width:180px;"><label>Colaborador</label><input type="text" id="reg-filtro-nombre" placeholder="Buscar por nombre"></div>
+                <div class="indicator-field"><label>Cédula</label><input type="text" id="reg-filtro-cedula" placeholder="Buscar por cédula"></div>
+                <div class="indicator-field"><label>Desde</label><input type="date" id="reg-filtro-desde"></div>
+                <div class="indicator-field"><label>Hasta</label><input type="date" id="reg-filtro-hasta"></div>
+                <button class="btn" id="btn-filtrar-registros">Filtrar</button>
+              </div>
+            </div>
+
+            <div class="indicator-card" style="margin-bottom:16px;">
+              <div class="section-label" style="margin-top:0;">Crear registro nuevo</div>
+              <div class="indicator-fields">
+                <div class="indicator-field"><label>Empleado</label><select id="reg-nuevo-empleado"></select></div>
+                <div class="indicator-field"><label>Fecha</label><input type="date" id="reg-nuevo-fecha"></div>
+                <div class="indicator-field"><label>Hora entrada</label><input type="time" id="reg-nuevo-entrada"></div>
+                <div class="indicator-field"><label>Hora salida</label><input type="time" id="reg-nuevo-salida"></div>
+                <button class="btn" id="btn-crear-registro">Crear</button>
+              </div>
+              <div id="reg-nuevo-status" style="font-size:12px;color:var(--text-secondary);margin-top:8px;"></div>
+            </div>
+
+            <div id="reg-lista"></div>
+          </div>
+        </div>
+
+        <div id="view-rrhh-nomina" class="hidden">
+          <div id="rrhh-sin-acceso-6" class="hidden empty-state">No tienes permiso para este módulo. Solo Admin y Director Nacional pueden entrar aquí.</div>
+          <div id="rrhh-contenido-nomina">
+            <div class="section-label">Liquidador de Nómina</div>
+            <div class="indicator-card" style="margin-bottom:16px;">
+              <div class="indicator-fields">
+                <div class="indicator-field"><label>CEDI</label><select id="nomina-cedi"></select></div>
+                <div class="indicator-field"><label>Desde</label><input type="date" id="nomina-desde"></div>
+                <div class="indicator-field"><label>Hasta</label><input type="date" id="nomina-hasta"></div>
+                <button class="btn" id="btn-liquidar-nomina">Liquidar</button>
+                <button class="btn ghost" id="btn-exportar-nomina">Exportar a Excel</button>
+              </div>
+              <div id="nomina-status" style="font-size:12px;color:var(--text-secondary);margin-top:8px;"></div>
+            </div>
+            <div id="nomina-tabla" style="overflow-x:auto;"></div>
+          </div>
+        </div>
+
+        <div id="view-rrhh-control-semana" class="hidden">
+          <div id="rrhh-sin-acceso-7" class="hidden empty-state">No tienes permiso para este módulo. Solo Admin y Director Nacional pueden entrar aquí.</div>
+          <div id="rrhh-contenido-control-semana">
+            <div class="section-label">Control Semana (límite 42h)</div>
+            <div class="indicator-card" style="margin-bottom:16px;">
+              <div class="indicator-fields">
+                <div class="indicator-field"><label>CEDI</label><select id="csem-cedi"></select></div>
+                <div class="indicator-field"><label>Desde</label><input type="date" id="csem-desde"></div>
+                <div class="indicator-field"><label>Hasta</label><input type="date" id="csem-hasta"></div>
+                <button class="btn" id="btn-consultar-control-semana">Consultar</button>
+              </div>
+              <div class="indicator-fields">
+                <div class="indicator-field" style="min-width:180px;"><label>Filtrar operario</label><input type="text" id="csem-filtro-nombre" placeholder="Nombre o cédula"></div>
+                <div class="indicator-field"><label>Solo con exceso</label><select id="csem-solo-exceso"><option value="false">No</option><option value="true">Sí</option></select></div>
+              </div>
+              <div id="csem-status" style="font-size:12px;color:var(--text-secondary);margin-top:8px;"></div>
+            </div>
+            <div class="kpi-grid" id="csem-kpis"></div>
+            <div id="csem-tabla" style="margin-top:14px;"></div>
+          </div>
+        </div>
+
         <div id="view-rrhh-liquidador" class="hidden">
           <div id="rrhh-sin-acceso-2" class="hidden empty-state">No tienes permiso para este módulo. Solo Admin y Director Nacional pueden entrar aquí.</div>
           <div id="rrhh-contenido-liquidador">
@@ -906,6 +990,43 @@
 
             <div class="section-label" style="margin-top:20px;">Registros consolidados del CEDI</div>
             <div id="cedi-liq-consolidado"></div>
+          </div>
+        </div>
+
+        <div id="view-rrhh-compensatorios" class="hidden">
+          <div id="rrhh-sin-acceso-4" class="hidden empty-state">No tienes permiso para este módulo. Solo Admin y Director Nacional pueden entrar aquí.</div>
+          <div id="rrhh-contenido-compensatorios">
+            <div class="section-label">Saldo de horas extra disponibles</div>
+            <div class="indicator-field" style="max-width:200px;margin-bottom:14px;">
+              <label>CEDI</label>
+              <select id="comp-cedi-saldo"></select>
+            </div>
+            <div id="comp-saldo-lista"></div>
+
+            <div class="section-label" style="margin-top:26px;">Otorgar día compensatorio</div>
+            <div class="indicator-card" style="margin-bottom:20px;">
+              <div class="indicator-fields">
+                <div class="indicator-field"><label>Empleado</label><select id="comp-empleado"></select></div>
+                <button class="btn ghost" id="btn-ver-saldo-empleado">Ver su saldo disponible</button>
+              </div>
+              <div id="comp-saldo-empleado-detalle" style="font-size:12px;color:var(--text-secondary);margin:6px 0 10px;"></div>
+              <div class="indicator-fields">
+                <div class="indicator-field"><label>Extra diurna a compensar (h)</label><input type="text" id="comp-diurna" inputmode="decimal" value="0" style="width:90px"></div>
+                <div class="indicator-field"><label>Extra nocturna a compensar (h)</label><input type="text" id="comp-nocturna" inputmode="decimal" value="0" style="width:90px"></div>
+                <div class="indicator-field"><label>Extra dom/fest diurna (h)</label><input type="text" id="comp-domdiu" inputmode="decimal" value="0" style="width:90px"></div>
+                <div class="indicator-field"><label>Extra dom/fest nocturna (h)</label><input type="text" id="comp-domnoc" inputmode="decimal" value="0" style="width:90px"></div>
+              </div>
+              <div class="indicator-fields">
+                <div class="indicator-field"><label>Fecha del compensatorio</label><input type="date" id="comp-fecha"></div>
+                <div class="indicator-field"><label>Observaciones</label><input type="text" id="comp-observaciones" placeholder="Opcional"></div>
+                <button class="btn" id="btn-otorgar-compensatorio">Calcular y otorgar</button>
+              </div>
+              <div id="comp-status" style="font-size:12px;color:var(--text-secondary);margin-top:8px;"></div>
+              <div id="comp-resultado" style="margin-top:10px;"></div>
+            </div>
+
+            <div class="section-label">Historial de compensatorios otorgados</div>
+            <div id="comp-historial"></div>
           </div>
         </div>
       </div>
@@ -1032,7 +1153,11 @@ const NOMBRES_MODULO = {
   reportes: 'Reportes', admin: 'Administración',
   'rrhh-empleados': 'Recursos Humanos · Empleados y Asistencia',
   'rrhh-liquidador': 'Recursos Humanos · Liquidador individual',
-  'rrhh-cedi': 'Recursos Humanos · Liquidación por CEDI'
+  'rrhh-cedi': 'Recursos Humanos · Liquidación por CEDI',
+  'rrhh-registros': 'Recursos Humanos · Registros',
+  'rrhh-nomina': 'Recursos Humanos · Liquidador de Nómina',
+  'rrhh-control-semana': 'Recursos Humanos · Control Semana',
+  'rrhh-compensatorios': 'Recursos Humanos · Compensatorios'
 };
 
 document.querySelectorAll('.sidebar-item[data-modulo]').forEach(el => {
@@ -1060,8 +1185,12 @@ function cambiarModulo(modulo) {
   document.getElementById('view-recepcion-ranking').classList.toggle('hidden', modulo !== 'recepcion-ranking' || bloqueado);
   document.getElementById('view-admin').classList.toggle('hidden', modulo !== 'admin' || bloqueado);
   document.getElementById('view-rrhh-empleados').classList.toggle('hidden', modulo !== 'rrhh-empleados' || bloqueado);
+  document.getElementById('view-rrhh-registros').classList.toggle('hidden', modulo !== 'rrhh-registros' || bloqueado);
+  document.getElementById('view-rrhh-nomina').classList.toggle('hidden', modulo !== 'rrhh-nomina' || bloqueado);
+  document.getElementById('view-rrhh-control-semana').classList.toggle('hidden', modulo !== 'rrhh-control-semana' || bloqueado);
   document.getElementById('view-rrhh-liquidador').classList.toggle('hidden', modulo !== 'rrhh-liquidador' || bloqueado);
   document.getElementById('view-rrhh-cedi').classList.toggle('hidden', modulo !== 'rrhh-cedi' || bloqueado);
+  document.getElementById('view-rrhh-compensatorios').classList.toggle('hidden', modulo !== 'rrhh-compensatorios' || bloqueado);
   document.getElementById('view-locked').classList.toggle('hidden', !bloqueado);
 
   if (bloqueado) {
@@ -1078,8 +1207,12 @@ function cambiarModulo(modulo) {
   if (modulo === 'recepcion-ranking') cargarRankingAuditores();
   if (modulo === 'admin') cargarModuloAdmin();
   if (modulo === 'rrhh-empleados') cargarModuloRrhhEmpleados();
+  if (modulo === 'rrhh-registros') cargarModuloRegistros();
+  if (modulo === 'rrhh-nomina') cargarModuloNomina();
+  if (modulo === 'rrhh-control-semana') cargarModuloControlSemana();
   if (modulo === 'rrhh-liquidador') cargarModuloRrhhLiquidador();
   if (modulo === 'rrhh-cedi') cargarModuloRrhhCedi();
+  if (modulo === 'rrhh-compensatorios') cargarModuloCompensatorios();
 }
 
 // Orden lógico según el proceso físico de la bodega (no alfabético).
@@ -1127,6 +1260,13 @@ async function cargarTorreControl() {
     <div class="kpi-card"><div class="kpi-label">Sin datos</div><div class="kpi-value">${sinDatos}</div></div>
   `;
 
+  if (puedeVerTodosLosCedis()) {
+    document.getElementById('torre-comparacion-cedis').classList.remove('hidden');
+    cargarComparacionCedis(indicadores);
+  } else {
+    document.getElementById('torre-comparacion-cedis').classList.add('hidden');
+  }
+
   const cont = document.getElementById('torre-alertas');
   if (!alertas.length) {
     cont.innerHTML = `<div class="empty-state">No hay indicadores fuera de meta ahora mismo.</div>`;
@@ -1151,6 +1291,64 @@ async function cargarTorreControl() {
   document.querySelectorAll('[data-nota]').forEach(btn => {
     btn.addEventListener('click', () => agregarNota(btn.dataset.nota));
   });
+}
+
+async function cargarComparacionCedis(indicadores) {
+  const CEDIS_A_COMPARAR = CEDIS_VALIDOS;
+
+  // Trae, para cada indicador, el último registro de CADA CEDI en un solo viaje.
+  const { data: registros } = await sb.from('registros_vigentes')
+    .select('indicador_id, cedi, valor, estado, fecha, creado_en')
+    .order('fecha', { ascending: false }).order('creado_en', { ascending: false });
+
+  // Se queda solo con el más reciente por (indicador, cedi).
+  const ultimoPorIndicadorCedi = {};
+  (registros || []).forEach(r => {
+    const key = r.indicador_id + '||' + r.cedi;
+    if (!ultimoPorIndicadorCedi[key]) ultimoPorIndicadorCedi[key] = r;
+  });
+
+  // Resumen por CEDI (cumplimiento %, en meta, fuera de meta)
+  const resumenPorCedi = {};
+  CEDIS_A_COMPARAR.forEach(c => { resumenPorCedi[c] = { cumple: 0, fuera: 0, sinDatos: 0 }; });
+
+  indicadores.forEach(ind => {
+    CEDIS_A_COMPARAR.forEach(cedi => {
+      const r = ultimoPorIndicadorCedi[ind.id + '||' + cedi];
+      if (!r || r.valor == null) { resumenPorCedi[cedi].sinDatos++; return; }
+      if (r.estado === 'Cumple') resumenPorCedi[cedi].cumple++;
+      else if (r.estado === 'Fuera de meta') resumenPorCedi[cedi].fuera++;
+    });
+  });
+
+  document.getElementById('torre-resumen-cedis').innerHTML = CEDIS_A_COMPARAR.map(cedi => {
+    const s = resumenPorCedi[cedi];
+    const pct = (s.cumple + s.fuera) > 0 ? Math.round((s.cumple / (s.cumple + s.fuera)) * 100) : null;
+    return `<div class="kpi-card">
+      <div class="kpi-label">${tEsc(cedi)}</div>
+      <div class="kpi-value ${pct != null && pct < 80 ? 'bad' : 'ok'}">${pct != null ? pct + '%' : '—'}</div>
+      <div style="font-size:10px;color:var(--text-secondary);margin-top:2px;">${s.cumple} en meta · ${s.fuera} fuera · ${s.sinDatos} sin datos</div>
+    </div>`;
+  }).join('');
+
+  // Mapa de calor: filas = indicadores, columnas = CEDIs
+  const filas = indicadores.map(ind => {
+    const celdas = CEDIS_A_COMPARAR.map(cedi => {
+      const r = ultimoPorIndicadorCedi[ind.id + '||' + cedi];
+      if (!r || r.valor == null) return `<td><span class="mapa-celda sindatos">—</span></td>`;
+      const clase = r.estado === 'Cumple' ? 'cumple' : (r.estado === 'Fuera de meta' ? 'fuera' : 'sindatos');
+      const valorTxt = Number(r.valor).toLocaleString('es-CO', { maximumFractionDigits: 1 }) + (ind.unidad === '%' ? '%' : '');
+      return `<td><span class="mapa-celda ${clase}">${valorTxt}</span></td>`;
+    }).join('');
+    return `<tr><td class="nombre-indicador">${tEsc(ind.nombre)}</td>${celdas}</tr>`;
+  }).join('');
+
+  document.getElementById('torre-mapa-calor').innerHTML = `
+    <table class="mapa-calor">
+      <tr><th>Indicador</th>${CEDIS_A_COMPARAR.map(c => `<th>${tEsc(c)}</th>`).join('')}</tr>
+      ${filas}
+    </table>
+  `;
 }
 
 async function cargarNotas(indicadorId) {
@@ -2450,10 +2648,13 @@ async function cargarEmpleados() {
   const { data, error } = await sb.from('empleados').select('*').order('nombre');
   if (error) { mostrarToast('No se pudieron cargar los empleados.'); return; }
   renderEmpleados(data || []);
-  const selLiq = document.getElementById('liq-empleado');
-  selLiq.innerHTML = (data || []).filter(e => e.activo).map(e =>
+  const opciones = (data || []).filter(e => e.activo).map(e =>
     `<option value="${e.id}" data-cedi="${tEsc(e.cedi)}">${tEsc(e.nombre)} (${tEsc(e.cedi)})</option>`
   ).join('') || '<option value="">No hay empleados activos</option>';
+  const selLiq = document.getElementById('liq-empleado');
+  if (selLiq) selLiq.innerHTML = opciones;
+  const selComp = document.getElementById('comp-empleado');
+  if (selComp) selComp.innerHTML = opciones;
 }
 
 function renderEmpleados(empleados) {
@@ -2616,6 +2817,434 @@ async function cargarLiquidaciones() {
       <td>${tEsc(l.periodo_inicio)} a ${tEsc(l.periodo_fin)}</td>
       <td>${fmt$(l.valor_total)}</td>
       <td>${tEsc(l.observaciones || '')}</td>
+    </tr>`).join('')
+  }</table>`;
+}
+
+// ============================================================
+// MÓDULO DE COMPENSATORIOS
+// ============================================================
+async function cargarModuloCompensatorios() {
+  const esAdmin = SESION.rol === 'admin' || SESION.rol === 'director_nacional';
+  document.getElementById('rrhh-sin-acceso-4').classList.toggle('hidden', esAdmin);
+  document.getElementById('rrhh-contenido-compensatorios').classList.toggle('hidden', !esAdmin);
+  if (!esAdmin) return;
+
+  const selCedi = document.getElementById('comp-cedi-saldo');
+  if (!selCedi.options.length) {
+    CEDIS_VALIDOS.forEach(c => selCedi.insertAdjacentHTML('beforeend', `<option value="${c}" ${c === SESION.cedi ? 'selected' : ''}>${c}</option>`));
+    selCedi.addEventListener('change', cargarSaldosCedi);
+  }
+
+  const inputFecha = document.getElementById('comp-fecha');
+  if (!inputFecha.value) inputFecha.value = new Date().toISOString().slice(0, 10);
+
+  await cargarEmpleados();
+  await cargarSaldosCedi();
+  await cargarHistorialCompensatorios();
+}
+
+async function cargarSaldosCedi() {
+  const cedi = document.getElementById('comp-cedi-saldo').value;
+  const { data, error } = await sb.rpc('saldos_horas_extra_cedi', { p_cedi: cedi });
+  const cont = document.getElementById('comp-saldo-lista');
+  if (error) { cont.innerHTML = '<div class="empty-state">No se pudo cargar el saldo.</div>'; return; }
+  if (!data || !data.length) { cont.innerHTML = '<div class="empty-state">Nadie tiene saldo de horas extra pendiente en este CEDI.</div>'; return; }
+
+  cont.innerHTML = `<table class="hist-table open"><tr><th>Empleado</th><th>Extra diurna</th><th>Extra nocturna</th><th>Extra dom/fest diurna</th><th>Extra dom/fest nocturna</th><th>Total horas</th><th>Días disponibles</th></tr>${
+    data.map(s => `<tr>
+      <td>${tEsc(s.nombre)}</td>
+      <td>${Number(s.saldo_extra_diurna).toFixed(1)}</td>
+      <td>${Number(s.saldo_extra_nocturna).toFixed(1)}</td>
+      <td>${Number(s.saldo_extra_dom_fest_diurna).toFixed(1)}</td>
+      <td>${Number(s.saldo_extra_dom_fest_nocturna).toFixed(1)}</td>
+      <td style="font-weight:700;">${Number(s.saldo_total_horas).toFixed(1)}</td>
+      <td>${Number(s.dias_disponibles).toFixed(2)}</td>
+    </tr>`).join('')
+  }</table>`;
+}
+
+document.getElementById('btn-ver-saldo-empleado').addEventListener('click', async () => {
+  const empleadoId = document.getElementById('comp-empleado').value;
+  const detalle = document.getElementById('comp-saldo-empleado-detalle');
+  if (!empleadoId) { detalle.textContent = 'Selecciona un empleado.'; return; }
+
+  const { data, error } = await sb.rpc('saldo_horas_extra_empleado', { p_empleado_id: empleadoId });
+  if (error || !data || !data[0]) { detalle.textContent = 'No se pudo consultar el saldo.'; return; }
+  const s = data[0];
+  detalle.innerHTML = `Saldo disponible: <strong>${Number(s.saldo_extra_diurna).toFixed(1)}h</strong> diurna ·
+    <strong>${Number(s.saldo_extra_nocturna).toFixed(1)}h</strong> nocturna ·
+    <strong>${Number(s.saldo_extra_dom_fest_diurna).toFixed(1)}h</strong> dom/fest diurna ·
+    <strong>${Number(s.saldo_extra_dom_fest_nocturna).toFixed(1)}h</strong> dom/fest nocturna
+    (${Number(s.dias_disponibles).toFixed(2)} días equivalentes)`;
+});
+
+document.getElementById('btn-otorgar-compensatorio').addEventListener('click', otorgarCompensatorio);
+
+async function otorgarCompensatorio() {
+  const estado = document.getElementById('comp-status');
+  const empleado_id = document.getElementById('comp-empleado').value;
+  const fecha_otorgado = document.getElementById('comp-fecha').value;
+  if (!empleado_id) { estado.textContent = 'Selecciona un empleado.'; return; }
+  if (!fecha_otorgado) { estado.textContent = 'Selecciona la fecha del compensatorio.'; return; }
+
+  const num = (id) => Number(document.getElementById(id).value.trim().replace(',', '.')) || 0;
+  const payload = {
+    empleado_id, fecha_otorgado,
+    horas_extra_diurna_compensadas: num('comp-diurna'),
+    horas_extra_nocturna_compensadas: num('comp-nocturna'),
+    horas_extra_dom_fest_diurna_compensadas: num('comp-domdiu'),
+    horas_extra_dom_fest_nocturna_compensadas: num('comp-domnoc'),
+    observaciones: document.getElementById('comp-observaciones').value.trim() || null,
+    cedi: SESION.cedi,
+    otorgado_por: SESION.id,
+  };
+
+  const totalHoras = payload.horas_extra_diurna_compensadas + payload.horas_extra_nocturna_compensadas
+    + payload.horas_extra_dom_fest_diurna_compensadas + payload.horas_extra_dom_fest_nocturna_compensadas;
+  if (totalHoras <= 0) { estado.textContent = 'Ingresa al menos una hora en alguna categoría.'; return; }
+
+  const { data: saldoData } = await sb.rpc('saldo_horas_extra_empleado', { p_empleado_id: empleado_id });
+  const saldo = saldoData && saldoData[0];
+  if (saldo) {
+    if (payload.horas_extra_diurna_compensadas > Number(saldo.saldo_extra_diurna) + 0.01 ||
+        payload.horas_extra_nocturna_compensadas > Number(saldo.saldo_extra_nocturna) + 0.01 ||
+        payload.horas_extra_dom_fest_diurna_compensadas > Number(saldo.saldo_extra_dom_fest_diurna) + 0.01 ||
+        payload.horas_extra_dom_fest_nocturna_compensadas > Number(saldo.saldo_extra_dom_fest_nocturna) + 0.01) {
+      estado.textContent = 'Alguna categoría supera el saldo disponible de ese empleado. Revisa "Ver su saldo disponible" arriba.';
+      return;
+    }
+  }
+
+  const { data, error } = await sb.from('compensatorios_otorgados').insert(payload).select().single();
+  if (error) { estado.textContent = 'Error: ' + error.message; return; }
+
+  estado.textContent = 'Compensatorio otorgado y guardado.';
+  document.getElementById('comp-resultado').innerHTML = `
+    <table class="hist-table open">
+      <tr><th>Concepto</th><th>Valor</th></tr>
+      <tr><td>Días equivalentes</td><td>${data.dias_equivalentes}</td></tr>
+      <tr><td>Recargo que se le sigue pagando (nocturno/dominical)</td><td>${fmt$(data.valor_recargo_preservado)}</td></tr>
+      <tr><td>Ese recargo equivale a</td><td>${Number(data.horas_equivalentes_recargo).toFixed(2)} horas de sueldo ordinario</td></tr>
+    </table>
+  `;
+  ['comp-diurna','comp-nocturna','comp-domdiu','comp-domnoc'].forEach(id => document.getElementById(id).value = '0');
+  document.getElementById('comp-observaciones').value = '';
+  document.getElementById('comp-saldo-empleado-detalle').innerHTML = '';
+  cargarSaldosCedi();
+  cargarHistorialCompensatorios();
+}
+
+async function cargarHistorialCompensatorios() {
+  const { data, error } = await sb.from('compensatorios_otorgados')
+    .select('*, empleados(nombre)').order('creado_en', { ascending: false }).limit(30);
+  const cont = document.getElementById('comp-historial');
+  if (error || !data || !data.length) { cont.innerHTML = '<div class="empty-state">Todavía no se han otorgado compensatorios.</div>'; return; }
+
+  cont.innerHTML = `<table class="hist-table open"><tr><th>Empleado</th><th>Fecha</th><th>Días</th><th>Horas totales</th><th>Recargo pagado</th><th>Equivale a (h)</th><th>Observaciones</th></tr>${
+    data.map(c => {
+      const total = Number(c.horas_extra_diurna_compensadas) + Number(c.horas_extra_nocturna_compensadas)
+        + Number(c.horas_extra_dom_fest_diurna_compensadas) + Number(c.horas_extra_dom_fest_nocturna_compensadas);
+      return `<tr>
+        <td>${tEsc(c.empleados ? c.empleados.nombre : '—')}</td>
+        <td>${tEsc(c.fecha_otorgado)}</td>
+        <td>${c.dias_equivalentes}</td>
+        <td>${total.toFixed(1)}</td>
+        <td>${fmt$(c.valor_recargo_preservado)}</td>
+        <td>${Number(c.horas_equivalentes_recargo || 0).toFixed(2)}</td>
+        <td>${tEsc(c.observaciones || '')}</td>
+      </tr>`;
+    }).join('')
+  }</table>`;
+}
+
+// ============================================================
+// MÓDULO: REGISTROS (lista filtrable, editable, eliminable)
+// ============================================================
+async function cargarModuloRegistros() {
+  const esAdmin = SESION.rol === 'admin' || SESION.rol === 'director_nacional';
+  document.getElementById('rrhh-sin-acceso-5').classList.toggle('hidden', esAdmin);
+  document.getElementById('rrhh-contenido-registros').classList.toggle('hidden', !esAdmin);
+  if (!esAdmin) return;
+
+  const selCedi = document.getElementById('reg-filtro-cedi');
+  if (selCedi.options.length <= 1) {
+    CEDIS_VALIDOS.forEach(c => selCedi.insertAdjacentHTML('beforeend', `<option value="${c}">${c}</option>`));
+  }
+
+  const { data: empleados } = await sb.from('empleados').select('id,nombre,cedi').eq('activo', true).order('nombre');
+  const selNuevo = document.getElementById('reg-nuevo-empleado');
+  selNuevo.innerHTML = (empleados || []).map(e => `<option value="${e.id}" data-cedi="${tEsc(e.cedi)}">${tEsc(e.nombre)} (${tEsc(e.cedi)})</option>`).join('');
+
+  if (!document.getElementById('reg-nuevo-fecha').value) {
+    document.getElementById('reg-nuevo-fecha').value = new Date().toISOString().slice(0, 10);
+  }
+
+  await filtrarRegistros();
+}
+
+document.getElementById('btn-filtrar-registros').addEventListener('click', filtrarRegistros);
+
+async function filtrarRegistros() {
+  const cedi = document.getElementById('reg-filtro-cedi').value;
+  const nombre = document.getElementById('reg-filtro-nombre').value.trim();
+  const cedula = document.getElementById('reg-filtro-cedula').value.trim();
+  const desde = document.getElementById('reg-filtro-desde').value;
+  const hasta = document.getElementById('reg-filtro-hasta').value;
+
+  let q = sb.from('registros_asistencia').select('*, empleados!inner(nombre,cedula,cedi)').order('fecha', { ascending: false }).limit(200);
+  if (cedi) q = q.eq('empleados.cedi', cedi);
+  if (nombre) q = q.ilike('empleados.nombre', `%${nombre}%`);
+  if (cedula) q = q.ilike('empleados.cedula', `%${cedula}%`);
+  if (desde) q = q.gte('fecha', desde);
+  if (hasta) q = q.lte('fecha', hasta);
+
+  const { data, error } = await q;
+  if (error) { document.getElementById('reg-lista').innerHTML = '<div class="empty-state">Error al filtrar.</div>'; return; }
+  renderListaRegistros(data || []);
+}
+
+function renderListaRegistros(registros) {
+  const cont = document.getElementById('reg-lista');
+  if (!registros.length) { cont.innerHTML = '<div class="empty-state">No hay registros con ese filtro.</div>'; return; }
+
+  cont.innerHTML = `<table class="hist-table open"><tr><th>Empleado</th><th>Cédula</th><th>CEDI</th><th>Fecha</th><th>Entrada</th><th>Salida</th><th></th></tr>${
+    registros.map(r => `<tr data-registro="${r.id}">
+      <td>${tEsc(r.empleados ? r.empleados.nombre : '—')}</td>
+      <td>${tEsc(r.empleados ? r.empleados.cedula : '—')}</td>
+      <td>${tEsc(r.cedi)}</td>
+      <td data-celda="fecha">${tEsc(r.fecha)}</td>
+      <td data-celda="entrada">${new Date(r.hora_entrada).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' })}</td>
+      <td data-celda="salida">${new Date(r.hora_salida).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' })}</td>
+      <td><button class="hist-toggle" data-editar-reg="${r.id}">Editar</button> · <button class="hist-toggle" data-eliminar-reg="${r.id}" style="color:var(--crit-dot)">Eliminar</button></td>
+    </tr>`).join('')
+  }</table>`;
+
+  cont.querySelectorAll('[data-editar-reg]').forEach(btn => {
+    const registro = registros.find(r => String(r.id) === btn.dataset.editarReg);
+    btn.addEventListener('click', () => activarEdicionRegistro(registro));
+  });
+  cont.querySelectorAll('[data-eliminar-reg]').forEach(btn => {
+    btn.addEventListener('click', () => eliminarRegistroAsistencia(btn.dataset.eliminarReg));
+  });
+}
+
+function activarEdicionRegistro(registro) {
+  const fila = document.querySelector(`tr[data-registro="${registro.id}"]`);
+  if (!fila) return;
+  const fechaEntrada = new Date(registro.hora_entrada);
+  const fechaSalida = new Date(registro.hora_salida);
+  const hhmm = (d) => d.toTimeString().slice(0, 5);
+
+  fila.querySelector('[data-celda="fecha"]').innerHTML = `<input type="date" class="er-fecha" value="${registro.fecha}" style="width:130px">`;
+  fila.querySelector('[data-celda="entrada"]').innerHTML = `<input type="time" class="er-entrada" value="${hhmm(fechaEntrada)}">`;
+  fila.querySelector('[data-celda="salida"]').innerHTML = `<input type="time" class="er-salida" value="${hhmm(fechaSalida)}">`;
+  fila.querySelector('td:last-child').innerHTML = `<button class="hist-toggle" data-guardar-reg="${registro.id}">Guardar</button> · <button class="hist-toggle" data-cancelar-reg>Cancelar</button>`;
+
+  fila.querySelector('[data-guardar-reg]').addEventListener('click', () => guardarEdicionRegistro(registro));
+  fila.querySelector('[data-cancelar-reg]').addEventListener('click', filtrarRegistros);
+}
+
+async function guardarEdicionRegistro(registro) {
+  const fila = document.querySelector(`tr[data-registro="${registro.id}"]`);
+  const fecha = fila.querySelector('.er-fecha').value;
+  const horaEntrada = fila.querySelector('.er-entrada').value;
+  const horaSalida = fila.querySelector('.er-salida').value;
+  if (!fecha || !horaEntrada || !horaSalida) { mostrarToast('Completa fecha, entrada y salida.'); return; }
+
+  let hora_entrada = new Date(`${fecha}T${horaEntrada}:00`);
+  let hora_salida = new Date(`${fecha}T${horaSalida}:00`);
+  if (hora_salida <= hora_entrada) hora_salida = new Date(hora_salida.getTime() + 24 * 3600 * 1000);
+
+  const { error } = await sb.from('registros_asistencia').update({
+    fecha, hora_entrada: hora_entrada.toISOString(), hora_salida: hora_salida.toISOString(),
+  }).eq('id', registro.id);
+
+  if (error) { mostrarToast('No se pudo guardar: ' + error.message); return; }
+  mostrarToast('Registro actualizado.');
+  filtrarRegistros();
+}
+
+async function eliminarRegistroAsistencia(id) {
+  if (!confirm('¿Eliminar este registro de entrada/salida? No se puede deshacer.')) return;
+  const { error } = await sb.from('registros_asistencia').delete().eq('id', id);
+  if (error) { mostrarToast('No se pudo eliminar: ' + error.message); return; }
+  mostrarToast('Registro eliminado.');
+  filtrarRegistros();
+}
+
+document.getElementById('btn-crear-registro').addEventListener('click', crearRegistroNuevo);
+
+async function crearRegistroNuevo() {
+  const estado = document.getElementById('reg-nuevo-status');
+  const sel = document.getElementById('reg-nuevo-empleado');
+  const empleado_id = sel.value;
+  const cedi = sel.options[sel.selectedIndex]?.dataset.cedi;
+  const fecha = document.getElementById('reg-nuevo-fecha').value;
+  const horaEntrada = document.getElementById('reg-nuevo-entrada').value;
+  const horaSalida = document.getElementById('reg-nuevo-salida').value;
+
+  if (!empleado_id || !fecha || !horaEntrada || !horaSalida) { estado.textContent = 'Completa todos los campos.'; return; }
+
+  let hora_entrada = new Date(`${fecha}T${horaEntrada}:00`);
+  let hora_salida = new Date(`${fecha}T${horaSalida}:00`);
+  if (hora_salida <= hora_entrada) hora_salida = new Date(hora_salida.getTime() + 24 * 3600 * 1000);
+
+  const { error } = await sb.from('registros_asistencia').insert({
+    empleado_id, cedi, fecha,
+    hora_entrada: hora_entrada.toISOString(), hora_salida: hora_salida.toISOString(),
+    creado_por: SESION.id,
+  });
+
+  if (error) { estado.textContent = 'Error: ' + error.message; return; }
+  estado.textContent = 'Registro creado.';
+  document.getElementById('reg-nuevo-entrada').value = '';
+  document.getElementById('reg-nuevo-salida').value = '';
+  filtrarRegistros();
+}
+
+// ============================================================
+// MÓDULO: LIQUIDADOR DE NÓMINA (por lote, todos los operarios)
+// ============================================================
+let NOMINA_RESULTADO = [];
+
+async function cargarModuloNomina() {
+  const esAdmin = SESION.rol === 'admin' || SESION.rol === 'director_nacional';
+  document.getElementById('rrhh-sin-acceso-6').classList.toggle('hidden', esAdmin);
+  document.getElementById('rrhh-contenido-nomina').classList.toggle('hidden', !esAdmin);
+  if (!esAdmin) return;
+
+  const sel = document.getElementById('nomina-cedi');
+  if (!sel.options.length) {
+    CEDIS_VALIDOS.forEach(c => sel.insertAdjacentHTML('beforeend', `<option value="${c}" ${c === SESION.cedi ? 'selected' : ''}>${c}</option>`));
+  }
+}
+
+document.getElementById('btn-liquidar-nomina').addEventListener('click', liquidarNomina);
+
+async function liquidarNomina() {
+  const estado = document.getElementById('nomina-status');
+  const cedi = document.getElementById('nomina-cedi').value;
+  const desde = document.getElementById('nomina-desde').value;
+  const hasta = document.getElementById('nomina-hasta').value;
+  if (!desde || !hasta) { estado.textContent = 'Completa el rango de fechas.'; return; }
+
+  estado.textContent = 'Calculando...';
+  const { data, error } = await sb.rpc('liquidador_nomina', { p_cedi: cedi, p_desde: desde, p_hasta: hasta });
+  if (error) { estado.textContent = 'Error: ' + error.message; return; }
+
+  NOMINA_RESULTADO = data || [];
+  if (!NOMINA_RESULTADO.length) { estado.textContent = 'No hay operarios con registros en ese CEDI y periodo.'; document.getElementById('nomina-tabla').innerHTML = ''; return; }
+
+  estado.textContent = `${NOMINA_RESULTADO.length} operario(s) liquidados.`;
+  renderTablaNomina(NOMINA_RESULTADO);
+}
+
+const COLUMNAS_NOMINA = [
+  ['operario', 'Operario'], ['cedula', 'Cédula'], ['salario_mensual', 'Salario mensual'], ['valor_hora', 'Valor hora'],
+  ['horas_ordinarias_diurnas', 'Horas ordinarias diurnas'], ['horas_recargo_nocturno', 'Horas recargo nocturno'],
+  ['horas_extra_diurnas', 'Horas extra diurnas'], ['horas_extra_nocturnas', 'Horas extra nocturnas'],
+  ['horas_ddo_diurnas', 'Horas DDO diurnas'], ['horas_ddo_nocturnas', 'Horas DDO nocturnas'],
+  ['horas_extra_ddo_diurnas', 'Horas extra DDO diurnas'], ['horas_extra_ddo_nocturnas', 'Horas extra DDO nocturnas'],
+  ['total_horas_extra', 'Total horas extra'], ['horas_trabajadas', 'Horas trabajadas'],
+  ['valor_ordinarias_diurnas', '$ Ordinarias diurnas'], ['valor_recargo_nocturno', '$ Recargo nocturno'],
+  ['valor_extra_diurna', '$ Extra diurna'], ['valor_extra_nocturna', '$ Extra nocturna'],
+  ['valor_ddo_diurno', '$ DDO diurno'], ['valor_ddo_nocturno', '$ DDO nocturno'],
+  ['valor_extra_ddo_diurna', '$ Extra DDO diurna'], ['valor_extra_ddo_nocturna', '$ Extra DDO nocturna'],
+  ['total_recargos_y_extras', 'TOTAL RECARGOS Y EXTRAS'],
+];
+
+function renderTablaNomina(filas) {
+  document.getElementById('nomina-tabla').innerHTML = `
+    <table class="hist-table open">
+      <tr>${COLUMNAS_NOMINA.map(([, label]) => `<th>${label}</th>`).join('')}</tr>
+      ${filas.map(f => `<tr>${COLUMNAS_NOMINA.map(([key]) =>
+        `<td>${typeof f[key] === 'number' ? Number(f[key]).toLocaleString('es-CO', { maximumFractionDigits: 2 }) : tEsc(f[key])}</td>`
+      ).join('')}</tr>`).join('')}
+    </table>
+  `;
+}
+
+document.getElementById('btn-exportar-nomina').addEventListener('click', () => {
+  if (!NOMINA_RESULTADO.length) { mostrarToast('Primero liquida la nómina.'); return; }
+  const filasExcel = NOMINA_RESULTADO.map(f => {
+    const fila = {};
+    COLUMNAS_NOMINA.forEach(([key, label]) => { fila[label] = f[key]; });
+    return fila;
+  });
+  const hoja = XLSX.utils.json_to_sheet(filasExcel);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, hoja, 'Nomina');
+  const cedi = document.getElementById('nomina-cedi').value;
+  const desde = document.getElementById('nomina-desde').value;
+  const hasta = document.getElementById('nomina-hasta').value;
+  XLSX.writeFile(wb, `Nomina_${cedi}_${desde}_a_${hasta}.xlsx`);
+});
+
+// ============================================================
+// MÓDULO: CONTROL SEMANA
+// ============================================================
+let CONTROL_SEMANA_RESULTADO = [];
+
+async function cargarModuloControlSemana() {
+  const esAdmin = SESION.rol === 'admin' || SESION.rol === 'director_nacional';
+  document.getElementById('rrhh-sin-acceso-7').classList.toggle('hidden', esAdmin);
+  document.getElementById('rrhh-contenido-control-semana').classList.toggle('hidden', !esAdmin);
+  if (!esAdmin) return;
+
+  const sel = document.getElementById('csem-cedi');
+  if (!sel.options.length) {
+    CEDIS_VALIDOS.forEach(c => sel.insertAdjacentHTML('beforeend', `<option value="${c}" ${c === SESION.cedi ? 'selected' : ''}>${c}</option>`));
+  }
+}
+
+document.getElementById('btn-consultar-control-semana').addEventListener('click', consultarControlSemana);
+document.getElementById('csem-filtro-nombre').addEventListener('input', renderControlSemanaFiltrado);
+document.getElementById('csem-solo-exceso').addEventListener('change', renderControlSemanaFiltrado);
+
+async function consultarControlSemana() {
+  const estado = document.getElementById('csem-status');
+  const cedi = document.getElementById('csem-cedi').value;
+  const desde = document.getElementById('csem-desde').value;
+  const hasta = document.getElementById('csem-hasta').value;
+  if (!desde || !hasta) { estado.textContent = 'Completa el rango de fechas.'; return; }
+
+  const { data, error } = await sb.rpc('control_semana', { p_cedi: cedi, p_desde: desde, p_hasta: hasta });
+  if (error) { estado.textContent = 'Error: ' + error.message; return; }
+
+  CONTROL_SEMANA_RESULTADO = data || [];
+  estado.textContent = `${CONTROL_SEMANA_RESULTADO.length} semana(s)-operario encontradas.`;
+  renderControlSemanaFiltrado();
+}
+
+function renderControlSemanaFiltrado() {
+  const texto = document.getElementById('csem-filtro-nombre').value.trim().toLowerCase();
+  const soloExceso = document.getElementById('csem-solo-exceso').value === 'true';
+
+  const filtrado = CONTROL_SEMANA_RESULTADO.filter(r => {
+    const pasaTexto = !texto || r.operario.toLowerCase().includes(texto) || (r.cedula || '').toLowerCase().includes(texto);
+    const pasaExceso = !soloExceso || r.estado === 'Excedido';
+    return pasaTexto && pasaExceso;
+  });
+
+  const totalExcedidos = CONTROL_SEMANA_RESULTADO.filter(r => r.estado === 'Excedido').length;
+  document.getElementById('csem-kpis').innerHTML = `
+    <div class="kpi-card"><div class="kpi-label">Semanas-operario consultadas</div><div class="kpi-value">${CONTROL_SEMANA_RESULTADO.length}</div></div>
+    <div class="kpi-card"><div class="kpi-label">Con exceso de 42h</div><div class="kpi-value ${totalExcedidos > 0 ? 'bad' : 'ok'}">${totalExcedidos}</div></div>
+  `;
+
+  const cont = document.getElementById('csem-tabla');
+  if (!filtrado.length) { cont.innerHTML = '<div class="empty-state">No hay resultados con ese filtro.</div>'; return; }
+
+  cont.innerHTML = `<table class="hist-table open"><tr><th>Operario</th><th>Cédula</th><th>Semana</th><th>Horas trabajadas</th><th>Límite</th><th>Exceso</th><th>Estado</th></tr>${
+    filtrado.map(r => `<tr ${r.estado === 'Excedido' ? 'style="background:var(--crit-bg)"' : ''}>
+      <td>${tEsc(r.operario)}</td>
+      <td>${tEsc(r.cedula)}</td>
+      <td>${tEsc(r.semana_inicio)} a ${tEsc(r.semana_fin)}</td>
+      <td>${Number(r.horas_trabajadas).toFixed(1)}</td>
+      <td>${Number(r.limite_horas).toFixed(0)}</td>
+      <td style="font-weight:700;color:${r.exceso > 0 ? 'var(--crit-dot)' : 'inherit'}">${Number(r.exceso).toFixed(1)}</td>
+      <td>${tEsc(r.estado)}</td>
     </tr>`).join('')
   }</table>`;
 }
