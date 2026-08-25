@@ -77,6 +77,24 @@
 
 <div id="vista-todos-cedis" class="hidden">
   <div class="op-resumen" id="comparacion-cedis-kpis"></div>
+
+  <div class="resumen">
+    <div class="dona-block">
+      <div>
+        <div class="dona-label">Avance de Picking (todos los CEDIs)</div>
+        <svg width="88" height="88" viewBox="0 0 42 42" id="dona-picking-global"></svg>
+      </div>
+      <div class="leyenda" id="leyenda-picking-global"></div>
+    </div>
+    <div class="dona-block">
+      <div>
+        <div class="dona-label">Avance de Packing (todos los CEDIs)</div>
+        <svg width="88" height="88" viewBox="0 0 42 42" id="dona-packing-global"></svg>
+      </div>
+      <div class="leyenda" id="leyenda-packing-global"></div>
+    </div>
+  </div>
+
   <div class="dona-label" style="margin:16px 0 8px;">Comparación entre CEDIs</div>
   <table>
     <thead>
@@ -86,6 +104,22 @@
       </tr>
     </thead>
     <tbody id="comparacion-cedis-filas"></tbody>
+  </table>
+
+  <div class="dona-label" style="margin:22px 0 8px;">Estado de todas las rutas (por CEDI)</div>
+  <table>
+    <thead>
+      <tr><th>CEDI</th><th>Ruta</th><th>Picking</th><th>Packing</th><th>Pendientes</th></tr>
+    </thead>
+    <tbody id="estado-rutas-global"></tbody>
+  </table>
+
+  <div class="dona-label" style="margin:22px 0 8px;">Ranking general de auditores (todos los CEDIs)</div>
+  <table>
+    <thead>
+      <tr><th>#</th><th>CEDI</th><th>Auditor</th><th>Rutas auditadas</th><th>Líneas</th><th>Peso</th><th>Takt Time</th></tr>
+    </thead>
+    <tbody id="ranking-global"></tbody>
   </table>
 </div>
 
@@ -472,9 +506,9 @@ function tickTimers() {
 }
 setInterval(() => { tickTimers(); renderRankingHoy(); actualizarResumenOperacion(); }, 1000);
 
-function calcularRankingHoy() {
+function calcularRankingHoy(listaRutas = RUTAS) {
   const porAuditor = {};
-  RUTAS.forEach(r => {
+  listaRutas.forEach(r => {
     const nombre = (r.auditor || '').trim();
     if (!nombre) return;
     const segPicking = segundosTranscurridos(r.picking_iniciado_en, r.picking_pausado_desde, r.picking_segundos_pausados, r.picking_finalizado_en) || 0;
@@ -488,6 +522,26 @@ function calcularRankingHoy() {
   });
 
   return Object.values(porAuditor)
+    .map(a => ({ ...a, taktTime: a.lineas > 0 ? a.tiempoTotal / a.lineas : null }))
+    .sort((a, b) => (a.taktTime ?? Infinity) - (b.taktTime ?? Infinity));
+}
+
+function calcularRankingGlobal(listaRutas) {
+  const porAuditorCedi = {};
+  listaRutas.forEach(r => {
+    const nombre = (r.auditor || '').trim();
+    if (!nombre) return;
+    const clave = r.cedi + '||' + nombre;
+    const segPacking = segundosTranscurridos(r.packing_iniciado_en, r.packing_pausado_desde, r.packing_segundos_pausados, r.packing_finalizado_en) || 0;
+    if (!porAuditorCedi[clave]) porAuditorCedi[clave] = { cedi: r.cedi, auditor: nombre, rutas: 0, lineas: 0, peso: 0, tiempoTotal: 0 };
+    const a = porAuditorCedi[clave];
+    a.rutas += 1;
+    a.lineas += r.lineas;
+    a.peso += Number(r.peso) || 0;
+    a.tiempoTotal += segPacking;
+  });
+
+  return Object.values(porAuditorCedi)
     .map(a => ({ ...a, taktTime: a.lineas > 0 ? a.tiempoTotal / a.lineas : null }))
     .sort((a, b) => (a.taktTime ?? Infinity) - (b.taktTime ?? Infinity));
 }
@@ -584,6 +638,46 @@ async function cargarComparacionTodosCedis() {
     <div class="op-card"><div class="op-label">Total kilos (todos los CEDIs)</div><div class="op-valor">${totalKilosGlobal.toLocaleString('es-CO', { maximumFractionDigits: 0 })} kg</div></div>
     <div class="op-card"><div class="op-label">Total líneas (todos los CEDIs)</div><div class="op-valor">${totalLineasGlobal}</div></div>
   `;
+
+  // Donas globales de Picking/Packing (sumando TODAS las rutas de TODOS los CEDIs)
+  const conteoPickingGlobal = { pendiente: 0, iniciado: 0, pausado: 0, finalizado: 0 };
+  const conteoPackingGlobal = { pendiente: 0, iniciado: 0, pausado: 0, finalizado: 0 };
+  todas.forEach(r => {
+    conteoPickingGlobal[r.estado_picking] = (conteoPickingGlobal[r.estado_picking] || 0) + 1;
+    conteoPackingGlobal[r.estado_packing] = (conteoPackingGlobal[r.estado_packing] || 0) + 1;
+  });
+  dibujarDona('dona-picking-global', conteoPickingGlobal);
+  dibujarDona('dona-packing-global', conteoPackingGlobal);
+  dibujarLeyenda('leyenda-picking-global', conteoPickingGlobal);
+  dibujarLeyenda('leyenda-packing-global', conteoPackingGlobal);
+
+  // Estado de todas las rutas, agrupadas por CEDI y ordenadas igual que la vista individual
+  const ordenadas = [...todas].sort((a, b) => {
+    if (a.cedi !== b.cedi) return a.cedi.localeCompare(b.cedi);
+    const diff = ORDEN_ESTADO[a.estado_packing] - ORDEN_ESTADO[b.estado_packing];
+    return diff !== 0 ? diff : a.ruta_nombre.localeCompare(b.ruta_nombre);
+  });
+  document.getElementById('estado-rutas-global').innerHTML = ordenadas.map(r => `
+    <tr>
+      <td style="font-weight:700;">${r.cedi}</td>
+      <td>${r.ruta_nombre}</td>
+      <td><span class="badge ${r.estado_picking}">${r.estado_picking.toUpperCase()}</span></td>
+      <td><span class="badge ${r.estado_packing}">${r.estado_packing.toUpperCase()}</span></td>
+      <td class="pend-num">${r.pendientes_picking} / ${r.pendientes}</td>
+    </tr>
+  `).join('');
+
+  // Ranking general de auditores, de todos los CEDIs juntos
+  const rankingGlobal = calcularRankingGlobal(todas);
+  document.getElementById('ranking-global').innerHTML = rankingGlobal.length
+    ? rankingGlobal.map((a, i) => `
+      <tr>
+        <td>${i + 1}</td><td>${a.cedi}</td><td>${a.auditor}</td><td>${a.rutas}</td>
+        <td>${a.lineas}</td><td>${a.peso.toLocaleString('es-CO', { maximumFractionDigits: 0 })} kg</td>
+        <td>${a.taktTime != null ? a.taktTime.toFixed(1) + 's' : '—'}</td>
+      </tr>
+    `).join('')
+    : '<tr><td colspan="7" style="text-align:center;color:#6b829a;">Todavía no hay rutas con auditor asignado hoy.</td></tr>';
 }
 
 if (CEDI === '__todos__') {
