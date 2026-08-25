@@ -824,6 +824,11 @@
               </div>
               <div id="crear-empleado-status" style="font-size:12px;color:var(--text-secondary);margin-top:8px;"></div>
             </div>
+            <div id="emp-total-resumen" style="font-size:12px;color:var(--text-secondary);margin-bottom:8px;"></div>
+            <div class="indicator-field" style="max-width:260px;margin-bottom:10px;">
+              <label>Buscar colaborador (nombre o cédula)</label>
+              <input type="text" id="emp-buscar" placeholder="Escribe para buscar...">
+            </div>
             <div id="rrhh-empleados-lista"></div>
 
             <div class="section-label" style="margin-top:26px;">Entradas y Salidas</div>
@@ -2331,14 +2336,16 @@ async function procesarEventosReloj() {
   if (!porNumero) return;
 
   // Empleados activos: primero por numero_dispositivo (match directo y
-  // confiable), y de respaldo por nombre normalizado para números que
-  // todavía no están vinculados a nadie.
-  const { data: empleados } = await sb.from('empleados').select('id, nombre, numero_dispositivo').eq('activo', true);
+  // confiable), luego por número de cédula (varios relojes usan la cédula
+  // como número de enrolamiento), y de respaldo por nombre.
+  const { data: empleados } = await sb.from('empleados').select('id, nombre, cedula, numero_dispositivo').eq('activo', true);
   const mapaPorNumero = {};
+  const mapaPorCedula = {};
   const mapaPorNombre = {};
   const empleadosConPalabras = [];
   (empleados || []).forEach(e => {
     if (e.numero_dispositivo) mapaPorNumero[e.numero_dispositivo] = e.id;
+    if (e.cedula) mapaPorCedula[String(e.cedula).trim().replace(/\D/g, '')] = e.id;
     mapaPorNombre[normalizarNombre(e.nombre)] = e.id;
     empleadosConPalabras.push({ id: e.id, palabras: new Set(normalizarNombre(e.nombre).split(' ').filter(w => w.length > 1)) });
   });
@@ -2457,7 +2464,8 @@ async function procesarEventosReloj() {
 
   for (const [numero, info] of Object.entries(porNumero)) {
     const nombreMasComun = Object.entries(info.nombres).sort((a, b) => b[1] - a[1])[0][0];
-    let empleadoId = mapaPorNumero[numero] || mapaPorNombre[nombreMasComun] || buscarPorPalabras(nombreMasComun) || null;
+    const numeroSoloDigitos = numero.replace(/\D/g, '');
+    let empleadoId = mapaPorNumero[numero] || mapaPorCedula[numeroSoloDigitos] || mapaPorNombre[nombreMasComun] || buscarPorPalabras(nombreMasComun) || null;
     if (empleadoId && !mapaPorNumero[numero]) vincularNumero.push({ empleado_id: empleadoId, numero });
 
     const completos = [...porNumeroCompletos[numero]];
@@ -2501,7 +2509,8 @@ async function procesarEventosReloj() {
 
   let mensaje = '';
   if (turnos.length) {
-    const { error } = await sb.from('registros_asistencia').insert(turnos);
+    const { error } = await sb.from('registros_asistencia')
+      .upsert(turnos, { onConflict: 'empleado_id,hora_entrada,hora_salida', ignoreDuplicates: true });
     if (error) { estado.textContent = 'Error al guardar: ' + error.message; return; }
     mensaje += `${turnos.length} turno(s) importados correctamente. `;
     document.getElementById('asis-archivo-reloj').value = '';
@@ -2657,11 +2666,30 @@ async function cargarEmpleados() {
   if (selComp) selComp.innerHTML = opciones;
 }
 
+document.getElementById('emp-buscar').addEventListener('input', buscarEnEmpleados);
+
 function renderEmpleados(empleados) {
   const cont = document.getElementById('rrhh-empleados-lista');
-  if (!empleados.length) { cont.innerHTML = '<div class="empty-state">No hay empleados registrados.</div>'; return; }
+  document.getElementById('emp-total-resumen').textContent = `${empleados.length} colaborador(es) registrados.`;
+  EMPLEADOS_CACHE_BUSQUEDA = empleados;
+  cont.innerHTML = '';
+}
+
+let EMPLEADOS_CACHE_BUSQUEDA = [];
+
+function buscarEnEmpleados() {
+  const texto = document.getElementById('emp-buscar').value.trim().toLowerCase();
+  const cont = document.getElementById('rrhh-empleados-lista');
+  if (!texto) { cont.innerHTML = ''; return; }
+
+  const encontrados = EMPLEADOS_CACHE_BUSQUEDA.filter(e =>
+    e.nombre.toLowerCase().includes(texto) || (e.cedula || '').toLowerCase().includes(texto)
+  ).slice(0, 30);
+
+  if (!encontrados.length) { cont.innerHTML = '<div class="empty-state">No se encontró ningún colaborador con ese texto.</div>'; return; }
+
   cont.innerHTML = `<table class="hist-table open"><tr><th>Nombre</th><th>Cédula</th><th>Cargo</th><th>CEDI</th><th>Salario base</th><th>Estado</th></tr>${
-    empleados.map(e => `<tr>
+    encontrados.map(e => `<tr>
       <td>${tEsc(e.nombre)}</td><td>${tEsc(e.cedula || '—')}</td><td>${tEsc(e.cargo || '—')}</td><td>${tEsc(e.cedi)}</td>
       <td>${Number(e.salario_base).toLocaleString('es-CO')}</td>
       <td>${e.activo ? 'Activo' : 'Inactivo'}</td>
