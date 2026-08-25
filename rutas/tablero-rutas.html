@@ -274,8 +274,15 @@ function antesDelLimite(inicio, fin, horaLimite) {
 }
 
 // Proyección de fin (ritmo real por línea, ignorando rutas "de prueba") y
-// Takt Time promedio (solo Packing ÷ líneas) -- reutilizable para el
+// Takt Time (mediana de Packing ÷ líneas) -- reutilizable para el
 // tablero de un CEDI y para la comparación entre todos los CEDIs.
+function mediana(numeros) {
+  if (!numeros.length) return null;
+  const ord = [...numeros].sort((a, b) => a - b);
+  const mitad = Math.floor(ord.length / 2);
+  return ord.length % 2 !== 0 ? ord[mitad] : (ord[mitad - 1] + ord[mitad]) / 2;
+}
+
 function calcularProyeccionYTakt(rutas, rutasFinalizadasCount) {
   const MIN_MINUTOS_RUTA_VALIDA = 3;
   const finalizadasConfiables = rutas.filter(r => {
@@ -291,11 +298,18 @@ function calcularProyeccionYTakt(rutas, rutasFinalizadasCount) {
   } else if (finalizadasConfiables.length < 2) {
     proyeccionTexto = rutas.length ? 'Necesita más datos' : '—';
   } else {
-    const segTotales = finalizadasConfiables.reduce((s, r) =>
-      s + segundosTranscurridos(r.picking_iniciado_en, null, r.picking_segundos_pausados, r.picking_finalizado_en)
-        + segundosTranscurridos(r.packing_iniciado_en, null, r.packing_segundos_pausados, r.packing_finalizado_en), 0);
-    const lineasTotales = finalizadasConfiables.reduce((s, r) => s + (r.lineas || 0), 0);
-    const ritmoPorLinea = lineasTotales > 0 ? segTotales / lineasTotales : null;
+    // Se usa la MEDIANA del ritmo (segundos ÷ línea) de cada ruta individual,
+    // en vez de un promedio ponderado -- así una sola ruta anormalmente
+    // lenta (ej. alguien salió a descansar sin marcar "Pausar") no arrastra
+    // toda la proyección hacia arriba.
+    const ritmosPorRuta = finalizadasConfiables
+      .map(r => {
+        const seg = segundosTranscurridos(r.picking_iniciado_en, null, r.picking_segundos_pausados, r.picking_finalizado_en)
+          + segundosTranscurridos(r.packing_iniciado_en, null, r.packing_segundos_pausados, r.packing_finalizado_en);
+        return r.lineas > 0 ? seg / r.lineas : null;
+      })
+      .filter(t => t != null);
+    const ritmoPorLinea = mediana(ritmosPorRuta);
     if (ritmoPorLinea != null) {
       const lineasFaltantes = rutas.filter(r => !(r.estado_picking === 'finalizado' && r.estado_packing === 'finalizado'))
         .reduce((s, r) => s + (r.lineas || 0), 0);
@@ -303,14 +317,15 @@ function calcularProyeccionYTakt(rutas, rutasFinalizadasCount) {
     }
   }
 
-  // Takt Time promedio -- solo Packing ÷ líneas (no Picking), de las rutas confiables.
+  // Takt Time: se usa la MEDIANA de Packing ÷ líneas de cada ruta, por la
+  // misma razón (evitar que una ruta atípica distorsione el número).
   const taktsPorRuta = finalizadasConfiables
     .map(r => {
       const segPacking = segundosTranscurridos(r.packing_iniciado_en, null, r.packing_segundos_pausados, r.packing_finalizado_en);
       return r.lineas > 0 ? segPacking / r.lineas : null;
     })
     .filter(t => t != null);
-  const taktPromedio = taktsPorRuta.length ? taktsPorRuta.reduce((a, b) => a + b, 0) / taktsPorRuta.length : null;
+  const taktPromedio = mediana(taktsPorRuta);
 
   return { proyeccionTexto, taktPromedio };
 }
