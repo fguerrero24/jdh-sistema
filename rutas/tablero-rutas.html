@@ -292,33 +292,8 @@ function calcularProyeccionYTakt(rutas, rutasFinalizadasCount) {
     return duracionTotalSeg >= MIN_MINUTOS_RUTA_VALIDA * 60;
   });
 
-  let proyeccionTexto = '—';
-  if (rutas.length > 0 && rutasFinalizadasCount === rutas.length) {
-    proyeccionTexto = 'Completado';
-  } else if (finalizadasConfiables.length < 2) {
-    proyeccionTexto = rutas.length ? 'Necesita más datos' : '—';
-  } else {
-    // Se usa la MEDIANA del ritmo (segundos ÷ línea) de cada ruta individual,
-    // en vez de un promedio ponderado -- así una sola ruta anormalmente
-    // lenta (ej. alguien salió a descansar sin marcar "Pausar") no arrastra
-    // toda la proyección hacia arriba.
-    const ritmosPorRuta = finalizadasConfiables
-      .map(r => {
-        const seg = segundosTranscurridos(r.picking_iniciado_en, null, r.picking_segundos_pausados, r.picking_finalizado_en)
-          + segundosTranscurridos(r.packing_iniciado_en, null, r.packing_segundos_pausados, r.packing_finalizado_en);
-        return r.lineas > 0 ? seg / r.lineas : null;
-      })
-      .filter(t => t != null);
-    const ritmoPorLinea = mediana(ritmosPorRuta);
-    if (ritmoPorLinea != null) {
-      const lineasFaltantes = rutas.filter(r => !(r.estado_picking === 'finalizado' && r.estado_packing === 'finalizado'))
-        .reduce((s, r) => s + (r.lineas || 0), 0);
-      proyeccionTexto = formatoHora(new Date(Date.now() + ritmoPorLinea * lineasFaltantes * 1000));
-    }
-  }
-
-  // Takt Time: se usa la MEDIANA de Packing ÷ líneas de cada ruta, por la
-  // misma razón (evitar que una ruta atípica distorsione el número).
+  // Takt Time: mediana de Packing ÷ líneas de cada ruta (evita que una ruta
+  // atípica distorsione el número).
   const taktsPorRuta = finalizadasConfiables
     .map(r => {
       const segPacking = segundosTranscurridos(r.packing_iniciado_en, null, r.packing_segundos_pausados, r.packing_finalizado_en);
@@ -326,6 +301,20 @@ function calcularProyeccionYTakt(rutas, rutasFinalizadasCount) {
     })
     .filter(t => t != null);
   const taktPromedio = mediana(taktsPorRuta);
+
+  // Proyección de fin = Líneas pendientes (de rutas que aún no terminan
+  // Picking + Packing) × Takt Time -- el mismo Takt Time de arriba, sin
+  // un cálculo aparte.
+  let proyeccionTexto = '—';
+  if (rutas.length > 0 && rutasFinalizadasCount === rutas.length) {
+    proyeccionTexto = 'Completado';
+  } else if (taktPromedio == null) {
+    proyeccionTexto = rutas.length ? 'Necesita más datos' : '—';
+  } else {
+    const lineasFaltantes = rutas.filter(r => !(r.estado_picking === 'finalizado' && r.estado_packing === 'finalizado'))
+      .reduce((s, r) => s + (r.lineas || 0), 0);
+    proyeccionTexto = formatoHora(new Date(Date.now() + lineasFaltantes * taktPromedio * 1000));
+  }
 
   return { proyeccionTexto, taktPromedio };
 }
