@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>JDH · Marcador de Tiempo</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  * { box-sizing: border-box; }
+  .hidden { display:none !important; }
+  body { margin:0; background:#0b1622; font-family: Arial, sans-serif; color:#fff; padding:20px 24px; }
+
+  .header { display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; flex-wrap:wrap; gap:10px; }
+  .header .title { font-size:22px; font-weight:700; }
+  .header .clock { font-size:20px; color:#8fa5b8; font-variant-numeric:tabular-nums; }
+  .header select, .header input {
+    background:#0f2033; color:#fff; border:1px solid #1e3148; border-radius:8px; padding:8px 12px; font-size:14px;
+  }
+
+  #buscador {
+    width:100%; max-width:500px; margin:0 auto 20px; display:block;
+    background:#0f2033; color:#fff; border:1px solid #1e3148; border-radius:10px;
+    padding:14px 18px; font-size:18px; text-align:center;
+  }
+  #buscador::placeholder { color:#5c7086; }
+
+  .grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(140px, 1fr)); gap:14px; max-width:1100px; margin:0 auto; }
+  .tile {
+    background:#0f2033; border:2px solid #1e3148; border-radius:14px; padding:14px 8px;
+    display:flex; flex-direction:column; align-items:center; gap:8px; cursor:pointer;
+    transition:transform .1s, border-color .1s;
+  }
+  .tile:active { transform:scale(0.96); border-color:#3b82f6; }
+  .tile .foto {
+    width:72px; height:72px; border-radius:50%; object-fit:cover; background:#1e3148;
+    display:flex; align-items:center; justify-content:center; font-size:22px; font-weight:700; color:#8fa5b8;
+  }
+  .tile .foto img { width:100%; height:100%; border-radius:50%; object-fit:cover; }
+  .tile .nombre { font-size:12.5px; text-align:center; line-height:1.25; }
+  .tile .badge-estado {
+    font-size:9px; padding:2px 8px; border-radius:10px; font-weight:700; text-transform:uppercase;
+  }
+  .badge-estado.dentro { background:#164a2e; color:#4ade9e; }
+  .badge-estado.fuera { background:#1e3148; color:#8fa5b8; }
+
+  .empty { text-align:center; color:#8fa5b8; padding:60px 20px; font-size:16px; }
+
+  .overlay {
+    position:fixed; inset:0; background:rgba(0,0,0,.75); display:flex; align-items:center; justify-content:center; z-index:50; padding:20px;
+  }
+  .modal {
+    background:#0f2033; border-radius:18px; padding:32px 28px; max-width:380px; width:100%; text-align:center;
+  }
+  .modal .foto-grande {
+    width:110px; height:110px; border-radius:50%; object-fit:cover; margin:0 auto 16px; background:#1e3148;
+    display:flex; align-items:center; justify-content:center; font-size:36px; font-weight:700; color:#8fa5b8;
+  }
+  .modal .foto-grande img { width:100%; height:100%; border-radius:50%; object-fit:cover; }
+  .modal .pregunta { font-size:20px; font-weight:700; margin-bottom:4px; }
+  .modal .subtexto { font-size:13px; color:#8fa5b8; margin-bottom:22px; }
+  .modal button {
+    width:100%; padding:16px; border:none; border-radius:10px; font-size:17px; font-weight:700; cursor:pointer; margin-bottom:10px;
+  }
+  .btn-entrada { background:#22c55e; color:#04150a; }
+  .btn-salida { background:#f59e0b; color:#1a1200; }
+  .btn-cancelar { background:transparent; color:#8fa5b8; border:1px solid #1e3148 !important; }
+
+  .exito { color:#4ade9e; font-size:22px; font-weight:700; }
+  .exito .hora { font-size:15px; color:#8fa5b8; margin-top:6px; font-weight:400; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="title" id="titulo">JDH · Marcador de Tiempo</div>
+  <select id="selector-cedi">
+    <option value="BAQ">Barranquilla</option>
+    <option value="BGA">Bucaramanga</option>
+    <option value="BOG">Bogotá</option>
+    <option value="COP">Copacabana</option>
+    <option value="CTG">Cartagena</option>
+    <option value="PER">Pereira</option>
+  </select>
+  <div class="clock" id="reloj"></div>
+</div>
+
+<input type="text" id="buscador" placeholder="Busca tu nombre...">
+
+<div id="grid-empleados" class="grid"></div>
+<div id="vacio" class="empty hidden">No hay colaboradores con foto o nombre que coincida.</div>
+
+<div id="overlay-confirmar" class="overlay hidden">
+  <div class="modal">
+    <div class="foto-grande" id="modal-foto"></div>
+    <div class="pregunta" id="modal-pregunta">¿Eres...?</div>
+    <div class="subtexto" id="modal-subtexto"></div>
+    <button id="modal-btn-accion"></button>
+    <button class="btn-cancelar" id="modal-btn-cancelar">Cancelar</button>
+  </div>
+</div>
+
+<div id="overlay-exito" class="overlay hidden">
+  <div class="modal">
+    <div class="exito" id="exito-texto">✓ Entrada marcada</div>
+    <div class="hora" id="exito-hora"></div>
+  </div>
+</div>
+
+<script>
+const SUPABASE_URL = 'https://oowfwkrhongqkfavhqeq.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_g-7cH12m-lLYcNXGbrK3eA_5mG5tydQ';
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+const params = new URLSearchParams(location.search);
+let CEDI = params.get('cedi') || 'COP';
+document.getElementById('selector-cedi').value = CEDI;
+
+let EMPLEADOS = [];
+let EMPLEADO_SELECCIONADO = null;
+
+function iniciales(nombre) {
+  return nombre.trim().split(/\s+/).slice(0, 2).map(p => p[0]).join('').toUpperCase();
+}
+
+function actualizarReloj() {
+  document.getElementById('reloj').textContent = new Date().toLocaleString('es-CO', {
+    weekday: 'short', day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit', second: '2-digit'
+  });
+}
+actualizarReloj();
+setInterval(actualizarReloj, 1000);
+
+async function cargarEmpleados() {
+  document.getElementById('titulo').textContent = `JDH ${CEDI} · Marcador de Tiempo`;
+  const { data, error } = await sb.rpc('empleados_kiosco', { p_cedi: CEDI });
+  if (error) { console.error(error); return; }
+  EMPLEADOS = data || [];
+  renderGrid();
+}
+
+function renderGrid() {
+  const texto = document.getElementById('buscador').value.trim().toLowerCase();
+  const grid = document.getElementById('grid-empleados');
+  const vacio = document.getElementById('vacio');
+
+  const filtrados = EMPLEADOS.filter(e => !texto || e.nombre.toLowerCase().includes(texto));
+
+  if (!filtrados.length) { grid.innerHTML = ''; vacio.classList.remove('hidden'); return; }
+  vacio.classList.add('hidden');
+
+  grid.innerHTML = filtrados.map(e => `
+    <div class="tile" data-emp-id="${e.id}">
+      <div class="foto">${e.foto_url ? `<img src="${e.foto_url}">` : iniciales(e.nombre)}</div>
+      <div class="nombre">${e.nombre}</div>
+      <div class="badge-estado ${e.tiene_entrada_abierta ? 'dentro' : 'fuera'}">${e.tiene_entrada_abierta ? 'Dentro' : 'Fuera'}</div>
+    </div>
+  `).join('');
+
+  grid.querySelectorAll('[data-emp-id]').forEach(tile => {
+    tile.addEventListener('click', () => abrirConfirmacion(Number(tile.dataset.empId)));
+  });
+}
+
+document.getElementById('buscador').addEventListener('input', renderGrid);
+document.getElementById('selector-cedi').addEventListener('change', () => {
+  CEDI = document.getElementById('selector-cedi').value;
+  const nuevaUrl = `${location.pathname}?cedi=${encodeURIComponent(CEDI)}`;
+  history.replaceState(null, '', nuevaUrl);
+  cargarEmpleados();
+});
+
+function abrirConfirmacion(empId) {
+  const emp = EMPLEADOS.find(e => e.id === empId);
+  if (!emp) return;
+  EMPLEADO_SELECCIONADO = emp;
+
+  const modalFoto = document.getElementById('modal-foto');
+  modalFoto.innerHTML = emp.foto_url ? `<img src="${emp.foto_url}">` : iniciales(emp.nombre);
+
+  document.getElementById('modal-pregunta').textContent = `¿Eres ${emp.nombre.split(' ').slice(0, 2).join(' ')}?`;
+
+  const btnAccion = document.getElementById('modal-btn-accion');
+  if (emp.tiene_entrada_abierta) {
+    document.getElementById('modal-subtexto').textContent = 'Ya tienes una entrada marcada hoy.';
+    btnAccion.textContent = 'Sí, marcar Salida';
+    btnAccion.className = 'btn-salida';
+    btnAccion.onclick = () => confirmarMarcaje('salida');
+  } else {
+    document.getElementById('modal-subtexto').textContent = 'Todavía no has marcado entrada.';
+    btnAccion.textContent = 'Sí, marcar Entrada';
+    btnAccion.className = 'btn-entrada';
+    btnAccion.onclick = () => confirmarMarcaje('entrada');
+  }
+
+  document.getElementById('overlay-confirmar').classList.remove('hidden');
+}
+
+document.getElementById('modal-btn-cancelar').addEventListener('click', () => {
+  document.getElementById('overlay-confirmar').classList.add('hidden');
+  EMPLEADO_SELECCIONADO = null;
+});
+
+async function confirmarMarcaje(tipo) {
+  if (!EMPLEADO_SELECCIONADO) return;
+  const btnAccion = document.getElementById('modal-btn-accion');
+  btnAccion.disabled = true;
+  btnAccion.textContent = 'Guardando...';
+
+  const rpc = tipo === 'entrada' ? 'marcar_entrada_kiosco' : 'marcar_salida_kiosco';
+  const { error } = await sb.rpc(rpc, { p_empleado_id: EMPLEADO_SELECCIONADO.id });
+
+  document.getElementById('overlay-confirmar').classList.add('hidden');
+  btnAccion.disabled = false;
+
+  if (error) {
+    alert('No se pudo marcar: ' + error.message);
+    EMPLEADO_SELECCIONADO = null;
+    await cargarEmpleados();
+    return;
+  }
+
+  document.getElementById('exito-texto').textContent = tipo === 'entrada' ? '✓ Entrada marcada' : '✓ Salida marcada';
+  document.getElementById('exito-hora').textContent = new Date().toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  document.getElementById('overlay-exito').classList.remove('hidden');
+
+  setTimeout(async () => {
+    document.getElementById('overlay-exito').classList.add('hidden');
+    document.getElementById('buscador').value = '';
+    EMPLEADO_SELECCIONADO = null;
+    await cargarEmpleados();
+  }, 1800);
+}
+
+cargarEmpleados();
+setInterval(cargarEmpleados, 30000); // refresca solo cada 30s, por si alguien marca desde otro dispositivo
+</script>
+</body>
+</html>
