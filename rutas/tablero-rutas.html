@@ -114,6 +114,9 @@
     <tbody id="estado-rutas-global"></tbody>
   </table>
 
+  <div class="dona-label" style="margin:22px 0 8px;">Rutas fuera de OTIF (todos los CEDIs)</div>
+  <div id="fuera-otif-global"></div>
+
   <div class="dona-label" style="margin:22px 0 8px;">Ranking general de auditores (todos los CEDIs)</div>
   <table>
     <thead>
@@ -168,6 +171,9 @@
     <tbody id="ranking-hoy"></tbody>
   </table>
   <div class="empty hidden" id="ranking-vacio">Todavía no hay rutas con auditor asignado hoy.</div>
+
+  <div class="dona-label" style="margin:22px 0 8px;">Rutas fuera de OTIF</div>
+  <div id="fuera-otif-cedi"></div>
 </div>
 
 </div>
@@ -271,6 +277,60 @@ function antesDelLimite(inicio, fin, horaLimite) {
   limite.setHours(horaLimite, 0, 0, 0);
   if (limite <= new Date(inicio)) limite.setDate(limite.getDate() + 1);
   return new Date(fin) <= limite;
+}
+
+// Rutas que ya terminaron (Picking o Packing) pero no cumplieron OTIF --
+// tarde, incompletas, o ambas. Reutilizable para el tablero de un CEDI y
+// para la comparación entre todos los CEDIs.
+function calcularRutasFueraOTIF(rutas) {
+  const filas = [];
+  rutas.forEach(r => {
+    if (r.picking_finalizado_en) {
+      const tarde = !antesDelLimite(r.picking_iniciado_en, r.picking_finalizado_en, 4);
+      const incompleta = (r.pendientes_picking || 0) > 0;
+      if (tarde || incompleta) {
+        filas.push({
+          cedi: r.cedi, ruta: r.ruta_nombre, proceso: 'Picking',
+          hora: new Date(r.picking_finalizado_en), pendientes: r.pendientes_picking || 0,
+          motivo: tarde && incompleta ? 'Tarde e incompleta' : (tarde ? 'Tarde' : 'Incompleta'),
+        });
+      }
+    }
+    if (r.packing_finalizado_en) {
+      const tarde = !antesDelLimite(r.packing_iniciado_en, r.packing_finalizado_en, 6);
+      const incompleta = (r.pendientes || 0) > 0;
+      if (tarde || incompleta) {
+        filas.push({
+          cedi: r.cedi, ruta: r.ruta_nombre, proceso: 'Packing',
+          hora: new Date(r.packing_finalizado_en), pendientes: r.pendientes || 0,
+          motivo: tarde && incompleta ? 'Tarde e incompleta' : (tarde ? 'Tarde' : 'Incompleta'),
+        });
+      }
+    }
+  });
+  return filas.sort((a, b) => a.cedi.localeCompare(b.cedi) || a.hora - b.hora);
+}
+
+function renderTablaFueraOTIF(contId, filas) {
+  const cont = document.getElementById(contId);
+  if (!filas.length) { cont.innerHTML = '<div class="empty">Todas las rutas terminadas cumplieron OTIF.</div>'; return; }
+  cont.innerHTML = `
+    <table>
+      <thead>
+        <tr><th>CEDI</th><th>Ruta</th><th>Proceso</th><th>Hora terminada</th><th>Pendientes</th><th>Motivo</th></tr>
+      </thead>
+      <tbody>
+        ${filas.map(f => `<tr>
+          <td style="font-weight:700;">${f.cedi}</td>
+          <td>${f.ruta}</td>
+          <td>${f.proceso}</td>
+          <td>${formatoHora(f.hora)}</td>
+          <td class="pend-num">${f.pendientes}</td>
+          <td style="color:#f05b5b;">${f.motivo}</td>
+        </tr>`).join('')}
+      </tbody>
+    </table>
+  `;
 }
 
 // Proyección de fin (ritmo real por línea, ignorando rutas "de prueba") y
@@ -615,6 +675,7 @@ async function cargarRutas() {
   actualizarResumen();
   actualizarResumenOperacion();
   renderRankingHoy();
+  renderTablaFueraOTIF('fuera-otif-cedi', calcularRutasFueraOTIF(RUTAS));
 }
 
 // ---------- COMPARACIÓN ENTRE TODOS LOS CEDIS ----------
@@ -763,6 +824,8 @@ async function cargarComparacionTodosCedis() {
       </tr>
     `).join('')
     : '<tr><td colspan="7" style="text-align:center;color:#6b829a;">Todavía no hay rutas con auditor asignado hoy.</td></tr>';
+
+  renderTablaFueraOTIF('fuera-otif-global', calcularRutasFueraOTIF(todas));
 }
 
 if (CEDI === '__todos__') {
