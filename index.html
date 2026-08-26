@@ -982,6 +982,7 @@
                 <div class="indicator-field"><label>Recargo noct+dom (h)</label><input type="text" id="liq-recargo-noctdom" inputmode="decimal" value="0" style="width:90px"></div>
                 <div class="indicator-field"><label>Observaciones</label><input type="text" id="liq-observaciones" placeholder="Opcional"></div>
                 <button class="btn" id="btn-calcular-liquidacion">Calcular y guardar</button>
+                <button class="btn ghost" id="btn-exportar-liquidador-individual">Exportar a Excel</button>
               </div>
               <div id="liq-status" style="font-size:12px;color:var(--text-secondary);margin-top:8px;"></div>
               <div id="liq-resultado" style="margin-top:10px;"></div>
@@ -2695,12 +2696,23 @@ async function calcularDesdeAsistencia() {
 }
 
 const COLUMNAS_DETALLE_DIARIO = [
-  ['fecha', 'Fecha'], ['horas_ordinarias_diurnas', 'Ordinaria diurna'], ['horas_recargo_nocturno', 'Recargo nocturno'],
-  ['horas_extra_diurna', 'Extra diurna'], ['horas_extra_nocturna', 'Extra nocturna'],
-  ['horas_recargo_dominical', 'DDO diurno'], ['horas_recargo_nocturno_dominical', 'DDO nocturno'],
-  ['horas_extra_dom_fest_diurna', 'Extra DDO diurna'], ['horas_extra_dom_fest_nocturna', 'Extra DDO nocturna'],
-  ['horas_totales_dia', 'Total del día'],
+  ['fecha', 'Fecha'], ['hora_entrada', 'Entrada'], ['hora_salida', 'Salida'],
+  ['horas_ordinarias_diurnas', 'Ordinaria diurna (h)'], ['horas_recargo_nocturno', 'Recargo nocturno (h)'],
+  ['horas_extra_diurna', 'Extra diurna (h)'], ['horas_extra_nocturna', 'Extra nocturna (h)'],
+  ['horas_recargo_dominical', 'DDO diurno (h)'], ['horas_recargo_nocturno_dominical', 'DDO nocturno (h)'],
+  ['horas_extra_dom_fest_diurna', 'Extra DDO diurna (h)'], ['horas_extra_dom_fest_nocturna', 'Extra DDO nocturna (h)'],
+  ['horas_totales_dia', 'Total horas del día'],
+  ['valor_ordinarias_diurnas', '$ Ordinarias diurnas'], ['valor_recargo_nocturno', '$ Recargo nocturno'],
+  ['valor_extra_diurna', '$ Extra diurna'], ['valor_extra_nocturna', '$ Extra nocturna'],
+  ['valor_recargo_dominical', '$ DDO diurno'], ['valor_recargo_nocturno_dominical', '$ DDO nocturno'],
+  ['valor_extra_dom_fest_diurna', '$ Extra DDO diurna'], ['valor_extra_dom_fest_nocturna', '$ Extra DDO nocturna'],
+  ['valor_total_dia', '$ Total del día'],
 ];
+
+const COLUMNAS_DETALLE_DIARIO_FECHA_HORA = new Set(['fecha', 'hora_entrada', 'hora_salida']);
+
+let DETALLE_DIARIO_RESULTADO = [];
+let DETALLE_DIARIO_CONTEXTO = { empleado: '', periodo_inicio: '', periodo_fin: '' };
 
 async function cargarDetalleDiario(empleado_id, periodo_inicio, periodo_fin) {
   const cont = document.getElementById('liq-detalle-diario');
@@ -2709,20 +2721,65 @@ async function cargarDetalleDiario(empleado_id, periodo_inicio, periodo_fin) {
 
   if (error) {
     cont.innerHTML = `<div class="empty-state">No se pudo cargar el detalle diario: ${tEsc(error.message)}${error.message.includes('does not exist') ? ' -- probablemente falta correr el archivo 34_detalle_diario_y_guardar_nomina.sql en Supabase.' : ''}</div>`;
+    DETALLE_DIARIO_RESULTADO = [];
     return;
   }
-  if (!data || !data.length) { cont.innerHTML = '<div class="empty-state">No hay detalle diario para mostrar (sin registros en ese periodo).</div>'; return; }
+  if (!data || !data.length) {
+    cont.innerHTML = '<div class="empty-state">No hay detalle diario para mostrar (sin registros en ese periodo).</div>';
+    DETALLE_DIARIO_RESULTADO = [];
+    return;
+  }
+
+  DETALLE_DIARIO_RESULTADO = data;
+  DETALLE_DIARIO_CONTEXTO = {
+    empleado: document.getElementById('liq-empleado-buscar').value.trim() || 'empleado',
+    periodo_inicio, periodo_fin,
+  };
 
   cont.innerHTML = `
     <div class="section-label" style="margin-top:0;">Detalle día por día</div>
     <table class="hist-table open">
       <tr>${COLUMNAS_DETALLE_DIARIO.map(([, label]) => `<th>${label}</th>`).join('')}</tr>
-      ${data.map(fila => `<tr>${COLUMNAS_DETALLE_DIARIO.map(([key]) =>
-        `<td>${key === 'fecha' ? tEsc(fila[key]) : Number(fila[key]).toFixed(2)}</td>`
-      ).join('')}</tr>`).join('')}
+      ${data.map(fila => `<tr>${COLUMNAS_DETALLE_DIARIO.map(([key]) => {
+        if (key === 'fecha') return `<td>${tEsc(fila[key])}</td>`;
+        if (key === 'hora_entrada' || key === 'hora_salida') return `<td>${new Date(fila[key]).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' })}</td>`;
+        if (key.startsWith('valor_')) return `<td>$ ${Number(fila[key]).toLocaleString('es-CO', { maximumFractionDigits: 0 })}</td>`;
+        return `<td>${Number(fila[key]).toFixed(2)}</td>`;
+      }).join('')}</tr>`).join('')}
     </table>
   `;
 }
+
+document.getElementById('btn-exportar-liquidador-individual').addEventListener('click', () => {
+  if (!DETALLE_DIARIO_RESULTADO.length) { mostrarToast('Primero calcula desde Entradas/Salidas para tener qué exportar.'); return; }
+
+  const filasExcel = DETALLE_DIARIO_RESULTADO.map(fila => {
+    const objeto = {};
+    COLUMNAS_DETALLE_DIARIO.forEach(([key, label]) => {
+      if (key === 'hora_entrada' || key === 'hora_salida') {
+        objeto[label] = new Date(fila[key]).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' });
+      } else {
+        objeto[label] = fila[key];
+      }
+    });
+    return objeto;
+  });
+
+  // Fila de totales al final, sumando solo las columnas numéricas (se
+  // saltan Fecha, Entrada y Salida, que no tiene sentido sumar).
+  const totales = { Fecha: 'TOTAL' };
+  COLUMNAS_DETALLE_DIARIO.forEach(([key, label]) => {
+    if (COLUMNAS_DETALLE_DIARIO_FECHA_HORA.has(key)) return;
+    totales[label] = DETALLE_DIARIO_RESULTADO.reduce((s, f) => s + Number(f[key] || 0), 0).toFixed(2);
+  });
+  filasExcel.push(totales);
+
+  const hoja = XLSX.utils.json_to_sheet(filasExcel);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, hoja, 'Detalle diario');
+  const nombreArchivo = `Liquidacion_${DETALLE_DIARIO_CONTEXTO.empleado.replace(/[^a-zA-Z0-9]/g, '_')}_${DETALLE_DIARIO_CONTEXTO.periodo_inicio}_a_${DETALLE_DIARIO_CONTEXTO.periodo_fin}.xlsx`;
+  XLSX.writeFile(wb, nombreArchivo);
+});
 
 
 let EMPLEADOS_CACHE_BUSCADOR = [];
