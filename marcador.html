@@ -13,9 +13,32 @@
   .header { display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; flex-wrap:wrap; gap:10px; }
   .header .title { font-size:22px; font-weight:700; }
   .header .clock { font-size:20px; color:#8fa5b8; font-variant-numeric:tabular-nums; }
-  .header select, .header input {
+  .header select, .header input, .header button {
     background:#0f2033; color:#fff; border:1px solid #1e3148; border-radius:8px; padding:8px 12px; font-size:14px;
   }
+  .btn-logout { cursor:pointer; }
+
+  /* ---------- Pantalla de login ---------- */
+  #pantalla-login { max-width:360px; margin:80px auto; background:#0f2033; border:1px solid #1e3148; border-radius:16px; padding:32px 28px; text-align:center; }
+  #pantalla-login h1 { font-size:20px; margin-bottom:4px; }
+  #pantalla-login p { color:#8fa5b8; font-size:13px; margin-bottom:20px; }
+  #pantalla-login input { width:100%; margin-bottom:12px; padding:12px 14px; font-size:15px; background:#0b1622; color:#fff; border:1px solid #1e3148; border-radius:8px; }
+  #pantalla-login button { width:100%; padding:13px; background:#3b82f6; color:#fff; border:none; border-radius:8px; font-size:15px; font-weight:700; cursor:pointer; }
+  #login-error { color:#f05b5b; font-size:12.5px; margin-top:10px; }
+
+  /* ---------- Resumen ---------- */
+  .resumen { display:flex; gap:14px; flex-wrap:wrap; margin-bottom:18px; }
+  .resumen-card { background:#0f2033; border:1px solid #1e3148; border-radius:12px; padding:12px 18px; min-width:130px; }
+  .resumen-card .num { font-size:24px; font-weight:700; }
+  .resumen-card .lbl { font-size:10.5px; color:#8fa5b8; text-transform:uppercase; }
+  .resumen-card.alerta { border-color:#f05b5b; }
+  .resumen-card.alerta .num { color:#f05b5b; }
+
+  .panel-alerta { background:#1a0e0e; border:1px solid #4a1e1e; border-radius:12px; padding:14px 18px; margin-bottom:18px; }
+  .panel-alerta .titulo { font-size:12px; font-weight:700; color:#f05b5b; text-transform:uppercase; margin-bottom:8px; }
+  .panel-alerta .item { display:flex; justify-content:space-between; padding:6px 0; border-bottom:1px solid #2a1414; font-size:13.5px; }
+  .panel-alerta .item:last-child { border-bottom:none; }
+  .panel-alerta .item .tiempo { font-variant-numeric:tabular-nums; font-weight:700; color:#f05b5b; }
 
   #buscador {
     width:100%; max-width:500px; margin:0 auto 20px; display:block;
@@ -27,10 +50,11 @@
   .grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(140px, 1fr)); gap:14px; max-width:1100px; margin:0 auto; }
   .tile {
     background:#0f2033; border:2px solid #1e3148; border-radius:14px; padding:14px 8px;
-    display:flex; flex-direction:column; align-items:center; gap:8px; cursor:pointer;
+    display:flex; flex-direction:column; align-items:center; gap:6px; cursor:pointer;
     transition:transform .1s, border-color .1s;
   }
   .tile:active { transform:scale(0.96); border-color:#3b82f6; }
+  .tile.excedido { border-color:#f05b5b; }
   .tile .foto {
     width:72px; height:72px; border-radius:50%; object-fit:cover; background:#1e3148;
     display:flex; align-items:center; justify-content:center; font-size:22px; font-weight:700; color:#8fa5b8;
@@ -42,6 +66,8 @@
   }
   .badge-estado.dentro { background:#164a2e; color:#4ade9e; }
   .badge-estado.fuera { background:#1e3148; color:#8fa5b8; }
+  .tile .tiempo-transcurrido { font-size:10.5px; color:#8fa5b8; font-variant-numeric:tabular-nums; }
+  .tile.excedido .tiempo-transcurrido { color:#f05b5b; font-weight:700; }
 
   .empty { text-align:center; color:#8fa5b8; padding:60px 20px; font-size:16px; }
 
@@ -71,28 +97,51 @@
 </head>
 <body>
 
-<div class="header">
-  <div class="title" id="titulo">JDH · Marcador de Tiempo</div>
-  <select id="selector-cedi">
-    <option value="BAQ">Barranquilla</option>
-    <option value="BGA">Bucaramanga</option>
-    <option value="BOG">Bogotá</option>
-    <option value="COP">Copacabana</option>
-    <option value="CTG">Cartagena</option>
-    <option value="PER">Pereira</option>
-  </select>
-  <div class="clock" id="reloj"></div>
+<div id="pantalla-login">
+  <h1>JDH · Marcador de Tiempo</h1>
+  <p>Inicia sesión para habilitar el kiosco. Solo el supervisor o quien tenga permiso debe hacer esto -- una vez adentro, cualquiera puede usar la pantalla para marcar.</p>
+  <input type="text" id="login-usuario" placeholder="Usuario" autocomplete="username">
+  <input type="password" id="login-password" placeholder="Contraseña" autocomplete="current-password">
+  <button id="btn-login">Habilitar kiosco</button>
+  <div id="login-error" class="hidden"></div>
 </div>
 
-<input type="text" id="buscador" placeholder="Busca tu nombre...">
+<div id="pantalla-kiosco" class="hidden">
+  <div class="header">
+    <div class="title" id="titulo">JDH · Marcador de Tiempo</div>
+    <select id="selector-cedi">
+      <option value="BAQ">Barranquilla</option>
+      <option value="BGA">Bucaramanga</option>
+      <option value="BOG">Bogotá</option>
+      <option value="COP">Copacabana</option>
+      <option value="CTG">Cartagena</option>
+      <option value="PER">Pereira</option>
+    </select>
+    <div class="clock" id="reloj"></div>
+    <button class="btn-logout" id="btn-logout">Cerrar sesión</button>
+  </div>
 
-<div id="grid-empleados" class="grid"></div>
-<div id="vacio" class="empty hidden">No hay colaboradores con foto o nombre que coincida.</div>
+  <div class="resumen">
+    <div class="resumen-card"><div class="num" id="resumen-dentro">0</div><div class="lbl">Dentro ahora</div></div>
+    <div class="resumen-card"><div class="num" id="resumen-total">0</div><div class="lbl">Total colaboradores</div></div>
+    <div class="resumen-card alerta"><div class="num" id="resumen-exceso">0</div><div class="lbl">Con exceso de horas</div></div>
+  </div>
+
+  <div id="panel-alerta" class="panel-alerta hidden">
+    <div class="titulo">⚠ Operarios que ya superaron las 10 horas (8 ordinarias + 1 descanso + máx. 2 extra)</div>
+    <div id="panel-alerta-lista"></div>
+  </div>
+
+  <input type="text" id="buscador" placeholder="Busca el nombre del operario...">
+
+  <div id="grid-empleados" class="grid"></div>
+  <div id="vacio" class="empty hidden">No hay colaboradores con foto o nombre que coincida.</div>
+</div>
 
 <div id="overlay-confirmar" class="overlay hidden">
   <div class="modal">
     <div class="foto-grande" id="modal-foto"></div>
-    <div class="pregunta" id="modal-pregunta">¿Eres...?</div>
+    <div class="pregunta" id="modal-pregunta">¿Confirmas?</div>
     <div class="subtexto" id="modal-subtexto"></div>
     <button id="modal-btn-accion"></button>
     <button class="btn-cancelar" id="modal-btn-cancelar">Cancelar</button>
@@ -111,10 +160,10 @@ const SUPABASE_URL = 'https://oowfwkrhongqkfavhqeq.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_g-7cH12m-lLYcNXGbrK3eA_5mG5tydQ';
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
+const LIMITE_HORAS = 10; // 8 ordinarias + 1 descanso + máx. 2 extra
+
 const params = new URLSearchParams(location.search);
 let CEDI = params.get('cedi') || 'COP';
-document.getElementById('selector-cedi').value = CEDI;
-
 let EMPLEADOS = [];
 let EMPLEADO_SELECCIONADO = null;
 
@@ -122,42 +171,138 @@ function iniciales(nombre) {
   return nombre.trim().split(/\s+/).slice(0, 2).map(p => p[0]).join('').toUpperCase();
 }
 
+// ---------- LOGIN ----------
+document.getElementById('btn-login').addEventListener('click', iniciarSesion);
+document.getElementById('login-password').addEventListener('keydown', (e) => { if (e.key === 'Enter') iniciarSesion(); });
+
+async function iniciarSesion() {
+  const usuario = document.getElementById('login-usuario').value.trim();
+  const password = document.getElementById('login-password').value;
+  const errBox = document.getElementById('login-error');
+  errBox.classList.add('hidden');
+
+  if (!usuario || !password) {
+    errBox.textContent = 'Ingresa el usuario y la contraseña.';
+    errBox.classList.remove('hidden');
+    return;
+  }
+
+  const { data: correo, error: errCorreo } = await sb.rpc('correo_por_usuario', { p_usuario: usuario });
+  if (errCorreo || !correo) {
+    errBox.textContent = 'Usuario o contraseña incorrectos.';
+    errBox.classList.remove('hidden');
+    return;
+  }
+
+  const { error } = await sb.auth.signInWithPassword({ email: correo, password });
+  if (error) {
+    errBox.textContent = 'Usuario o contraseña incorrectos.';
+    errBox.classList.remove('hidden');
+    return;
+  }
+
+  arrancarKiosco();
+}
+
+document.getElementById('btn-logout').addEventListener('click', async () => {
+  await sb.auth.signOut();
+  location.reload();
+});
+
+async function arrancarKiosco() {
+  document.getElementById('pantalla-login').classList.add('hidden');
+  document.getElementById('pantalla-kiosco').classList.remove('hidden');
+  document.getElementById('selector-cedi').value = CEDI;
+  actualizarReloj();
+  setInterval(actualizarReloj, 1000);
+  await cargarEmpleados();
+  setInterval(cargarEmpleados, 30000);
+  setInterval(actualizarTimersEnVivo, 1000);
+}
+
+// Si ya había una sesión activa (recargó la página sin cerrar sesión), entra directo.
+sb.auth.getSession().then(({ data }) => { if (data.session) arrancarKiosco(); });
+
+// ---------- Reloj ----------
 function actualizarReloj() {
   document.getElementById('reloj').textContent = new Date().toLocaleString('es-CO', {
     weekday: 'short', day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit', second: '2-digit'
   });
 }
-actualizarReloj();
-setInterval(actualizarReloj, 1000);
 
+function formatoDuracion(segundos) {
+  const h = Math.floor(segundos / 3600);
+  const m = Math.floor((segundos % 3600) / 60);
+  return `${h}h ${String(m).padStart(2, '0')}m`;
+}
+
+// ---------- Cargar empleados y pintar todo ---------
 async function cargarEmpleados() {
   document.getElementById('titulo').textContent = `JDH ${CEDI} · Marcador de Tiempo`;
   const { data, error } = await sb.rpc('empleados_kiosco', { p_cedi: CEDI });
   if (error) { console.error(error); return; }
   EMPLEADOS = data || [];
+  renderResumenYAlerta();
   renderGrid();
+}
+
+function renderResumenYAlerta() {
+  const dentro = EMPLEADOS.filter(e => e.tiene_entrada_abierta);
+  const ahora = Date.now();
+  const conExceso = dentro.filter(e => (ahora - new Date(e.hora_entrada_abierta).getTime()) / 1000 / 3600 > LIMITE_HORAS);
+
+  document.getElementById('resumen-dentro').textContent = dentro.length;
+  document.getElementById('resumen-total').textContent = EMPLEADOS.length;
+  document.getElementById('resumen-exceso').textContent = conExceso.length;
+
+  const panel = document.getElementById('panel-alerta');
+  if (!conExceso.length) { panel.classList.add('hidden'); return; }
+  panel.classList.remove('hidden');
+  document.getElementById('panel-alerta-lista').innerHTML = conExceso
+    .sort((a, b) => new Date(a.hora_entrada_abierta) - new Date(b.hora_entrada_abierta))
+    .map(e => `<div class="item" data-alerta-emp="${e.id}"><span>${e.nombre}</span><span class="tiempo" data-cronometro="${e.id}"></span></div>`)
+    .join('');
 }
 
 function renderGrid() {
   const texto = document.getElementById('buscador').value.trim().toLowerCase();
   const grid = document.getElementById('grid-empleados');
   const vacio = document.getElementById('vacio');
+  const ahora = Date.now();
 
   const filtrados = EMPLEADOS.filter(e => !texto || e.nombre.toLowerCase().includes(texto));
 
   if (!filtrados.length) { grid.innerHTML = ''; vacio.classList.remove('hidden'); return; }
   vacio.classList.add('hidden');
 
-  grid.innerHTML = filtrados.map(e => `
-    <div class="tile" data-emp-id="${e.id}">
+  grid.innerHTML = filtrados.map(e => {
+    const excedido = e.tiene_entrada_abierta && (ahora - new Date(e.hora_entrada_abierta).getTime()) / 1000 / 3600 > LIMITE_HORAS;
+    return `
+    <div class="tile ${excedido ? 'excedido' : ''}" data-emp-id="${e.id}">
       <div class="foto">${e.foto_url ? `<img src="${e.foto_url}">` : iniciales(e.nombre)}</div>
       <div class="nombre">${e.nombre}</div>
       <div class="badge-estado ${e.tiene_entrada_abierta ? 'dentro' : 'fuera'}">${e.tiene_entrada_abierta ? 'Dentro' : 'Fuera'}</div>
+      ${e.tiene_entrada_abierta ? `<div class="tiempo-transcurrido" data-cronometro="${e.id}"></div>` : ''}
     </div>
-  `).join('');
+  `;
+  }).join('');
 
   grid.querySelectorAll('[data-emp-id]').forEach(tile => {
     tile.addEventListener('click', () => abrirConfirmacion(Number(tile.dataset.empId)));
+  });
+
+  actualizarTimersEnVivo();
+}
+
+// Actualiza SOLO el texto de los cronómetros cada segundo, sin re-dibujar
+// toda la cuadrícula (para que no "parpadee" ni pierda el foco del buscador).
+function actualizarTimersEnVivo() {
+  const ahora = Date.now();
+  document.querySelectorAll('[data-cronometro]').forEach(el => {
+    const emp = EMPLEADOS.find(x => x.id === Number(el.dataset.cronometro));
+    if (!emp || !emp.tiene_entrada_abierta) return;
+    const segundos = (ahora - new Date(emp.hora_entrada_abierta).getTime()) / 1000;
+    el.textContent = formatoDuracion(segundos);
   });
 }
 
@@ -169,6 +314,7 @@ document.getElementById('selector-cedi').addEventListener('change', () => {
   cargarEmpleados();
 });
 
+// ---------- Confirmación y marcaje ---------
 function abrirConfirmacion(empId) {
   const emp = EMPLEADOS.find(e => e.id === empId);
   if (!emp) return;
@@ -177,17 +323,17 @@ function abrirConfirmacion(empId) {
   const modalFoto = document.getElementById('modal-foto');
   modalFoto.innerHTML = emp.foto_url ? `<img src="${emp.foto_url}">` : iniciales(emp.nombre);
 
-  document.getElementById('modal-pregunta').textContent = `¿Eres ${emp.nombre.split(' ').slice(0, 2).join(' ')}?`;
+  document.getElementById('modal-pregunta').textContent = `¿Confirmas para ${emp.nombre.split(' ').slice(0, 2).join(' ')}?`;
 
   const btnAccion = document.getElementById('modal-btn-accion');
   if (emp.tiene_entrada_abierta) {
-    document.getElementById('modal-subtexto').textContent = 'Ya tienes una entrada marcada hoy.';
-    btnAccion.textContent = 'Sí, marcar Salida';
+    document.getElementById('modal-subtexto').textContent = 'Ya tiene una entrada marcada hoy.';
+    btnAccion.textContent = 'Marcar Salida';
     btnAccion.className = 'btn-salida';
     btnAccion.onclick = () => confirmarMarcaje('salida');
   } else {
-    document.getElementById('modal-subtexto').textContent = 'Todavía no has marcado entrada.';
-    btnAccion.textContent = 'Sí, marcar Entrada';
+    document.getElementById('modal-subtexto').textContent = 'Todavía no ha marcado entrada.';
+    btnAccion.textContent = 'Marcar Entrada';
     btnAccion.className = 'btn-entrada';
     btnAccion.onclick = () => confirmarMarcaje('entrada');
   }
@@ -230,9 +376,6 @@ async function confirmarMarcaje(tipo) {
     await cargarEmpleados();
   }, 1800);
 }
-
-cargarEmpleados();
-setInterval(cargarEmpleados, 30000); // refresca solo cada 30s, por si alguien marca desde otro dispositivo
 </script>
 </body>
 </html>
