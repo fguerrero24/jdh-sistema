@@ -918,6 +918,7 @@
                 <div class="indicator-field"><label>CEDI</label><select id="nomina-cedi"></select></div>
                 <div class="indicator-field"><label>Desde</label><input type="date" id="nomina-desde"></div>
                 <div class="indicator-field"><label>Hasta</label><input type="date" id="nomina-hasta"></div>
+                <div class="indicator-field"><label>Base diaria</label><select id="nomina-base-diaria"><option value="8" selected>Base 8</option><option value="7">Base 7</option></select></div>
                 <button class="btn" id="btn-liquidar-nomina">Liquidar</button>
                 <button class="btn ghost" id="btn-exportar-nomina">Exportar a Excel</button>
                 <button class="btn" id="btn-guardar-vaciar-nomina" style="background:var(--crit-dot);">Guardar liquidación final y vaciar registros</button>
@@ -969,6 +970,7 @@
                 </div>
                 <div class="indicator-field"><label>Periodo inicio</label><input type="date" id="liq-inicio"></div>
                 <div class="indicator-field"><label>Periodo fin</label><input type="date" id="liq-fin"></div>
+                <div class="indicator-field"><label>Base diaria</label><select id="liq-base-diaria"><option value="8" selected>Base 8</option><option value="7">Base 7</option></select></div>
               </div>
               <div class="indicator-fields">
                 <div class="indicator-field"><label>Extra diurna (h)</label><input type="text" id="liq-extra-diurna" inputmode="decimal" value="0" style="width:90px"></div>
@@ -2677,7 +2679,8 @@ async function calcularDesdeAsistencia() {
     return;
   }
 
-  const { data, error } = await sb.rpc('calcular_horas_desde_asistencia', { p_empleado_id: empleado_id, p_desde: periodo_inicio, p_hasta: periodo_fin });
+  const p_base_diaria = Number(document.getElementById('liq-base-diaria').value);
+  const { data, error } = await sb.rpc('calcular_horas_desde_asistencia', { p_empleado_id: empleado_id, p_desde: periodo_inicio, p_hasta: periodo_fin, p_base_diaria });
   if (error) { estado.textContent = 'Error: ' + error.message; return; }
 
   const h = data && data[0];
@@ -2692,7 +2695,7 @@ async function calcularDesdeAsistencia() {
   document.getElementById('liq-recargo-noctdom').value = h.horas_recargo_nocturno_dominical;
 
   estado.textContent = `Se encontraron ${count} registro(s) de asistencia en ese periodo. Horas calculadas -- revísalas y dale "Calcular y guardar" para confirmar.`;
-  cargarDetalleDiario(empleado_id, periodo_inicio, periodo_fin);
+  cargarDetalleDiario(empleado_id, periodo_inicio, periodo_fin, p_base_diaria);
 }
 
 const COLUMNAS_DETALLE_DIARIO = [
@@ -2714,10 +2717,10 @@ const COLUMNAS_DETALLE_DIARIO_FECHA_HORA = new Set(['fecha', 'hora_entrada', 'ho
 let DETALLE_DIARIO_RESULTADO = [];
 let DETALLE_DIARIO_CONTEXTO = { empleado: '', periodo_inicio: '', periodo_fin: '' };
 
-async function cargarDetalleDiario(empleado_id, periodo_inicio, periodo_fin) {
+async function cargarDetalleDiario(empleado_id, periodo_inicio, periodo_fin, p_base_diaria = 8) {
   const cont = document.getElementById('liq-detalle-diario');
   cont.innerHTML = '<div style="font-size:12px;color:var(--text-secondary);">Cargando detalle día por día...</div>';
-  const { data, error } = await sb.rpc('calcular_horas_detalle_diario', { p_empleado_id: empleado_id, p_desde: periodo_inicio, p_hasta: periodo_fin });
+  const { data, error } = await sb.rpc('calcular_horas_detalle_diario', { p_empleado_id: empleado_id, p_desde: periodo_inicio, p_hasta: periodo_fin, p_base_diaria });
 
   if (error) {
     cont.innerHTML = `<div class="empty-state">No se pudo cargar el detalle diario: ${tEsc(error.message)}${error.message.includes('does not exist') ? ' -- probablemente falta correr el archivo 34_detalle_diario_y_guardar_nomina.sql en Supabase.' : ''}</div>`;
@@ -3357,7 +3360,7 @@ async function liquidarNomina() {
   if (!desde || !hasta) { estado.textContent = 'Completa el rango de fechas.'; return; }
 
   estado.textContent = 'Calculando...';
-  const { data, error } = await sb.rpc('liquidador_nomina', { p_cedi: cedi, p_desde: desde, p_hasta: hasta });
+  const { data, error } = await sb.rpc('liquidador_nomina', { p_cedi: cedi, p_desde: desde, p_hasta: hasta, p_base_diaria: Number(document.getElementById('nomina-base-diaria').value) });
   if (error) { estado.textContent = 'Error: ' + error.message; return; }
 
   NOMINA_RESULTADO = data || [];
@@ -3424,7 +3427,7 @@ async function guardarLiquidacionFinalYVaciar() {
     `Te recomendamos exportar a Excel primero si no lo has hecho.`
   )) return;
 
-  const { data, error } = await sb.rpc('guardar_liquidacion_nomina_y_vaciar', { p_cedi: cedi, p_desde: desde, p_hasta: hasta });
+  const { data, error } = await sb.rpc('guardar_liquidacion_nomina_y_vaciar', { p_cedi: cedi, p_desde: desde, p_hasta: hasta, p_base_diaria: Number(document.getElementById('nomina-base-diaria').value) });
   if (error) { estado.textContent = 'Error: ' + error.message; return; }
 
   estado.textContent = `Liquidación guardada en el histórico (${data} operario(s)) y registros de asistencia de ese periodo eliminados.`;
