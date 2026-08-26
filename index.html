@@ -1084,6 +1084,20 @@ let SESION = null;
 // ============================================================
 function tEsc(v) { return String(v ?? '').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m])); }
 
+// Devuelve YYYY-MM-DD según la hora de PARED en Colombia, sin importar la
+// zona horaria del navegador ni la de la base de datos. Usar SIEMPRE esta
+// función (nunca .toISOString().slice(0,10), que da la fecha en UTC -- un
+// turno nocturno cerca de medianoche en Colombia puede quedar con la fecha
+// del día equivocado, lo que rompe la detección de domingos/festivos).
+function fechaColombia(fechaObj) {
+  const partes = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Bogota', year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(fechaObj);
+  const obj = {};
+  partes.forEach(p => { obj[p.type] = p.value; });
+  return `${obj.year}-${obj.month}-${obj.day}`;
+}
+function fechaColombiaHoy() { return fechaColombia(new Date()); }
+
+
 // Algunos archivos traen varias hojas (ej. un resumen/tabla dinámica antes de
 // los datos reales). En vez de asumir que los datos están en la primera,
 // se elige la hoja con más filas -- casi siempre es la que tiene los datos.
@@ -1234,7 +1248,7 @@ function cambiarModulo(modulo) {
   if (modulo === 'indicadores') cargarIndicadores();
   if (modulo === 'recepcion-rutas') {
     const inputVista = document.getElementById('rutas-fecha-vista');
-    if (!inputVista.value) inputVista.value = new Date().toISOString().slice(0, 10);
+    if (!inputVista.value) inputVista.value = fechaColombiaHoy();
     cargarListaRutas();
   }
   if (modulo === 'recepcion-ranking') cargarRankingAuditores();
@@ -1502,7 +1516,7 @@ function renderIndicadores(indicadores) {
       <div class="indicator-fields">
         <div class="indicator-field">
           <label>Fecha</label>
-          <input type="date" class="fecha-field" data-ind="${tEsc(ind.id)}" value="${new Date().toISOString().slice(0,10)}">
+          <input type="date" class="fecha-field" data-ind="${tEsc(ind.id)}" value="${fechaColombiaHoy()}">
         </div>
         ${fieldsHtml}
         <button class="btn" data-guardar="${tEsc(ind.id)}">Guardar</button>
@@ -1818,7 +1832,7 @@ let AUDITORES_CACHE = [];
 let RUTAS_DEL_DIA_CACHE = [];
 
 async function cargarListaRutas() {
-  const fecha = document.getElementById('rutas-fecha-vista').value || new Date().toISOString().slice(0, 10);
+  const fecha = document.getElementById('rutas-fecha-vista').value || fechaColombiaHoy();
   let q = sb.from('rutas_activas').select('*').eq('fecha', fecha).order('ruta_nombre');
   if (!puedeVerTodosLosCedis()) q = q.eq('cedi', SESION.cedi);
   const { data, error } = await q;
@@ -1977,7 +1991,7 @@ document.getElementById('btn-finalizar-cargues').addEventListener('click', final
 document.getElementById('rutas-fecha-vista').addEventListener('change', cargarListaRutas);
 
 async function finalizarCargues() {
-  const fecha = document.getElementById('rutas-fecha-vista').value || new Date().toISOString().slice(0, 10);
+  const fecha = document.getElementById('rutas-fecha-vista').value || fechaColombiaHoy();
   if (!confirm(`¿Finalizar cargues de ${SESION.cedi} para el ${fecha}? Esto archiva las rutas al histórico y vacía el tablero de hoy.`)) return;
 
   const { data, error } = await sb.rpc('finalizar_cargues', { p_cedi: SESION.cedi, p_fecha: fecha });
@@ -2519,7 +2533,7 @@ async function procesarEventosReloj() {
         turnos.push({
           empleado_id: empleadoId,
           cedi: SESION.cedi,
-          fecha: c.entrada.toISOString().slice(0, 10),
+          fecha: fechaColombia(c.entrada),
           hora_entrada: c.entrada.toISOString(),
           hora_salida: c.salida.toISOString(),
           creado_por: SESION.id,
@@ -3042,7 +3056,7 @@ async function cargarModuloCompensatorios() {
   }
 
   const inputFecha = document.getElementById('comp-fecha');
-  if (!inputFecha.value) inputFecha.value = new Date().toISOString().slice(0, 10);
+  if (!inputFecha.value) inputFecha.value = fechaColombiaHoy();
 
   await cargarEmpleados();
   await cargarSaldosCedi();
@@ -3186,7 +3200,7 @@ async function cargarModuloRegistros() {
   selNuevo.innerHTML = (empleados || []).map(e => `<option value="${e.id}" data-cedi="${tEsc(e.cedi)}">${tEsc(e.nombre)} (${tEsc(e.cedi)})</option>`).join('');
 
   if (!document.getElementById('reg-nuevo-fecha').value) {
-    document.getElementById('reg-nuevo-fecha').value = new Date().toISOString().slice(0, 10);
+    document.getElementById('reg-nuevo-fecha').value = fechaColombiaHoy();
   }
 
   await filtrarRegistros();
