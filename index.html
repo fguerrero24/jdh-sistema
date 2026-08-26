@@ -1097,6 +1097,22 @@ function fechaColombia(fechaObj) {
 }
 function fechaColombiaHoy() { return fechaColombia(new Date()); }
 
+// Convierte texto de dinero en formato colombiano ("$ 1.800.000,00", "1.800.000",
+// "1800000") a un número de JavaScript. Number() por sí solo no entiende el
+// signo $, los puntos de miles ni la coma decimal -- por eso los campos de
+// salario a veces "no funcionaban" en silencio si alguien escribía con formato.
+function parsearMoneda(texto) {
+  if (texto === null || texto === undefined) return NaN;
+  let limpio = String(texto).trim().replace(/[^\d.,]/g, '');
+  if (!limpio) return NaN;
+  if (limpio.includes(',')) {
+    limpio = limpio.replace(/\./g, '').replace(',', '.'); // puntos = miles, coma = decimal
+  } else {
+    limpio = limpio.replace(/\./g, ''); // sin coma: los puntos son de miles
+  }
+  return Number(limpio);
+}
+
 
 // Algunos archivos traen varias hojas (ej. un resumen/tabla dinámica antes de
 // los datos reales). En vez de asumir que los datos están en la primera,
@@ -2598,7 +2614,7 @@ async function crearFaltantesYReintentar() {
     const numero_dispositivo = bloque.dataset.numeroFaltante;
     const nombre = bloque.querySelector('.falt-nombre').value.trim();
     const cargo = bloque.querySelector('.falt-cargo').value.trim();
-    const salario = Number(bloque.querySelector('.falt-salario').value.trim());
+    const salario = parsearMoneda(bloque.querySelector('.falt-salario').value);
     const cedi = bloque.querySelector('.falt-cedi').value;
     if (!nombre || !salario || salario <= 0) continue;
     nuevos.push({ nombre, cargo: cargo || null, salario_base: salario, cedi, numero_dispositivo, creado_por: SESION.id });
@@ -2719,6 +2735,8 @@ const COLUMNAS_DETALLE_DIARIO = [
   ['horas_recargo_dominical', 'DDO diurno (h)'], ['horas_recargo_nocturno_dominical', 'DDO nocturno (h)'],
   ['horas_extra_dom_fest_diurna', 'Extra DDO diurna (h)'], ['horas_extra_dom_fest_nocturna', 'Extra DDO nocturna (h)'],
   ['horas_totales_dia', 'Total horas del día'],
+  ['semana_laboral_inicio', 'Semana laboral (inicio)'],
+  ['acumulado_semana_antes', 'Acum. semana ANTES (h)'], ['acumulado_semana_despues', 'Acum. semana DESPUÉS (h)'],
   ['valor_ordinarias_diurnas', '$ Ordinarias diurnas'], ['valor_recargo_nocturno', '$ Recargo nocturno'],
   ['valor_extra_diurna', '$ Extra diurna'], ['valor_extra_nocturna', '$ Extra nocturna'],
   ['valor_recargo_dominical', '$ DDO diurno'], ['valor_recargo_nocturno_dominical', '$ DDO nocturno'],
@@ -2726,7 +2744,7 @@ const COLUMNAS_DETALLE_DIARIO = [
   ['valor_total_dia', '$ Total del día'],
 ];
 
-const COLUMNAS_DETALLE_DIARIO_FECHA_HORA = new Set(['fecha', 'hora_entrada', 'hora_salida']);
+const COLUMNAS_DETALLE_DIARIO_FECHA_HORA = new Set(['fecha', 'hora_entrada', 'hora_salida', 'semana_laboral_inicio', 'acumulado_semana_antes', 'acumulado_semana_despues']);
 
 let DETALLE_DIARIO_RESULTADO = [];
 let DETALLE_DIARIO_CONTEXTO = { empleado: '', periodo_inicio: '', periodo_fin: '' };
@@ -2759,6 +2777,7 @@ async function cargarDetalleDiario(empleado_id, periodo_inicio, periodo_fin, p_b
       <tr>${COLUMNAS_DETALLE_DIARIO.map(([, label]) => `<th>${label}</th>`).join('')}</tr>
       ${data.map(fila => `<tr>${COLUMNAS_DETALLE_DIARIO.map(([key]) => {
         if (key === 'fecha') return `<td>${tEsc(fila[key])}</td>`;
+        if (key === 'semana_laboral_inicio') return `<td>${new Date(fila[key]).toLocaleString('es-CO', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}</td>`;
         if (key === 'hora_entrada' || key === 'hora_salida') return `<td>${new Date(fila[key]).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' })}</td>`;
         if (key.startsWith('valor_')) return `<td>$ ${Number(fila[key]).toLocaleString('es-CO', { maximumFractionDigits: 0 })}</td>`;
         return `<td>${Number(fila[key]).toFixed(2)}</td>`;
@@ -2775,6 +2794,8 @@ document.getElementById('btn-exportar-liquidador-individual').addEventListener('
     COLUMNAS_DETALLE_DIARIO.forEach(([key, label]) => {
       if (key === 'hora_entrada' || key === 'hora_salida') {
         objeto[label] = new Date(fila[key]).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' });
+      } else if (key === 'semana_laboral_inicio') {
+        objeto[label] = new Date(fila[key]).toLocaleString('es-CO', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
       } else {
         objeto[label] = fila[key];
       }
@@ -2945,7 +2966,7 @@ async function crearEmpleado() {
   const nombre = document.getElementById('nuevo-emp-nombre').value.trim();
   const cedula = document.getElementById('nuevo-emp-cedula').value.trim();
   const cargo = document.getElementById('nuevo-emp-cargo').value.trim();
-  const salario = Number(document.getElementById('nuevo-emp-salario').value.trim());
+  const salario = parsearMoneda(document.getElementById('nuevo-emp-salario').value);
   const cedi = document.getElementById('nuevo-emp-cedi').value;
   const estado = document.getElementById('crear-empleado-status');
 
@@ -3508,7 +3529,7 @@ function renderControlSemanaFiltrado() {
     filtrado.map(r => `<tr ${r.estado === 'Excedido' ? 'style="background:var(--crit-bg)"' : ''}>
       <td>${tEsc(r.operario)}</td>
       <td>${tEsc(r.cedula)}</td>
-      <td>${tEsc(r.semana_inicio)} a ${tEsc(r.semana_fin)}</td>
+      <td>${new Date(r.semana_inicio).toLocaleString('es-CO', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })} a ${new Date(r.semana_fin).toLocaleString('es-CO', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}</td>
       <td>${Number(r.horas_trabajadas).toFixed(1)}</td>
       <td>${Number(r.limite_horas).toFixed(0)}</td>
       <td style="font-weight:700;color:${r.exceso > 0 ? 'var(--crit-dot)' : 'inherit'}">${Number(r.exceso).toFixed(1)}</td>
