@@ -920,7 +920,9 @@
                 <div class="indicator-field"><label>Hasta</label><input type="date" id="nomina-hasta"></div>
                 <button class="btn" id="btn-liquidar-nomina">Liquidar</button>
                 <button class="btn ghost" id="btn-exportar-nomina">Exportar a Excel</button>
+                <button class="btn" id="btn-guardar-vaciar-nomina" style="background:var(--crit-dot);">Guardar liquidación final y vaciar registros</button>
               </div>
+              <div style="font-size:11px;color:var(--text-muted);margin-top:4px;">"Guardar liquidación final" archiva permanentemente esta liquidación completa (las 23 columnas, de todos los operarios) y BORRA los registros de entrada/salida de este CEDI y periodo -- para no llenar la base de datos. No se puede deshacer.</div>
               <div id="nomina-status" style="font-size:12px;color:var(--text-secondary);margin-top:8px;"></div>
             </div>
             <div id="nomina-tabla" style="overflow-x:auto;"></div>
@@ -959,7 +961,12 @@
                 <span style="font-size:11px;color:var(--text-secondary);align-self:center;">Llena las 7 horas de abajo automáticamente para el empleado y periodo elegidos -- revísalas antes de guardar.</span>
               </div>
               <div class="indicator-fields">
-                <div class="indicator-field"><label>Empleado</label><select id="liq-empleado"></select></div>
+                <div class="indicator-field" style="position:relative;min-width:240px;">
+                  <label>Empleado</label>
+                  <input type="text" id="liq-empleado-buscar" placeholder="Escribe el nombre..." autocomplete="off">
+                  <input type="hidden" id="liq-empleado">
+                  <div id="liq-empleado-resultados" class="hidden" style="position:absolute;top:100%;left:0;right:0;background:var(--surface-2);border:1px solid var(--line);border-radius:8px;max-height:220px;overflow-y:auto;z-index:20;box-shadow:0 4px 12px rgba(0,0,0,.15);"></div>
+                </div>
                 <div class="indicator-field"><label>Periodo inicio</label><input type="date" id="liq-inicio"></div>
                 <div class="indicator-field"><label>Periodo fin</label><input type="date" id="liq-fin"></div>
               </div>
@@ -978,6 +985,7 @@
               </div>
               <div id="liq-status" style="font-size:12px;color:var(--text-secondary);margin-top:8px;"></div>
               <div id="liq-resultado" style="margin-top:10px;"></div>
+              <div id="liq-detalle-diario" style="margin-top:14px;overflow-x:auto;"></div>
             </div>
 
             <div class="section-label">Historial de liquidaciones</div>
@@ -1023,7 +1031,12 @@
             <div class="section-label" style="margin-top:26px;">Otorgar día compensatorio</div>
             <div class="indicator-card" style="margin-bottom:20px;">
               <div class="indicator-fields">
-                <div class="indicator-field"><label>Empleado</label><select id="comp-empleado"></select></div>
+                <div class="indicator-field" style="position:relative;min-width:240px;">
+                  <label>Empleado</label>
+                  <input type="text" id="comp-empleado-buscar" placeholder="Escribe el nombre..." autocomplete="off">
+                  <input type="hidden" id="comp-empleado">
+                  <div id="comp-empleado-resultados" class="hidden" style="position:absolute;top:100%;left:0;right:0;background:var(--surface-2);border:1px solid var(--line);border-radius:8px;max-height:220px;overflow-y:auto;z-index:20;box-shadow:0 4px 12px rgba(0,0,0,.15);"></div>
+                </div>
                 <button class="btn ghost" id="btn-ver-saldo-empleado">Ver su saldo disponible</button>
               </div>
               <div id="comp-saldo-empleado-detalle" style="font-size:12px;color:var(--text-secondary);margin:6px 0 10px;"></div>
@@ -2678,19 +2691,90 @@ async function calcularDesdeAsistencia() {
   document.getElementById('liq-recargo-noctdom').value = h.horas_recargo_nocturno_dominical;
 
   estado.textContent = `Se encontraron ${count} registro(s) de asistencia en ese periodo. Horas calculadas -- revísalas y dale "Calcular y guardar" para confirmar.`;
+  cargarDetalleDiario(empleado_id, periodo_inicio, periodo_fin);
+}
+
+const COLUMNAS_DETALLE_DIARIO = [
+  ['fecha', 'Fecha'], ['horas_ordinarias_diurnas', 'Ordinaria diurna'], ['horas_recargo_nocturno', 'Recargo nocturno'],
+  ['horas_extra_diurna', 'Extra diurna'], ['horas_extra_nocturna', 'Extra nocturna'],
+  ['horas_recargo_dominical', 'DDO diurno'], ['horas_recargo_nocturno_dominical', 'DDO nocturno'],
+  ['horas_extra_dom_fest_diurna', 'Extra DDO diurna'], ['horas_extra_dom_fest_nocturna', 'Extra DDO nocturna'],
+  ['horas_totales_dia', 'Total del día'],
+];
+
+async function cargarDetalleDiario(empleado_id, periodo_inicio, periodo_fin) {
+  const cont = document.getElementById('liq-detalle-diario');
+  const { data, error } = await sb.rpc('calcular_horas_detalle_diario', { p_empleado_id: empleado_id, p_desde: periodo_inicio, p_hasta: periodo_fin });
+  if (error || !data || !data.length) { cont.innerHTML = ''; return; }
+
+  cont.innerHTML = `
+    <div class="section-label" style="margin-top:0;">Detalle día por día</div>
+    <table class="hist-table open">
+      <tr>${COLUMNAS_DETALLE_DIARIO.map(([, label]) => `<th>${label}</th>`).join('')}</tr>
+      ${data.map(fila => `<tr>${COLUMNAS_DETALLE_DIARIO.map(([key]) =>
+        `<td>${key === 'fecha' ? tEsc(fila[key]) : Number(fila[key]).toFixed(2)}</td>`
+      ).join('')}</tr>`).join('')}
+    </table>
+  `;
+}
+
+
+let EMPLEADOS_CACHE_BUSCADOR = [];
+
+// Buscador reutilizable: convierte un input de texto + un input oculto en
+// un "autocomplete" simple contra la caché de empleados -- se usa en vez
+// de un <select> gigante, porque con cientos de empleados un desplegable
+// es imposible de navegar.
+function activarBuscadorEmpleado(prefijo) {
+  const inputTexto = document.getElementById(`${prefijo}-empleado-buscar`);
+  const inputOculto = document.getElementById(`${prefijo}-empleado`);
+  const cajaResultados = document.getElementById(`${prefijo}-empleado-resultados`);
+  if (!inputTexto || inputTexto.dataset.activado) return; // evita enganchar el listener dos veces
+  inputTexto.dataset.activado = '1';
+
+  inputTexto.addEventListener('input', () => {
+    const texto = inputTexto.value.trim().toLowerCase();
+    inputOculto.value = ''; // si edita el texto, invalida la selección anterior
+    if (!texto) { cajaResultados.classList.add('hidden'); cajaResultados.innerHTML = ''; return; }
+
+    const encontrados = EMPLEADOS_CACHE_BUSCADOR.filter(e =>
+      e.nombre.toLowerCase().includes(texto) || (e.cedula || '').toLowerCase().includes(texto)
+    ).slice(0, 20);
+
+    if (!encontrados.length) {
+      cajaResultados.innerHTML = '<div style="padding:8px 12px;font-size:12px;color:var(--text-secondary);">Sin resultados</div>';
+    } else {
+      cajaResultados.innerHTML = encontrados.map(e =>
+        `<div class="buscador-resultado" data-id="${e.id}" data-nombre="${tEsc(e.nombre)}" data-cedi="${tEsc(e.cedi)}" style="padding:8px 12px;font-size:13px;cursor:pointer;border-bottom:1px solid var(--line);">${tEsc(e.nombre)} <span style="color:var(--text-secondary);">(${tEsc(e.cedula || 'sin cédula')} · ${tEsc(e.cedi)})</span></div>`
+      ).join('');
+    }
+    cajaResultados.classList.remove('hidden');
+  });
+
+  cajaResultados.addEventListener('click', (ev) => {
+    const fila = ev.target.closest('[data-id]');
+    if (!fila) return;
+    inputOculto.value = fila.dataset.id;
+    inputOculto.dataset.cedi = fila.dataset.cedi;
+    inputTexto.value = fila.dataset.nombre;
+    cajaResultados.classList.add('hidden');
+    cajaResultados.innerHTML = '';
+  });
+
+  document.addEventListener('click', (ev) => {
+    if (!ev.target.closest(`#${prefijo}-empleado-buscar`) && !ev.target.closest(`#${prefijo}-empleado-resultados`)) {
+      cajaResultados.classList.add('hidden');
+    }
+  });
 }
 
 async function cargarEmpleados() {
   const { data, error } = await sb.from('empleados').select('*').order('nombre');
   if (error) { mostrarToast('No se pudieron cargar los empleados.'); return; }
   renderEmpleados(data || []);
-  const opciones = (data || []).filter(e => e.activo).map(e =>
-    `<option value="${e.id}" data-cedi="${tEsc(e.cedi)}">${tEsc(e.nombre)} (${tEsc(e.cedi)})</option>`
-  ).join('') || '<option value="">No hay empleados activos</option>';
-  const selLiq = document.getElementById('liq-empleado');
-  if (selLiq) selLiq.innerHTML = opciones;
-  const selComp = document.getElementById('comp-empleado');
-  if (selComp) selComp.innerHTML = opciones;
+  EMPLEADOS_CACHE_BUSCADOR = (data || []).filter(e => e.activo);
+  activarBuscadorEmpleado('liq');
+  activarBuscadorEmpleado('comp');
 }
 
 document.getElementById('emp-buscar').addEventListener('input', buscarEnEmpleados);
@@ -2819,7 +2903,7 @@ async function calcularLiquidacion() {
 
   const payload = {
     empleado_id,
-    cedi: document.querySelector(`#liq-empleado option[value="${empleado_id}"]`)?.dataset.cedi || SESION.cedi,
+    cedi: document.getElementById('liq-empleado')?.dataset.cedi || SESION.cedi,
     periodo_inicio, periodo_fin,
     horas_extra_diurna: num('liq-extra-diurna'),
     horas_extra_nocturna: num('liq-extra-nocturna'),
@@ -3260,6 +3344,30 @@ document.getElementById('btn-exportar-nomina').addEventListener('click', () => {
   const hasta = document.getElementById('nomina-hasta').value;
   XLSX.writeFile(wb, `Nomina_${cedi}_${desde}_a_${hasta}.xlsx`);
 });
+
+document.getElementById('btn-guardar-vaciar-nomina').addEventListener('click', guardarLiquidacionFinalYVaciar);
+
+async function guardarLiquidacionFinalYVaciar() {
+  const estado = document.getElementById('nomina-status');
+  const cedi = document.getElementById('nomina-cedi').value;
+  const desde = document.getElementById('nomina-desde').value;
+  const hasta = document.getElementById('nomina-hasta').value;
+  if (!desde || !hasta) { estado.textContent = 'Completa el rango de fechas.'; return; }
+  if (!NOMINA_RESULTADO.length) { estado.textContent = 'Primero dale "Liquidar" para ver el resultado antes de guardarlo.'; return; }
+
+  if (!confirm(
+    `¿Guardar esta liquidación de ${cedi} (${desde} a ${hasta}) como histórico permanente, ` +
+    `y BORRAR los ${NOMINA_RESULTADO.length} registro(s) de entrada/salida usados? Esta acción no se puede deshacer. ` +
+    `Te recomendamos exportar a Excel primero si no lo has hecho.`
+  )) return;
+
+  const { data, error } = await sb.rpc('guardar_liquidacion_nomina_y_vaciar', { p_cedi: cedi, p_desde: desde, p_hasta: hasta });
+  if (error) { estado.textContent = 'Error: ' + error.message; return; }
+
+  estado.textContent = `Liquidación guardada en el histórico (${data} operario(s)) y registros de asistencia de ese periodo eliminados.`;
+  NOMINA_RESULTADO = [];
+  document.getElementById('nomina-tabla').innerHTML = '';
+}
 
 // ============================================================
 // MÓDULO: CONTROL SEMANA
