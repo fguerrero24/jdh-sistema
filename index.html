@@ -2704,8 +2704,14 @@ const COLUMNAS_DETALLE_DIARIO = [
 
 async function cargarDetalleDiario(empleado_id, periodo_inicio, periodo_fin) {
   const cont = document.getElementById('liq-detalle-diario');
+  cont.innerHTML = '<div style="font-size:12px;color:var(--text-secondary);">Cargando detalle día por día...</div>';
   const { data, error } = await sb.rpc('calcular_horas_detalle_diario', { p_empleado_id: empleado_id, p_desde: periodo_inicio, p_hasta: periodo_fin });
-  if (error || !data || !data.length) { cont.innerHTML = ''; return; }
+
+  if (error) {
+    cont.innerHTML = `<div class="empty-state">No se pudo cargar el detalle diario: ${tEsc(error.message)}${error.message.includes('does not exist') ? ' -- probablemente falta correr el archivo 34_detalle_diario_y_guardar_nomina.sql en Supabase.' : ''}</div>`;
+    return;
+  }
+  if (!data || !data.length) { cont.innerHTML = '<div class="empty-state">No hay detalle diario para mostrar (sin registros en ese periodo).</div>'; return; }
 
   cont.innerHTML = `
     <div class="section-label" style="margin-top:0;">Detalle día por día</div>
