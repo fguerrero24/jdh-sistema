@@ -927,7 +927,7 @@
               <div style="font-size:11px;color:var(--text-muted);margin-top:4px;">"Guardar liquidación final" archiva permanentemente esta liquidación completa (las 23 columnas, de todos los operarios) y BORRA los registros de entrada/salida de este CEDI y periodo -- para no llenar la base de datos. No se puede deshacer.</div>
               <div id="nomina-status" style="font-size:12px;color:var(--text-secondary);margin-top:8px;"></div>
             </div>
-            <div class="kpi-grid" id="nomina-resumen"></div>
+            <div id="nomina-resumen"></div>
 
             <div class="indicator-fields" style="margin-top:14px;">
               <div class="indicator-field" style="min-width:220px;"><label>Buscar (cédula o operario)</label><input type="text" id="nomina-buscar" placeholder="Escribe para filtrar..."></div>
@@ -3438,38 +3438,56 @@ const CAMPOS_EXTRA_EDITABLES = [
 ];
 
 function renderResumenNomina() {
+  const numOperarios = NOMINA_RESULTADO.length;
   const totalHorasTrabajadas = NOMINA_RESULTADO.reduce((s, f) => s + Number(f.horas_trabajadas || 0), 0);
   const totalHorasExtra = NOMINA_RESULTADO.reduce((s, f) => s + Number(f.total_horas_extra || 0), 0);
   const totalRecargosYExtras = NOMINA_RESULTADO.reduce((s, f) => s + Number(f.total_recargos_y_extras || 0), 0);
+  const totalSalarioBase = NOMINA_RESULTADO.reduce((s, f) => s + Number(f.salario_mensual || 0), 0);
 
-  // Horas nocturnas: recargo nocturno + extra nocturna (sin contar DDO, que se muestra aparte).
-  const totalHorasNocturnas = NOMINA_RESULTADO.reduce((s, f) => s + Number(f.horas_recargo_nocturno || 0) + Number(f.horas_extra_nocturnas || 0), 0);
-  // Horas DDO: las 4 categorías de domingo/festivo (ordinaria + extra, diurna + nocturna).
-  const totalHorasDDO = NOMINA_RESULTADO.reduce((s, f) =>
-    s + Number(f.horas_ddo_diurnas || 0) + Number(f.horas_ddo_nocturnas || 0) + Number(f.horas_extra_ddo_diurnas || 0) + Number(f.horas_extra_ddo_nocturnas || 0), 0);
-  // Costo horas extra: solo las 4 categorías de $ EXTRA (no ordinarias ni recargo/DDO ordinario).
-  const costoHorasExtra = NOMINA_RESULTADO.reduce((s, f) =>
-    s + Number(f.valor_extra_diurna || 0) + Number(f.valor_extra_nocturna || 0) + Number(f.valor_extra_ddo_diurna || 0) + Number(f.valor_extra_ddo_nocturna || 0), 0);
-  // Costo recargos nocturnos: solo el 35% de las horas ordinarias nocturnas (no las extra, no DDO).
+  const costoHeDiurna = NOMINA_RESULTADO.reduce((s, f) => s + Number(f.valor_extra_diurna || 0), 0);
+  const costoHeNocturna = NOMINA_RESULTADO.reduce((s, f) => s + Number(f.valor_extra_nocturna || 0), 0);
+  const costoHeDdoDiurna = NOMINA_RESULTADO.reduce((s, f) => s + Number(f.valor_extra_ddo_diurna || 0), 0);
+  const costoHeDdoNocturna = NOMINA_RESULTADO.reduce((s, f) => s + Number(f.valor_extra_ddo_nocturna || 0), 0);
   const costoRecargosNocturnos = NOMINA_RESULTADO.reduce((s, f) => s + Number(f.valor_recargo_nocturno || 0), 0);
+
   const pctHorasExtra = totalHorasTrabajadas > 0 ? (totalHorasExtra / totalHorasTrabajadas) * 100 : 0;
-  const costoPromedioOperario = NOMINA_RESULTADO.length > 0 ? totalRecargosYExtras / NOMINA_RESULTADO.length : 0;
+  const totalNomina = totalSalarioBase + totalRecargosYExtras;
+  const pctCostoSobreNomina = totalNomina > 0 ? (totalRecargosYExtras / totalNomina) * 100 : 0;
+  const costoPromedioOperario = numOperarios > 0 ? totalRecargosYExtras / numOperarios : 0;
+  const promedioHorasExtraOperario = numOperarios > 0 ? totalHorasExtra / numOperarios : 0;
 
   const limiteExceso = parsearMoneda(document.getElementById('nomina-limite-exceso').value) || 0;
   const operariosConExceso = NOMINA_RESULTADO.filter(f => Number(f.total_horas_extra || 0) > limiteExceso).length;
 
+  const tarjeta = (label, valor, clase = '') =>
+    `<div class="kpi-card" style="padding:10px 12px;"><div class="kpi-label" style="font-size:10px;">${label}</div><div class="kpi-value ${clase}" style="font-size:18px;">${valor}</div></div>`;
+
   document.getElementById('nomina-resumen').innerHTML = `
-    <div class="kpi-card"><div class="kpi-label">Operarios liquidados</div><div class="kpi-value">${NOMINA_RESULTADO.length}</div></div>
-    <div class="kpi-card"><div class="kpi-label">Total horas trabajadas (consolidado)</div><div class="kpi-value">${totalHorasTrabajadas.toLocaleString('es-CO', { maximumFractionDigits: 2 })}</div></div>
-    <div class="kpi-card"><div class="kpi-label">Total horas extra</div><div class="kpi-value">${totalHorasExtra.toLocaleString('es-CO', { maximumFractionDigits: 2 })}</div></div>
-    <div class="kpi-card"><div class="kpi-label">Costo total recargos y extras</div><div class="kpi-value">$ ${totalRecargosYExtras.toLocaleString('es-CO', { maximumFractionDigits: 0 })}</div></div>
-    <div class="kpi-card"><div class="kpi-label">Horas nocturnas</div><div class="kpi-value">${totalHorasNocturnas.toLocaleString('es-CO', { maximumFractionDigits: 2 })}</div></div>
-    <div class="kpi-card"><div class="kpi-label">Horas DDO (domingos/festivos)</div><div class="kpi-value">${totalHorasDDO.toLocaleString('es-CO', { maximumFractionDigits: 2 })}</div></div>
-    <div class="kpi-card"><div class="kpi-label">Costo horas extra</div><div class="kpi-value">$ ${costoHorasExtra.toLocaleString('es-CO', { maximumFractionDigits: 0 })}</div></div>
-    <div class="kpi-card"><div class="kpi-label">Costo recargos nocturnos</div><div class="kpi-value">$ ${costoRecargosNocturnos.toLocaleString('es-CO', { maximumFractionDigits: 0 })}</div></div>
-    <div class="kpi-card"><div class="kpi-label">% horas extra</div><div class="kpi-value">${pctHorasExtra.toFixed(1)}%</div></div>
-    <div class="kpi-card"><div class="kpi-label">Operarios con exceso (&gt;${limiteExceso}h extra)</div><div class="kpi-value ${operariosConExceso > 0 ? 'bad' : 'ok'}">${operariosConExceso}</div></div>
-    <div class="kpi-card"><div class="kpi-label">Costo promedio / operario</div><div class="kpi-value">$ ${costoPromedioOperario.toLocaleString('es-CO', { maximumFractionDigits: 0 })}</div></div>
+    <div class="section-label" style="margin-top:0;font-size:11px;">General</div>
+    <div class="kpi-grid">
+      ${tarjeta('Operarios liquidados', numOperarios)}
+      ${tarjeta('Total horas trabajadas', totalHorasTrabajadas.toLocaleString('es-CO', { maximumFractionDigits: 2 }))}
+      ${tarjeta('Total horas extra', totalHorasExtra.toLocaleString('es-CO', { maximumFractionDigits: 2 }))}
+      ${tarjeta('% horas extra', pctHorasExtra.toFixed(1) + '%')}
+      ${tarjeta('Promedio h. extra / operario', promedioHorasExtraOperario.toLocaleString('es-CO', { maximumFractionDigits: 2 }))}
+      ${tarjeta(`Operarios con exceso (&gt;${limiteExceso}h)`, operariosConExceso, operariosConExceso > 0 ? 'bad' : 'ok')}
+    </div>
+
+    <div class="section-label" style="font-size:11px;">Costo por categoría</div>
+    <div class="kpi-grid">
+      ${tarjeta('Costo HE diurna', '$ ' + costoHeDiurna.toLocaleString('es-CO', { maximumFractionDigits: 0 }))}
+      ${tarjeta('Costo HE nocturna', '$ ' + costoHeNocturna.toLocaleString('es-CO', { maximumFractionDigits: 0 }))}
+      ${tarjeta('Costo HE DDO diurna', '$ ' + costoHeDdoDiurna.toLocaleString('es-CO', { maximumFractionDigits: 0 }))}
+      ${tarjeta('Costo HE DDO nocturna', '$ ' + costoHeDdoNocturna.toLocaleString('es-CO', { maximumFractionDigits: 0 }))}
+      ${tarjeta('Costo recargos nocturnos', '$ ' + costoRecargosNocturnos.toLocaleString('es-CO', { maximumFractionDigits: 0 }))}
+    </div>
+
+    <div class="section-label" style="font-size:11px;">Totales</div>
+    <div class="kpi-grid">
+      ${tarjeta('Costo total recargos y extras', '$ ' + totalRecargosYExtras.toLocaleString('es-CO', { maximumFractionDigits: 0 }))}
+      ${tarjeta('% recargos+extras / total nómina', pctCostoSobreNomina.toFixed(1) + '%')}
+      ${tarjeta('Costo promedio / operario', '$ ' + costoPromedioOperario.toLocaleString('es-CO', { maximumFractionDigits: 0 }))}
+    </div>
   `;
 }
 
