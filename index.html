@@ -2920,13 +2920,44 @@ function buscarEnEmpleados() {
 
   if (!encontrados.length) { cont.innerHTML = '<div class="empty-state">No se encontró ningún colaborador con ese texto.</div>'; return; }
 
-  cont.innerHTML = `<table class="hist-table open"><tr><th>Nombre</th><th>Cédula</th><th>Cargo</th><th>CEDI</th><th>Salario base</th><th>Estado</th></tr>${
-    encontrados.map(e => `<tr>
+  cont.innerHTML = `<table class="hist-table open"><tr><th>Foto</th><th>Nombre</th><th>Cédula</th><th>Cargo</th><th>CEDI</th><th>Salario base</th><th>Estado</th></tr>${
+    encontrados.map(e => `<tr data-emp-foto="${e.id}">
+      <td>${e.foto_url ? `<img src="${tEsc(e.foto_url)}" style="width:36px;height:36px;border-radius:50%;object-fit:cover;">` : '<span style="color:var(--text-muted);font-size:11px;">Sin foto</span>'}
+        <input type="file" accept="image/*" class="input-foto-empleado" style="display:none;">
+        <button class="hist-toggle" data-subir-foto="${e.id}" style="display:block;font-size:10px;">Subir foto</button>
+      </td>
       <td>${tEsc(e.nombre)}</td><td>${tEsc(e.cedula || '—')}</td><td>${tEsc(e.cargo || '—')}</td><td>${tEsc(e.cedi)}</td>
       <td>${Number(e.salario_base).toLocaleString('es-CO')}</td>
       <td>${e.activo ? 'Activo' : 'Inactivo'}</td>
     </tr>`).join('')
   }</table>`;
+
+  cont.querySelectorAll('[data-subir-foto]').forEach(btn => {
+    const empId = btn.dataset.subirFoto;
+    const fila = btn.closest('[data-emp-foto]');
+    const inputFile = fila.querySelector('.input-foto-empleado');
+    btn.addEventListener('click', () => inputFile.click());
+    inputFile.addEventListener('change', () => subirFotoEmpleado(empId, inputFile.files[0]));
+  });
+}
+
+async function subirFotoEmpleado(empleadoId, archivo) {
+  if (!archivo) return;
+  mostrarToast('Subiendo foto...');
+
+  const extension = archivo.name.split('.').pop();
+  const ruta = `empleado_${empleadoId}_${Date.now()}.${extension}`;
+
+  const { error: errorSubida } = await sb.storage.from('fotos-empleados').upload(ruta, archivo, { upsert: true });
+  if (errorSubida) { mostrarToast('Error al subir la foto: ' + errorSubida.message); return; }
+
+  const { data: urlPublica } = sb.storage.from('fotos-empleados').getPublicUrl(ruta);
+  const { error: errorGuardar } = await sb.from('empleados').update({ foto_url: urlPublica.publicUrl }).eq('id', empleadoId);
+  if (errorGuardar) { mostrarToast('Foto subida, pero no se pudo guardar en el empleado: ' + errorGuardar.message); return; }
+
+  mostrarToast('Foto actualizada.');
+  await cargarEmpleados();
+  buscarEnEmpleados();
 }
 
 // ---------- IMPORTAR LISTA MASIVA DE EMPLEADOS ----------
