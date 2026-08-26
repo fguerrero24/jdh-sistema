@@ -2360,15 +2360,17 @@ function normalizarNombre(s) {
 }
 
 function parsearFechaReloj(texto) {
-  // Formato del dispositivo: "26/07/2026 9:50:18 p. m." (con espacio normal o de no separación)
+  // Formato del dispositivo: "26/07/2026 9:50:18 p. m." (con segundos) o
+  // "10/08/2026 4:00 p.m." (sin segundos -- algunos relojes no los traen).
+  // Los segundos son opcionales; si no vienen, se asume 00.
   const limpio = String(texto || '').replace(/\u00a0/g, ' ').trim();
-  const m = limpio.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})\s+(\d{1,2}):(\d{2}):(\d{2})\s*([ap])\.?\s*m\.?/i);
+  const m = limpio.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})\s+(\d{1,2}):(\d{2})(?::(\d{2}))?\s*([ap])\.?\s*m\.?/i);
   if (!m) return null;
   let [, dia, mes, anio, hora, min, seg, ampm] = m;
   hora = parseInt(hora, 10);
   if (ampm.toLowerCase() === 'p' && hora !== 12) hora += 12;
   if (ampm.toLowerCase() === 'a' && hora === 12) hora = 0;
-  return new Date(parseInt(anio), parseInt(mes) - 1, parseInt(dia), hora, parseInt(min), parseInt(seg));
+  return new Date(parseInt(anio), parseInt(mes) - 1, parseInt(dia), hora, parseInt(min), seg ? parseInt(seg) : 0);
 }
 
 let ULTIMOS_EVENTOS_RELOJ = null; // se guarda para poder reintentar tras crear/mapear empleados, sin re-subir el archivo
