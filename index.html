@@ -926,7 +926,8 @@
               <div style="font-size:11px;color:var(--text-muted);margin-top:4px;">"Guardar liquidación final" archiva permanentemente esta liquidación completa (las 23 columnas, de todos los operarios) y BORRA los registros de entrada/salida de este CEDI y periodo -- para no llenar la base de datos. No se puede deshacer.</div>
               <div id="nomina-status" style="font-size:12px;color:var(--text-secondary);margin-top:8px;"></div>
             </div>
-            <div id="nomina-tabla" style="overflow-x:auto;"></div>
+            <div class="kpi-grid" id="nomina-resumen"></div>
+            <div id="nomina-tabla" style="overflow-x:auto;margin-top:14px;"></div>
           </div>
         </div>
 
@@ -3398,11 +3399,13 @@ async function liquidarNomina() {
   const { data, error } = await sb.rpc('liquidador_nomina', { p_cedi: cedi, p_desde: desde, p_hasta: hasta, p_base_diaria: Number(document.getElementById('nomina-base-diaria').value) });
   if (error) { estado.textContent = 'Error: ' + error.message; return; }
 
-  NOMINA_RESULTADO = data || [];
-  if (!NOMINA_RESULTADO.length) { estado.textContent = 'No hay operarios con registros en ese CEDI y periodo.'; document.getElementById('nomina-tabla').innerHTML = ''; return; }
+  // Cada fila lleva su propia observación (edición manual, se guarda solo en pantalla hasta el guardado final).
+  NOMINA_RESULTADO = (data || []).map(f => ({ ...f, observaciones: '' }));
+  if (!NOMINA_RESULTADO.length) { estado.textContent = 'No hay operarios con registros en ese CEDI y periodo.'; document.getElementById('nomina-tabla').innerHTML = ''; document.getElementById('nomina-resumen').innerHTML = ''; return; }
 
   estado.textContent = `${NOMINA_RESULTADO.length} operario(s) liquidados.`;
-  renderTablaNomina(NOMINA_RESULTADO);
+  renderResumenNomina();
+  renderTablaNomina();
 }
 
 const COLUMNAS_NOMINA = [
@@ -3416,19 +3419,92 @@ const COLUMNAS_NOMINA = [
   ['valor_extra_diurna', '$ Extra diurna'], ['valor_extra_nocturna', '$ Extra nocturna'],
   ['valor_ddo_diurno', '$ DDO diurno'], ['valor_ddo_nocturno', '$ DDO nocturno'],
   ['valor_extra_ddo_diurna', '$ Extra DDO diurna'], ['valor_extra_ddo_nocturna', '$ Extra DDO nocturna'],
-  ['total_recargos_y_extras', 'TOTAL RECARGOS Y EXTRAS'],
+  ['total_recargos_y_extras', 'TOTAL RECARGOS Y EXTRAS'], ['observaciones', 'Observaciones'],
 ];
 
-function renderTablaNomina(filas) {
-  document.getElementById('nomina-tabla').innerHTML = `
-    <table class="hist-table open">
-      <tr>${COLUMNAS_NOMINA.map(([, label]) => `<th>${label}</th>`).join('')}</tr>
-      ${filas.map(f => `<tr>${COLUMNAS_NOMINA.map(([key]) =>
-        `<td>${typeof f[key] === 'number' ? Number(f[key]).toLocaleString('es-CO', { maximumFractionDigits: 2 }) : tEsc(f[key])}</td>`
-      ).join('')}</tr>`).join('')}
-    </table>
+// Las 4 categorías editables (horas extra) y su tarifa correspondiente,
+// para recalcular el $ de esa categoría específica al guardar una edición.
+const CAMPOS_EXTRA_EDITABLES = [
+  ['horas_extra_diurnas', 'valor_extra_diurna', 1.25],
+  ['horas_extra_nocturnas', 'valor_extra_nocturna', 1.75],
+  ['horas_extra_ddo_diurnas', 'valor_extra_ddo_diurna', 2.15],
+  ['horas_extra_ddo_nocturnas', 'valor_extra_ddo_nocturna', 2.65],
+];
+
+function renderResumenNomina() {
+  const totalHorasTrabajadas = NOMINA_RESULTADO.reduce((s, f) => s + Number(f.horas_trabajadas || 0), 0);
+  const totalHorasExtra = NOMINA_RESULTADO.reduce((s, f) => s + Number(f.total_horas_extra || 0), 0);
+  const totalRecargosYExtras = NOMINA_RESULTADO.reduce((s, f) => s + Number(f.total_recargos_y_extras || 0), 0);
+
+  document.getElementById('nomina-resumen').innerHTML = `
+    <div class="kpi-card"><div class="kpi-label">Operarios liquidados</div><div class="kpi-value">${NOMINA_RESULTADO.length}</div></div>
+    <div class="kpi-card"><div class="kpi-label">Total horas trabajadas (consolidado)</div><div class="kpi-value">${totalHorasTrabajadas.toLocaleString('es-CO', { maximumFractionDigits: 2 })}</div></div>
+    <div class="kpi-card"><div class="kpi-label">Total horas extra</div><div class="kpi-value">${totalHorasExtra.toLocaleString('es-CO', { maximumFractionDigits: 2 })}</div></div>
+    <div class="kpi-card"><div class="kpi-label">Costo total recargos y extras</div><div class="kpi-value">$ ${totalRecargosYExtras.toLocaleString('es-CO', { maximumFractionDigits: 0 })}</div></div>
   `;
 }
+
+function renderTablaNomina() {
+  document.getElementById('nomina-tabla').innerHTML = `
+    <table class="hist-table open">
+      <tr>${COLUMNAS_NOMINA.map(([, label]) => `<th>${label}</th>`).join('')}<th></th></tr>
+      ${NOMINA_RESULTADO.map((f, i) => `<tr data-fila-nomina="${i}">${COLUMNAS_NOMINA.map(([key]) =>
+        `<td data-celda="${key}">${key === 'observaciones' ? tEsc(f[key] || '') : (typeof f[key] === 'number' ? Number(f[key]).toLocaleString('es-CO', { maximumFractionDigits: 2 }) : tEsc(f[key]))}</td>`
+      ).join('')}<td><button class="hist-toggle" data-editar-nomina="${i}">Editar</button></td></tr>`).join('')}
+    </table>
+  `;
+
+  document.querySelectorAll('[data-editar-nomina]').forEach(btn => {
+    btn.addEventListener('click', () => activarEdicionNomina(Number(btn.dataset.editarNomina)));
+  });
+}
+
+function activarEdicionNomina(indice) {
+  const fila = document.querySelector(`tr[data-fila-nomina="${indice}"]`);
+  const f = NOMINA_RESULTADO[indice];
+  if (!fila || !f) return;
+
+  CAMPOS_EXTRA_EDITABLES.forEach(([campoHoras]) => {
+    fila.querySelector(`[data-celda="${campoHoras}"]`).innerHTML =
+      `<input type="text" class="edit-nomina-campo" data-campo="${campoHoras}" value="${f[campoHoras]}" style="width:70px">`;
+  });
+  fila.querySelector(`[data-celda="observaciones"]`).innerHTML =
+    `<input type="text" class="edit-nomina-obs" value="${tEsc(f.observaciones || '')}" placeholder="Motivo del ajuste/descuento" style="width:180px">`;
+  fila.querySelector('td:last-child').innerHTML =
+    `<button class="hist-toggle" data-guardar-nomina="${indice}">Guardar</button> · <button class="hist-toggle" data-cancelar-nomina>Cancelar</button>`;
+
+  fila.querySelector('[data-guardar-nomina]').addEventListener('click', () => guardarEdicionNomina(indice));
+  fila.querySelector('[data-cancelar-nomina]').addEventListener('click', renderTablaNomina);
+}
+
+function guardarEdicionNomina(indice) {
+  const fila = document.querySelector(`tr[data-fila-nomina="${indice}"]`);
+  const f = NOMINA_RESULTADO[indice];
+  if (!fila || !f) return;
+
+  // Actualiza las 4 categorías de horas extra editadas, y recalcula su $ correspondiente.
+  CAMPOS_EXTRA_EDITABLES.forEach(([campoHoras, campoValor, tarifa]) => {
+    const nuevoValor = parsearMoneda(fila.querySelector(`[data-campo="${campoHoras}"]`).value);
+    f[campoHoras] = isNaN(nuevoValor) ? 0 : nuevoValor;
+    f[campoValor] = round2(f[campoHoras] * f.valor_hora * tarifa);
+  });
+  f.observaciones = fila.querySelector('.edit-nomina-obs').value.trim();
+
+  // Recalcula los totales de ESA fila a partir de las categorías (algunas editadas, otras no).
+  f.total_horas_extra = round2(f.horas_extra_diurnas + f.horas_extra_nocturnas + f.horas_extra_ddo_diurnas + f.horas_extra_ddo_nocturnas);
+  f.horas_trabajadas = round2(
+    f.horas_ordinarias_diurnas + f.horas_recargo_nocturno + f.horas_ddo_diurnas + f.horas_ddo_nocturnas + f.total_horas_extra
+  );
+  f.total_recargos_y_extras = round2(
+    f.valor_recargo_nocturno + f.valor_extra_diurna + f.valor_extra_nocturna
+    + f.valor_ddo_diurno + f.valor_ddo_nocturno + f.valor_extra_ddo_diurna + f.valor_extra_ddo_nocturna
+  );
+
+  renderResumenNomina();
+  renderTablaNomina();
+}
+
+function round2(n) { return Math.round((Number(n) || 0) * 100) / 100; }
 
 document.getElementById('btn-exportar-nomina').addEventListener('click', () => {
   if (!NOMINA_RESULTADO.length) { mostrarToast('Primero liquida la nómina.'); return; }
@@ -3457,17 +3533,44 @@ async function guardarLiquidacionFinalYVaciar() {
   if (!NOMINA_RESULTADO.length) { estado.textContent = 'Primero dale "Liquidar" para ver el resultado antes de guardarlo.'; return; }
 
   if (!confirm(
-    `¿Guardar esta liquidación de ${cedi} (${desde} a ${hasta}) como histórico permanente, ` +
-    `y BORRAR los ${NOMINA_RESULTADO.length} registro(s) de entrada/salida usados? Esta acción no se puede deshacer. ` +
+    `¿Guardar esta liquidación de ${cedi} (${desde} a ${hasta}) como histórico permanente -- con los valores que ves en pantalla, ` +
+    `incluidas tus ediciones -- y BORRAR los registros de entrada/salida usados? Esta acción no se puede deshacer. ` +
     `Te recomendamos exportar a Excel primero si no lo has hecho.`
   )) return;
 
-  const { data, error } = await sb.rpc('guardar_liquidacion_nomina_y_vaciar', { p_cedi: cedi, p_desde: desde, p_hasta: hasta, p_base_diaria: Number(document.getElementById('nomina-base-diaria').value) });
-  if (error) { estado.textContent = 'Error: ' + error.message; return; }
+  estado.textContent = 'Guardando...';
 
-  estado.textContent = `Liquidación guardada en el histórico (${data} operario(s)) y registros de asistencia de ese periodo eliminados.`;
+  // Se inserta directo lo que está en pantalla (con las ediciones), en vez
+  // de pedirle al servidor que recalcule desde cero -- así la edición manual
+  // sí queda reflejada en el histórico.
+  const filasHistorico = NOMINA_RESULTADO.map(f => ({
+    cedi, periodo_inicio: desde, periodo_fin: hasta,
+    empleado_id: f.empleado_id, operario: f.operario, cedula: f.cedula,
+    salario_mensual: f.salario_mensual, valor_hora: f.valor_hora,
+    horas_ordinarias_diurnas: f.horas_ordinarias_diurnas, horas_recargo_nocturno: f.horas_recargo_nocturno,
+    horas_extra_diurnas: f.horas_extra_diurnas, horas_extra_nocturnas: f.horas_extra_nocturnas,
+    horas_ddo_diurnas: f.horas_ddo_diurnas, horas_ddo_nocturnas: f.horas_ddo_nocturnas,
+    horas_extra_ddo_diurnas: f.horas_extra_ddo_diurnas, horas_extra_ddo_nocturnas: f.horas_extra_ddo_nocturnas,
+    total_horas_extra: f.total_horas_extra, horas_trabajadas: f.horas_trabajadas,
+    valor_ordinarias_diurnas: f.valor_ordinarias_diurnas, valor_recargo_nocturno: f.valor_recargo_nocturno,
+    valor_extra_diurna: f.valor_extra_diurna, valor_extra_nocturna: f.valor_extra_nocturna,
+    valor_ddo_diurno: f.valor_ddo_diurno, valor_ddo_nocturno: f.valor_ddo_nocturno,
+    valor_extra_ddo_diurna: f.valor_extra_ddo_diurna, valor_extra_ddo_nocturna: f.valor_extra_ddo_nocturna,
+    total_recargos_y_extras: f.total_recargos_y_extras,
+    observaciones: f.observaciones || null,
+    liquidado_por: SESION.id,
+  }));
+
+  const { error: errorInsert } = await sb.from('liquidaciones_nomina_historico').insert(filasHistorico);
+  if (errorInsert) { estado.textContent = 'Error al guardar el histórico: ' + errorInsert.message; return; }
+
+  const { data: filasVaciadas, error: errorVaciar } = await sb.rpc('vaciar_registros_asistencia_cedi', { p_cedi: cedi, p_desde: desde, p_hasta: hasta });
+  if (errorVaciar) { estado.textContent = `Histórico guardado, pero no se pudieron vaciar los registros: ${errorVaciar.message}`; return; }
+
+  estado.textContent = `Liquidación guardada en el histórico (${filasHistorico.length} operario(s)) y ${filasVaciadas ?? 0} registro(s) de asistencia eliminados.`;
   NOMINA_RESULTADO = [];
   document.getElementById('nomina-tabla').innerHTML = '';
+  document.getElementById('nomina-resumen').innerHTML = '';
 }
 
 // ============================================================
