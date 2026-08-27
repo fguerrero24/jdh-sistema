@@ -764,37 +764,53 @@
         <div id="view-admin" class="hidden">
           <div id="admin-sin-acceso" class="hidden empty-state">No tienes permiso para administrar usuarios. Solo Admin y Director Nacional pueden entrar aquí.</div>
           <div id="admin-contenido">
-            <div class="section-label">Crear usuario nuevo</div>
-            <div class="indicator-card" style="margin-bottom:20px;">
-              <div class="indicator-fields">
-                <div class="indicator-field"><label>Usuario (para iniciar sesión)</label><input type="text" id="nuevo-usuario-login" placeholder="ej. Juan.Perez"></div>
-                <div class="indicator-field"><label>Nombre completo</label><input type="text" id="nuevo-usuario-nombre" placeholder="Nombre completo"></div>
-                <div class="indicator-field"><label>Contraseña temporal</label><input type="text" id="nuevo-usuario-password" placeholder="Mínimo 6 caracteres"></div>
-              </div>
-              <div class="indicator-fields" style="border-top:none;padding-top:0;margin-top:8px;">
-                <div class="indicator-field">
-                  <label>Cargo</label>
-                  <select id="nuevo-usuario-cargo">
-                    <option value="">Sin cargo</option>
-                  </select>
-                </div>
-                <div class="indicator-field">
-                  <label>Rol</label>
-                  <select id="nuevo-usuario-rol"></select>
-                </div>
-                <div class="indicator-field">
-                  <label>CEDI</label>
-                  <select id="nuevo-usuario-cedi">
-                    <option value="">Sin CEDI</option>
-                  </select>
-                </div>
-                <button class="btn" id="btn-crear-usuario">Crear usuario</button>
-              </div>
-              <div id="crear-usuario-status" style="font-size:12px;color:var(--text-secondary);margin-top:8px;"></div>
+            <div class="indicator-fields" style="border:none;padding:0;margin-bottom:16px;">
+              <button class="btn ghost" id="tab-admin-usuarios">Usuarios</button>
+              <button class="btn ghost" id="tab-admin-matriz">Matriz de Permisos</button>
             </div>
 
-            <div class="section-label">Usuarios</div>
-            <div id="admin-usuarios-lista"></div>
+            <div id="panel-admin-usuarios">
+              <div class="section-label">Crear usuario nuevo</div>
+              <div class="indicator-card" style="margin-bottom:20px;">
+                <div class="indicator-fields">
+                  <div class="indicator-field"><label>Usuario (para iniciar sesión)</label><input type="text" id="nuevo-usuario-login" placeholder="ej. Juan.Perez"></div>
+                  <div class="indicator-field"><label>Nombre completo</label><input type="text" id="nuevo-usuario-nombre" placeholder="Nombre completo"></div>
+                  <div class="indicator-field"><label>Contraseña temporal</label><input type="text" id="nuevo-usuario-password" placeholder="Mínimo 6 caracteres"></div>
+                </div>
+                <div class="indicator-fields" style="border-top:none;padding-top:0;margin-top:8px;">
+                  <div class="indicator-field">
+                    <label>Cargo</label>
+                    <select id="nuevo-usuario-cargo">
+                      <option value="">Sin cargo</option>
+                    </select>
+                  </div>
+                  <div class="indicator-field">
+                    <label>Rol (actual)</label>
+                    <select id="nuevo-usuario-rol"></select>
+                  </div>
+                  <div class="indicator-field">
+                    <label>CEDI</label>
+                    <select id="nuevo-usuario-cedi">
+                      <option value="">Sin CEDI</option>
+                    </select>
+                  </div>
+                  <button class="btn" id="btn-crear-usuario">Crear usuario</button>
+                </div>
+                <div id="crear-usuario-status" style="font-size:12px;color:var(--text-secondary);margin-top:8px;"></div>
+              </div>
+
+              <div class="section-label">Usuarios</div>
+              <div id="admin-usuarios-lista"></div>
+            </div>
+
+            <div id="panel-admin-matriz" class="hidden">
+              <div class="section-label" style="margin-top:0;">Matriz de Permisos</div>
+              <div class="indicator-fields" style="border:none;padding:0;">
+                <div class="indicator-field"><label>Rol</label><select id="matriz-rol-selector"></select></div>
+              </div>
+              <div id="matriz-permisos-tabla" style="overflow-x:auto;margin-top:10px;"></div>
+              <div id="matriz-status" style="font-size:12px;color:var(--text-secondary);margin-top:8px;"></div>
+            </div>
           </div>
         </div>
 
@@ -2072,10 +2088,48 @@ async function cargarModuloAdmin() {
   if (!esAdmin) return;
 
   llenarSelectoresNuevoUsuario();
+  await cargarCatalogosPermisos();
 
-  const { data, error } = await sb.from('perfiles').select('*').order('nombre');
+  const [{ data: perfiles, error }, { data: asignaciones }] = await Promise.all([
+    sb.from('perfiles').select('*').order('nombre'),
+    sb.from('usuario_cedi_asignado').select('*'),
+  ]);
   if (error) { mostrarToast('No se pudieron cargar los usuarios.'); return; }
-  renderUsuariosAdmin(data || []);
+
+  const cedisAsignadosPorUsuario = {};
+  (asignaciones || []).forEach(a => {
+    if (!cedisAsignadosPorUsuario[a.usuario_id]) cedisAsignadosPorUsuario[a.usuario_id] = [];
+    cedisAsignadosPorUsuario[a.usuario_id].push(a.cedi);
+  });
+
+  renderUsuariosAdmin(perfiles || [], cedisAsignadosPorUsuario);
+}
+
+// ---------- Pestañas Usuarios / Matriz de Permisos ----------
+document.getElementById('tab-admin-usuarios').addEventListener('click', () => cambiarTabAdmin('usuarios'));
+document.getElementById('tab-admin-matriz').addEventListener('click', () => cambiarTabAdmin('matriz'));
+
+function cambiarTabAdmin(cual) {
+  document.getElementById('panel-admin-usuarios').classList.toggle('hidden', cual !== 'usuarios');
+  document.getElementById('panel-admin-matriz').classList.toggle('hidden', cual !== 'matriz');
+  if (cual === 'matriz') cargarMatrizPermisos();
+}
+
+// ---------- Catálogos nuevos (roles, módulos, acciones) -- se cargan una sola vez ----------
+let CATALOGO_ROLES_NUEVOS = null;
+let CATALOGO_MODULOS = null;
+let CATALOGO_ACCIONES = null;
+
+async function cargarCatalogosPermisos() {
+  if (CATALOGO_ROLES_NUEVOS) return; // ya está en caché
+  const [roles, modulos, acciones] = await Promise.all([
+    sb.from('roles').select('*').eq('activo', true).order('nombre'),
+    sb.from('modulos').select('*').order('orden'),
+    sb.from('acciones').select('*').order('orden'),
+  ]);
+  CATALOGO_ROLES_NUEVOS = roles.data || [];
+  CATALOGO_MODULOS = modulos.data || [];
+  CATALOGO_ACCIONES = acciones.data || [];
 }
 
 function llenarSelectoresNuevoUsuario() {
@@ -2131,11 +2185,13 @@ async function crearUsuarioNuevo() {
   cargarModuloAdmin();
 }
 
-function renderUsuariosAdmin(usuarios) {
+function renderUsuariosAdmin(usuarios, cedisAsignadosPorUsuario = {}) {
   const cont = document.getElementById('admin-usuarios-lista');
   if (!usuarios.length) { cont.innerHTML = '<div class="empty-state">No hay usuarios.</div>'; return; }
 
-  cont.innerHTML = usuarios.map(u => `
+  cont.innerHTML = usuarios.map(u => {
+    const cedisAsignados = cedisAsignadosPorUsuario[u.id] || [];
+    return `
     <div class="indicator-card" data-perfil="${u.id}">
       <div class="indicator-top">
         <div>
@@ -2153,13 +2209,13 @@ function renderUsuariosAdmin(usuarios) {
           </select>
         </div>
         <div class="indicator-field">
-          <label>Rol</label>
+          <label>Rol (actual)</label>
           <select class="admin-rol">
             ${ROLES_VALIDOS.map(r => `<option value="${r.id}" ${u.rol === r.id ? 'selected' : ''}>${r.label}</option>`).join('')}
           </select>
         </div>
         <div class="indicator-field">
-          <label>CEDI</label>
+          <label>CEDI (actual)</label>
           <select class="admin-cedi">
             <option value="">Sin CEDI</option>
             ${CEDIS_VALIDOS.map(c => `<option value="${c}" ${u.cedi === c ? 'selected' : ''}>${c}</option>`).join('')}
@@ -2182,11 +2238,45 @@ function renderUsuariosAdmin(usuarios) {
           <input type="checkbox" class="admin-puede-eliminar" ${u.puede_eliminar_registros ? 'checked' : ''}> Puede eliminar registros
         </label>
       </div>
+      <div class="indicator-fields" style="margin-top:8px;">
+        <div class="indicator-field">
+          <label>Rol nuevo (sistema de permisos)</label>
+          <select class="admin-rol-nuevo">
+            <option value="">Sin asignar todavía</option>
+            ${CATALOGO_ROLES_NUEVOS.map(r => `<option value="${r.id}" ${u.rol_nuevo_id === r.id ? 'selected' : ''}>${tEsc(r.nombre)}</option>`).join('')}
+          </select>
+        </div>
+        <div class="indicator-field">
+          <label>Alcance de CEDI</label>
+          <select class="admin-alcance-cedi">
+            <option value="propio" ${u.alcance_cedi === 'propio' ? 'selected' : ''}>Solo su CEDI</option>
+            <option value="asignados" ${u.alcance_cedi === 'asignados' ? 'selected' : ''}>CEDIs asignados</option>
+            <option value="todos" ${u.alcance_cedi === 'todos' ? 'selected' : ''}>Todos los CEDIs</option>
+          </select>
+        </div>
+      </div>
+      <div class="indicator-field admin-cedis-asignados-wrap ${u.alcance_cedi === 'asignados' ? '' : 'hidden'}" style="margin-top:6px;">
+        <label>CEDIs asignados</label>
+        <div style="display:flex;flex-wrap:wrap;gap:10px;">
+          ${CEDIS_VALIDOS.map(c => `
+            <label style="font-size:11px;color:var(--text-secondary);display:flex;align-items:center;gap:4px;">
+              <input type="checkbox" class="admin-cedi-asignado-item" value="${c}" ${cedisAsignados.includes(c) ? 'checked' : ''}> ${c}
+            </label>
+          `).join('')}
+        </div>
+      </div>
     </div>
-  `).join('');
+  `;
+  }).join('');
 
   cont.querySelectorAll('[data-guardar-perfil]').forEach(btn => {
     btn.addEventListener('click', () => guardarPerfilAdmin(btn.dataset.guardarPerfil));
+  });
+  cont.querySelectorAll('.admin-alcance-cedi').forEach(sel => {
+    sel.addEventListener('change', () => {
+      const wrap = sel.closest('[data-perfil]').querySelector('.admin-cedis-asignados-wrap');
+      wrap.classList.toggle('hidden', sel.value !== 'asignados');
+    });
   });
 }
 
@@ -2198,6 +2288,9 @@ async function guardarPerfilAdmin(perfilId) {
   const activo = card.querySelector('.admin-activo').value === 'true';
   const puede_editar_registros = card.querySelector('.admin-puede-editar').checked;
   const puede_eliminar_registros = card.querySelector('.admin-puede-eliminar').checked;
+  const rol_nuevo_id = card.querySelector('.admin-rol-nuevo').value || null;
+  const alcance_cedi = card.querySelector('.admin-alcance-cedi').value;
+  const cedisSeleccionados = [...card.querySelectorAll('.admin-cedi-asignado-item:checked')].map(chk => chk.value);
 
   if (perfilId === SESION.id && !activo) {
     mostrarToast('No puedes desactivar tu propio usuario.');
@@ -2205,12 +2298,85 @@ async function guardarPerfilAdmin(perfilId) {
   }
 
   const { error } = await sb.from('perfiles')
-    .update({ cargo, rol, cedi, activo, puede_editar_registros, puede_eliminar_registros })
+    .update({ cargo, rol, cedi, activo, puede_editar_registros, puede_eliminar_registros, rol_nuevo_id, alcance_cedi })
     .eq('id', perfilId);
 
   if (error) { mostrarToast('No se pudo guardar: ' + error.message); return; }
+
+  // Sincroniza los CEDIs asignados: borra los que ya no están marcados,
+  // inserta los nuevos. Solo importa de verdad si alcance_cedi = 'asignados',
+  // pero se guarda igual por si luego cambian el alcance sin re-marcar.
+  await sb.from('usuario_cedi_asignado').delete().eq('usuario_id', perfilId);
+  if (cedisSeleccionados.length) {
+    await sb.from('usuario_cedi_asignado').insert(cedisSeleccionados.map(c => ({ usuario_id: perfilId, cedi: c })));
+  }
+
   mostrarToast('Usuario actualizado.');
   cargarModuloAdmin();
+}
+
+// ---------- MATRIZ DE PERMISOS ----------
+async function cargarMatrizPermisos() {
+  await cargarCatalogosPermisos();
+
+  const sel = document.getElementById('matriz-rol-selector');
+  if (!sel.options.length) {
+    CATALOGO_ROLES_NUEVOS.forEach(r => sel.insertAdjacentHTML('beforeend', `<option value="${r.id}">${tEsc(r.nombre)}</option>`));
+    sel.addEventListener('change', () => renderMatrizPermisos(sel.value));
+  }
+
+  renderMatrizPermisos(sel.value || CATALOGO_ROLES_NUEVOS[0]?.id);
+}
+
+async function renderMatrizPermisos(rolId) {
+  if (!rolId) return;
+  document.getElementById('matriz-rol-selector').value = rolId;
+  const estado = document.getElementById('matriz-status');
+  estado.textContent = 'Cargando...';
+
+  const { data: permisos, error } = await sb.from('rol_permisos').select('*').eq('rol_id', rolId);
+  if (error) { estado.textContent = 'Error: ' + error.message; return; }
+  estado.textContent = '';
+
+  const permitidoMapa = {};
+  (permisos || []).forEach(p => { permitidoMapa[`${p.modulo_id}|${p.accion_id}`] = p.permitido; });
+
+  document.getElementById('matriz-permisos-tabla').innerHTML = `
+    <table class="hist-table open" data-matriz-rol="${rolId}">
+      <tr><th>Módulo</th>${CATALOGO_ACCIONES.map(a => `<th>${tEsc(a.nombre)}</th>`).join('')}</tr>
+      ${CATALOGO_MODULOS.map(m => `
+        <tr>
+          <td>${tEsc(m.nombre)}</td>
+          ${CATALOGO_ACCIONES.map(a => `
+            <td style="text-align:center;">
+              <input type="checkbox" class="matriz-check" data-modulo="${m.id}" data-accion="${a.id}"
+                ${permitidoMapa[`${m.id}|${a.id}`] ? 'checked' : ''}>
+            </td>
+          `).join('')}
+        </tr>
+      `).join('')}
+    </table>
+    <button class="btn" id="btn-guardar-matriz" style="margin-top:12px;">Guardar matriz de "${tEsc(CATALOGO_ROLES_NUEVOS.find(r => r.id === rolId)?.nombre || rolId)}"</button>
+  `;
+
+  document.getElementById('btn-guardar-matriz').addEventListener('click', () => guardarMatrizPermisos(rolId));
+}
+
+async function guardarMatrizPermisos(rolId) {
+  const estado = document.getElementById('matriz-status');
+  estado.textContent = 'Guardando...';
+
+  const filas = [...document.querySelectorAll('.matriz-check')].map(chk => ({
+    rol_id: rolId,
+    modulo_id: chk.dataset.modulo,
+    accion_id: chk.dataset.accion,
+    permitido: chk.checked,
+  }));
+
+  const { error } = await sb.from('rol_permisos').upsert(filas, { onConflict: 'rol_id,modulo_id,accion_id' });
+  if (error) { estado.textContent = 'Error al guardar: ' + error.message; return; }
+
+  estado.textContent = 'Matriz guardada. Recuerda: esto todavía no cambia lo que cada usuario puede hacer de verdad -- eso se conecta en la Fase 4.';
 }
 
 // ============================================================
