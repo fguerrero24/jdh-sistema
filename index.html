@@ -767,6 +767,7 @@
             <div class="indicator-fields" style="border:none;padding:0;margin-bottom:16px;">
               <button class="btn ghost" id="tab-admin-usuarios">Usuarios</button>
               <button class="btn ghost" id="tab-admin-matriz">Matriz de Permisos</button>
+              <button class="btn ghost" id="tab-admin-auditoria">Auditoría</button>
             </div>
 
             <div id="panel-admin-usuarios">
@@ -810,6 +811,19 @@
               </div>
               <div id="matriz-permisos-tabla" style="overflow-x:auto;margin-top:10px;"></div>
               <div id="matriz-status" style="font-size:12px;color:var(--text-secondary);margin-top:8px;"></div>
+            </div>
+
+            <div id="panel-admin-auditoria" class="hidden">
+              <div class="section-label" style="margin-top:0;">Auditoría -- registro de acciones</div>
+              <div class="indicator-fields">
+                <div class="indicator-field"><label>Usuario</label><select id="auditoria-filtro-usuario"><option value="">Todos</option></select></div>
+                <div class="indicator-field"><label>Tabla / módulo</label><input type="text" id="auditoria-filtro-tabla" placeholder="ej. empleados"></div>
+                <div class="indicator-field"><label>Desde</label><input type="date" id="auditoria-filtro-desde"></div>
+                <div class="indicator-field"><label>Hasta</label><input type="date" id="auditoria-filtro-hasta"></div>
+                <button class="btn" id="btn-filtrar-auditoria">Filtrar</button>
+              </div>
+              <div id="auditoria-status" style="font-size:12px;color:var(--text-secondary);margin-top:8px;"></div>
+              <div id="auditoria-tabla" style="overflow-x:auto;margin-top:10px;"></div>
             </div>
           </div>
         </div>
@@ -2105,14 +2119,17 @@ async function cargarModuloAdmin() {
   renderUsuariosAdmin(perfiles || [], cedisAsignadosPorUsuario);
 }
 
-// ---------- Pestañas Usuarios / Matriz de Permisos ----------
+// ---------- Pestañas Usuarios / Matriz de Permisos / Auditoría ----------
 document.getElementById('tab-admin-usuarios').addEventListener('click', () => cambiarTabAdmin('usuarios'));
 document.getElementById('tab-admin-matriz').addEventListener('click', () => cambiarTabAdmin('matriz'));
+document.getElementById('tab-admin-auditoria').addEventListener('click', () => cambiarTabAdmin('auditoria'));
 
 function cambiarTabAdmin(cual) {
   document.getElementById('panel-admin-usuarios').classList.toggle('hidden', cual !== 'usuarios');
   document.getElementById('panel-admin-matriz').classList.toggle('hidden', cual !== 'matriz');
+  document.getElementById('panel-admin-auditoria').classList.toggle('hidden', cual !== 'auditoria');
   if (cual === 'matriz') cargarMatrizPermisos();
+  if (cual === 'auditoria') cargarAuditoria();
 }
 
 // ---------- Catálogos nuevos (roles, módulos, acciones) -- se cargan una sola vez ----------
@@ -2378,6 +2395,77 @@ async function guardarMatrizPermisos(rolId) {
 
   estado.textContent = 'Matriz guardada. Recuerda: esto todavía no cambia lo que cada usuario puede hacer de verdad -- eso se conecta en la Fase 4.';
 }
+
+// ---------- AUDITORÍA ----------
+// Helper reutilizable: cualquier parte de la app puede llamar esto para dejar
+// constancia de una acción sensible. El usuario y la fecha los pone el
+// servidor solo (no se pueden falsear desde el navegador).
+async function registrarAuditoria(tabla, registroId, accion, datosAntes, datosDespues) {
+  try {
+    await sb.rpc('registrar_auditoria', {
+      p_tabla: tabla,
+      p_registro_id: String(registroId ?? ''),
+      p_accion: accion,
+      p_datos_antes: datosAntes ?? null,
+      p_datos_despues: datosDespues ?? null,
+    });
+  } catch (e) {
+    console.error('No se pudo registrar auditoría:', e);
+    // No se interrumpe la acción principal del usuario por un fallo de auditoría.
+  }
+}
+
+async function cargarAuditoria() {
+  const selUsuario = document.getElementById('auditoria-filtro-usuario');
+  if (!selUsuario.options.length || selUsuario.options.length === 1) {
+    const { data: perfiles } = await sb.from('perfiles').select('id, nombre, usuario').order('nombre');
+    (perfiles || []).forEach(p => selUsuario.insertAdjacentHTML('beforeend', `<option value="${p.id}">${tEsc(p.nombre || p.usuario)}</option>`));
+  }
+  filtrarAuditoria();
+}
+
+document.getElementById('btn-filtrar-auditoria').addEventListener('click', filtrarAuditoria);
+
+async function filtrarAuditoria() {
+  const estado = document.getElementById('auditoria-status');
+  estado.textContent = 'Cargando...';
+
+  let query = sb.from('auditoria').select('*, perfiles(nombre, usuario)').order('creado_en', { ascending: false }).limit(200);
+
+  const usuario = document.getElementById('auditoria-filtro-usuario').value;
+  const tabla = document.getElementById('auditoria-filtro-tabla').value.trim();
+  const desde = document.getElementById('auditoria-filtro-desde').value;
+  const hasta = document.getElementById('auditoria-filtro-hasta').value;
+
+  if (usuario) query = query.eq('usuario_id', usuario);
+  if (tabla) query = query.ilike('tabla', `%${tabla}%`);
+  if (desde) query = query.gte('creado_en', desde);
+  if (hasta) query = query.lte('creado_en', hasta + 'T23:59:59');
+
+  const { data, error } = await query;
+  if (error) { estado.textContent = 'Error: ' + error.message; return; }
+
+  estado.textContent = `${(data || []).length} registro(s) (máximo 200 a la vez).`;
+
+  document.getElementById('auditoria-tabla').innerHTML = `
+    <table class="hist-table open">
+      <tr><th>Fecha</th><th>Usuario</th><th>Tabla</th><th>Registro</th><th>Acción</th><th>Antes</th><th>Después</th></tr>
+      ${(data || []).map(r => `
+        <tr>
+          <td>${new Date(r.creado_en).toLocaleString('es-CO', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</td>
+          <td>${tEsc(r.perfiles?.nombre || r.perfiles?.usuario || '—')}</td>
+          <td>${tEsc(r.tabla)}</td>
+          <td>${tEsc(r.registro_id || '—')}</td>
+          <td>${tEsc(r.accion)}</td>
+          <td style="font-size:10px;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${tEsc(JSON.stringify(r.datos_antes || {}))}">${tEsc(JSON.stringify(r.datos_antes || {}))}</td>
+          <td style="font-size:10px;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${tEsc(JSON.stringify(r.datos_despues || {}))}">${tEsc(JSON.stringify(r.datos_despues || {}))}</td>
+        </tr>
+      `).join('')}
+    </table>
+    ${!(data || []).length ? '<div class="empty-state">No hay registros de auditoría con ese filtro.</div>' : ''}
+  `;
+}
+
 
 // ============================================================
 // MÓDULO DE RECURSOS HUMANOS — empleados y liquidador de
@@ -3549,8 +3637,14 @@ async function guardarEdicionRegistro(registro) {
 
 async function eliminarRegistroAsistencia(id) {
   if (!confirm('¿Eliminar este registro de entrada/salida? No se puede deshacer.')) return;
+
+  const { data: registroAntes } = await sb.from('registros_asistencia').select('*').eq('id', id).single();
+
   const { error } = await sb.from('registros_asistencia').delete().eq('id', id);
   if (error) { mostrarToast('No se pudo eliminar: ' + error.message); return; }
+
+  registrarAuditoria('registros_asistencia', id, 'Eliminar registro de asistencia', registroAntes || null, null);
+
   mostrarToast('Registro eliminado.');
   filtrarRegistros();
 }
@@ -3767,6 +3861,8 @@ function guardarEdicionNomina(indice) {
   const f = NOMINA_RESULTADO[indice];
   if (!fila || !f) return;
 
+  const valoresAntes = { ...f };
+
   // Actualiza las 4 categorías de horas extra editadas, y recalcula su $ correspondiente.
   CAMPOS_EXTRA_EDITABLES.forEach(([campoHoras, campoValor, tarifa]) => {
     const nuevoValor = parsearHoras(fila.querySelector(`[data-campo="${campoHoras}"]`).value);
@@ -3784,6 +3880,8 @@ function guardarEdicionNomina(indice) {
     f.valor_recargo_nocturno + f.valor_extra_diurna + f.valor_extra_nocturna
     + f.valor_ddo_diurno + f.valor_ddo_nocturno + f.valor_extra_ddo_diurna + f.valor_extra_ddo_nocturna
   );
+
+  registrarAuditoria('liquidador_nomina', f.empleado_id, `Editar horas extra -- ${f.operario}`, valoresAntes, { ...f });
 
   renderResumenNomina();
   renderTablaNomina();
@@ -3879,6 +3977,12 @@ async function guardarLiquidacionFinalYVaciar() {
 
   const { data: filasVaciadas, error: errorVaciar } = await sb.rpc('vaciar_registros_asistencia_cedi', { p_cedi: cedi, p_desde: desde, p_hasta: hasta });
   if (errorVaciar) { estado.textContent = `Histórico guardado, pero no se pudieron vaciar los registros: ${errorVaciar.message}`; return; }
+
+  registrarAuditoria(
+    'liquidaciones_nomina_historico', `${cedi}_${desde}_${hasta}`,
+    `Cerrar liquidación -- ${cedi} (${desde} a ${hasta}), ${filasHistorico.length} operario(s), $${filasHistorico.reduce((s, f) => s + Number(f.total_recargos_y_extras || 0), 0).toLocaleString('es-CO')}`,
+    null, { cedi, desde, hasta, operarios: filasHistorico.length, registros_vaciados: filasVaciadas ?? 0 }
+  );
 
   estado.textContent = `Liquidación guardada en el histórico (${filasHistorico.length} operario(s)) y ${filasVaciadas ?? 0} registro(s) de asistencia eliminados.`;
   NOMINA_RESULTADO = [];
