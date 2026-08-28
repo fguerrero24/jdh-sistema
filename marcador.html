@@ -128,7 +128,7 @@
   </div>
 
   <div id="panel-alerta" class="panel-alerta hidden">
-    <div class="titulo">⚠ Operarios que ya superaron las 10 horas (8 ordinarias + 1 descanso + máx. 2 extra)</div>
+    <div class="titulo">⚠ Operarios que ya superaron la jornada laboral (8 horas ordinarias + 1 hora de descanso)</div>
     <div id="panel-alerta-lista"></div>
   </div>
 
@@ -160,7 +160,7 @@ const SUPABASE_URL = 'https://oowfwkrhongqkfavhqeq.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_g-7cH12m-lLYcNXGbrK3eA_5mG5tydQ';
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-const LIMITE_HORAS = 10; // 8 ordinarias + 1 descanso + máx. 2 extra
+const LIMITE_HORAS = 9; // 8 ordinarias + 1 descanso (sin contar horas extra)
 
 const params = new URLSearchParams(location.search);
 let CEDI = params.get('cedi') || 'COP';
