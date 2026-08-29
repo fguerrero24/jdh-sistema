@@ -1111,7 +1111,7 @@
 
           <div id="panel-historico-liquidaciones">
             <div class="indicator-fields">
-              <div class="indicator-field"><label>Operario</label><input type="text" id="hist-liq-operario" placeholder="Buscar por nombre..."></div>
+              <div class="indicator-field" style="min-width:220px;"><label>Buscar (nombre o cédula)</label><input type="text" id="hist-liq-operario" placeholder="Escribe para filtrar..."></div>
               <div class="indicator-field"><label>CEDI</label><select id="hist-liq-cedi"><option value="">Todos</option></select></div>
               <div class="indicator-field"><label>Desde</label><input type="date" id="hist-liq-desde"></div>
               <div class="indicator-field"><label>Hasta</label><input type="date" id="hist-liq-hasta"></div>
@@ -1123,7 +1123,7 @@
 
           <div id="panel-historico-asistencia" class="hidden">
             <div class="indicator-fields">
-              <div class="indicator-field"><label>Operario</label><input type="text" id="hist-asis-operario" placeholder="Buscar por nombre..."></div>
+              <div class="indicator-field" style="min-width:220px;"><label>Buscar (nombre o cédula)</label><input type="text" id="hist-asis-operario" placeholder="Escribe para filtrar..."></div>
               <div class="indicator-field"><label>CEDI</label><select id="hist-asis-cedi"><option value="">Todos</option></select></div>
               <div class="indicator-field"><label>Desde</label><input type="date" id="hist-asis-desde"></div>
               <div class="indicator-field"><label>Hasta</label><input type="date" id="hist-asis-hasta"></div>
@@ -3426,7 +3426,13 @@ function cambiarTabHistorico(cual) {
 
 document.getElementById('btn-buscar-historico-liquidaciones').addEventListener('click', buscarHistoricoLiquidaciones);
 
-async function buscarHistoricoLiquidaciones() {
+let HISTORICO_LIQUIDACIONES_CACHE = [];
+let HISTORICO_ASISTENCIA_CACHE = [];
+
+document.getElementById('btn-buscar-historico-liquidaciones').addEventListener('click', traerHistoricoLiquidaciones);
+document.getElementById('hist-liq-operario').addEventListener('input', renderHistoricoLiquidaciones);
+
+async function traerHistoricoLiquidaciones() {
   const estado = document.getElementById('historico-liquidaciones-status');
   estado.textContent = 'Buscando...';
 
@@ -3435,12 +3441,10 @@ async function buscarHistoricoLiquidaciones() {
     .order('periodo_inicio', { ascending: false })
     .limit(300);
 
-  const operario = document.getElementById('hist-liq-operario').value.trim();
   const cedi = document.getElementById('hist-liq-cedi').value;
   const desde = document.getElementById('hist-liq-desde').value;
   const hasta = document.getElementById('hist-liq-hasta').value;
 
-  if (operario) query = query.ilike('operario', `%${operario}%`);
   if (cedi) query = query.eq('cedi', cedi);
   if (desde) query = query.gte('periodo_inicio', desde);
   if (hasta) query = query.lte('periodo_fin', hasta);
@@ -3448,14 +3452,26 @@ async function buscarHistoricoLiquidaciones() {
   const { data, error } = await query;
   if (error) { estado.textContent = 'Error: ' + error.message; return; }
 
-  estado.textContent = `${(data || []).length} registro(s) (máximo 300 a la vez).`;
+  HISTORICO_LIQUIDACIONES_CACHE = data || [];
+  renderHistoricoLiquidaciones();
+}
+
+function renderHistoricoLiquidaciones() {
+  const estado = document.getElementById('historico-liquidaciones-status');
+  const texto = document.getElementById('hist-liq-operario').value.trim().toLowerCase();
+
+  const filtrado = !texto ? HISTORICO_LIQUIDACIONES_CACHE : HISTORICO_LIQUIDACIONES_CACHE.filter(r =>
+    (r.operario || '').toLowerCase().includes(texto) || (r.cedula || '').toLowerCase().includes(texto)
+  );
+
+  estado.textContent = `${filtrado.length} registro(s) (máximo 300 a la vez, según CEDI/fechas elegidos).`;
 
   document.getElementById('historico-liquidaciones-tabla').innerHTML = `
     <table class="hist-table open">
       <tr><th>Periodo</th><th>CEDI</th><th>Operario</th><th>Cédula</th><th>Ordinaria diurna</th><th>Recargo nocturno</th>
         <th>Extra diurna</th><th>Extra nocturna</th><th>DDO diurno</th><th>DDO nocturno</th><th>Extra DDO diurna</th><th>Extra DDO nocturna</th>
         <th>Total extra</th><th>Horas trabajadas</th><th>Total $ recargos y extras</th><th>Observaciones</th></tr>
-      ${(data || []).map(r => `
+      ${filtrado.map(r => `
         <tr>
           <td>${r.periodo_inicio} a ${r.periodo_fin}</td>
           <td>${tEsc(r.cedi)}</td><td>${tEsc(r.operario)}</td><td>${tEsc(r.cedula)}</td>
@@ -3469,13 +3485,14 @@ async function buscarHistoricoLiquidaciones() {
         </tr>
       `).join('')}
     </table>
-    ${!(data || []).length ? '<div class="empty-state">No hay liquidaciones históricas con ese filtro.</div>' : ''}
+    ${!filtrado.length ? '<div class="empty-state">No hay liquidaciones históricas con ese filtro.</div>' : ''}
   `;
 }
 
-document.getElementById('btn-buscar-historico-asistencia').addEventListener('click', buscarHistoricoAsistencia);
+document.getElementById('btn-buscar-historico-asistencia').addEventListener('click', traerHistoricoAsistencia);
+document.getElementById('hist-asis-operario').addEventListener('input', renderHistoricoAsistencia);
 
-async function buscarHistoricoAsistencia() {
+async function traerHistoricoAsistencia() {
   const estado = document.getElementById('historico-asistencia-status');
   estado.textContent = 'Buscando...';
 
@@ -3484,7 +3501,6 @@ async function buscarHistoricoAsistencia() {
     .order('fecha', { ascending: false })
     .limit(300);
 
-  const operario = document.getElementById('hist-asis-operario').value.trim();
   const cedi = document.getElementById('hist-asis-cedi').value;
   const desde = document.getElementById('hist-asis-desde').value;
   const hasta = document.getElementById('hist-asis-hasta').value;
@@ -3496,11 +3512,19 @@ async function buscarHistoricoAsistencia() {
   const { data, error } = await query;
   if (error) { estado.textContent = 'Error: ' + error.message; return; }
 
-  // El filtro por nombre se aplica en el navegador porque el buscador es
-  // por texto libre y el nombre viene de la tabla relacionada (empleados).
-  const filtrado = operario ? (data || []).filter(r => (r.empleados?.nombre || '').toLowerCase().includes(operario.toLowerCase())) : (data || []);
+  HISTORICO_ASISTENCIA_CACHE = data || [];
+  renderHistoricoAsistencia();
+}
 
-  estado.textContent = `${filtrado.length} registro(s) (máximo 300 a la vez).`;
+function renderHistoricoAsistencia() {
+  const estado = document.getElementById('historico-asistencia-status');
+  const texto = document.getElementById('hist-asis-operario').value.trim().toLowerCase();
+
+  const filtrado = !texto ? HISTORICO_ASISTENCIA_CACHE : HISTORICO_ASISTENCIA_CACHE.filter(r =>
+    (r.empleados?.nombre || '').toLowerCase().includes(texto) || (r.empleados?.cedula || '').toLowerCase().includes(texto)
+  );
+
+  estado.textContent = `${filtrado.length} registro(s) (máximo 300 a la vez, según CEDI/fechas elegidos).`;
 
   document.getElementById('historico-asistencia-tabla').innerHTML = `
     <table class="hist-table open">
