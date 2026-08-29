@@ -4203,7 +4203,6 @@ async function consultarControlSemana() {
   if (error) { estado.textContent = 'Error: ' + error.message; return; }
 
   CONTROL_SEMANA_RESULTADO = data || [];
-  estado.textContent = `${CONTROL_SEMANA_RESULTADO.length} semana(s)-operario encontradas.`;
   renderControlSemanaFiltrado();
 }
 
@@ -4217,6 +4216,9 @@ function renderControlSemanaFiltrado() {
     return pasaTexto && pasaExceso;
   });
 
+  document.getElementById('csem-status').textContent =
+    `${filtrado.length} de ${CONTROL_SEMANA_RESULTADO.length} semana(s)-operario (con el filtro aplicado).`;
+
   const totalExcedidos = CONTROL_SEMANA_RESULTADO.filter(r => r.estado === 'Excedido').length;
   document.getElementById('csem-kpis').innerHTML = `
     <div class="kpi-card"><div class="kpi-label">Semanas-operario consultadas</div><div class="kpi-value">${CONTROL_SEMANA_RESULTADO.length}</div></div>
@@ -4226,12 +4228,13 @@ function renderControlSemanaFiltrado() {
   const cont = document.getElementById('csem-tabla');
   if (!filtrado.length) { cont.innerHTML = '<div class="empty-state">No hay resultados con ese filtro.</div>'; return; }
 
-  cont.innerHTML = `<table class="hist-table open"><tr><th>Operario</th><th>Cédula</th><th>Semana</th><th>Horas trabajadas</th><th>Límite</th><th>Exceso</th><th>Estado</th></tr>${
+  cont.innerHTML = `<table class="hist-table open"><tr><th>Operario</th><th>Cédula</th><th>Semana</th><th>Horas ordinarias</th><th>Horas totales (con extra)</th><th>Límite</th><th>Exceso</th><th>Estado</th></tr>${
     filtrado.map(r => `<tr ${r.estado === 'Excedido' ? 'style="background:var(--crit-bg)"' : ''}>
       <td>${tEsc(r.operario)}</td>
       <td>${tEsc(r.cedula)}</td>
       <td>${new Date(r.semana_inicio).toLocaleString('es-CO', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })} a ${new Date(r.semana_fin).toLocaleString('es-CO', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}</td>
-      <td>${Number(r.horas_trabajadas).toFixed(1)}</td>
+      <td>${Number(r.horas_ordinarias).toFixed(1)}</td>
+      <td>${Number(r.horas_totales).toFixed(1)}</td>
       <td>${Number(r.limite_horas).toFixed(0)}</td>
       <td style="font-weight:700;color:${r.exceso > 0 ? 'var(--crit-dot)' : 'inherit'}">${Number(r.exceso).toFixed(1)}</td>
       <td>${tEsc(r.estado)}</td>
