@@ -3414,10 +3414,16 @@ async function cargarModuloHistorico() {
     }
   });
   cambiarTabHistorico('liquidaciones');
+  // Carga los datos solos, sin esperar a que le den clic a "Buscar" primero
+  // -- así el campo de texto ya tiene algo que filtrar desde que se abre.
+  if (!HISTORICO_LIQUIDACIONES_CACHE.length) await traerHistoricoLiquidaciones();
 }
 
 document.getElementById('tab-historico-liquidaciones').addEventListener('click', () => cambiarTabHistorico('liquidaciones'));
-document.getElementById('tab-historico-asistencia').addEventListener('click', () => cambiarTabHistorico('asistencia'));
+document.getElementById('tab-historico-asistencia').addEventListener('click', async () => {
+  cambiarTabHistorico('asistencia');
+  if (!HISTORICO_ASISTENCIA_CACHE.length) await traerHistoricoAsistencia();
+});
 
 function cambiarTabHistorico(cual) {
   document.getElementById('panel-historico-liquidaciones').classList.toggle('hidden', cual !== 'liquidaciones');
