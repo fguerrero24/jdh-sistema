@@ -909,6 +909,7 @@
                 <div class="indicator-field"><label>Desde</label><input type="date" id="reg-filtro-desde"></div>
                 <div class="indicator-field"><label>Hasta</label><input type="date" id="reg-filtro-hasta"></div>
                 <button class="btn" id="btn-filtrar-registros">Filtrar</button>
+                <button class="btn ghost" id="btn-exportar-registros">Exportar a Excel</button>
               </div>
             </div>
 
@@ -3736,6 +3737,8 @@ async function vaciarRegistrosCedi() {
   filtrarRegistros();
 }
 
+let REGISTROS_CACHE = [];
+
 async function filtrarRegistros() {
   const cedi = document.getElementById('reg-filtro-cedi').value;
   const nombre = document.getElementById('reg-filtro-nombre').value.trim();
@@ -3752,8 +3755,28 @@ async function filtrarRegistros() {
 
   const { data, error } = await q;
   if (error) { document.getElementById('reg-lista').innerHTML = '<div class="empty-state">Error al filtrar.</div>'; return; }
-  renderListaRegistros(data || []);
+  REGISTROS_CACHE = data || [];
+  renderListaRegistros(REGISTROS_CACHE);
 }
+
+document.getElementById('btn-exportar-registros').addEventListener('click', () => {
+  if (!REGISTROS_CACHE.length) { mostrarToast('No hay registros para exportar (filtra primero).'); return; }
+
+  const filasExcel = REGISTROS_CACHE.map(r => ({
+    'Empleado': r.empleados ? r.empleados.nombre : '',
+    'Cédula': r.empleados ? r.empleados.cedula : '',
+    'CEDI': r.cedi,
+    'Fecha': r.fecha,
+    'Entrada': new Date(r.hora_entrada).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' }),
+    'Salida': r.hora_salida ? new Date(r.hora_salida).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' }) : '',
+  }));
+
+  const hoja = XLSX.utils.json_to_sheet(filasExcel);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, hoja, 'Registros');
+  const fechaHoy = fechaColombiaHoy();
+  XLSX.writeFile(wb, `Registros_${fechaHoy}.xlsx`);
+});
 
 function renderListaRegistros(registros) {
   const cont = document.getElementById('reg-lista');
