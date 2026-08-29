@@ -678,6 +678,7 @@
       <div class="sidebar-item sidebar-sub hidden" data-modulo="rrhh-liquidador" style="padding-left:38px;font-size:11.5px;">Liquidador individual</div>
       <div class="sidebar-item sidebar-sub hidden" data-modulo="rrhh-cedi" style="padding-left:38px;font-size:11.5px;">Liquidación por CEDI</div>
       <div class="sidebar-item sidebar-sub hidden" data-modulo="rrhh-compensatorios" style="padding-left:38px;font-size:11.5px;">Compensatorios</div>
+      <div class="sidebar-item sidebar-sub hidden" data-modulo="rrhh-historico" style="padding-left:38px;font-size:11.5px;">Histórico</div>
       <div class="sidebar-item" data-modulo="admin"><i class="ti ti-settings"></i>Administración</div>
     </div>
 
@@ -1100,6 +1101,38 @@
             <div id="comp-historial"></div>
           </div>
         </div>
+
+        <div id="view-rrhh-historico" class="hidden">
+          <div class="section-label" style="margin-top:0;">Histórico</div>
+          <div class="indicator-fields" style="border:none;padding:0;margin-bottom:16px;">
+            <button class="btn ghost" id="tab-historico-liquidaciones">Liquidaciones</button>
+            <button class="btn ghost" id="tab-historico-asistencia">Asistencia (día a día)</button>
+          </div>
+
+          <div id="panel-historico-liquidaciones">
+            <div class="indicator-fields">
+              <div class="indicator-field"><label>Operario</label><input type="text" id="hist-liq-operario" placeholder="Buscar por nombre..."></div>
+              <div class="indicator-field"><label>CEDI</label><select id="hist-liq-cedi"><option value="">Todos</option></select></div>
+              <div class="indicator-field"><label>Desde</label><input type="date" id="hist-liq-desde"></div>
+              <div class="indicator-field"><label>Hasta</label><input type="date" id="hist-liq-hasta"></div>
+              <button class="btn" id="btn-buscar-historico-liquidaciones">Buscar</button>
+            </div>
+            <div id="historico-liquidaciones-status" style="font-size:12px;color:var(--text-secondary);margin-top:8px;"></div>
+            <div id="historico-liquidaciones-tabla" style="overflow-x:auto;margin-top:10px;"></div>
+          </div>
+
+          <div id="panel-historico-asistencia" class="hidden">
+            <div class="indicator-fields">
+              <div class="indicator-field"><label>Operario</label><input type="text" id="hist-asis-operario" placeholder="Buscar por nombre..."></div>
+              <div class="indicator-field"><label>CEDI</label><select id="hist-asis-cedi"><option value="">Todos</option></select></div>
+              <div class="indicator-field"><label>Desde</label><input type="date" id="hist-asis-desde"></div>
+              <div class="indicator-field"><label>Hasta</label><input type="date" id="hist-asis-hasta"></div>
+              <button class="btn" id="btn-buscar-historico-asistencia">Buscar</button>
+            </div>
+            <div id="historico-asistencia-status" style="font-size:12px;color:var(--text-secondary);margin-top:8px;"></div>
+            <div id="historico-asistencia-tabla" style="overflow-x:auto;margin-top:10px;"></div>
+          </div>
+        </div>
       </div>
     </div>
   </div>
@@ -1268,7 +1301,8 @@ const NOMBRES_MODULO = {
   'rrhh-registros': 'Recursos Humanos · Registros',
   'rrhh-nomina': 'Recursos Humanos · Liquidador de Nómina',
   'rrhh-control-semana': 'Recursos Humanos · Control Semana',
-  'rrhh-compensatorios': 'Recursos Humanos · Compensatorios'
+  'rrhh-compensatorios': 'Recursos Humanos · Compensatorios',
+  'rrhh-historico': 'Recursos Humanos · Histórico'
 };
 
 document.querySelectorAll('.sidebar-item[data-modulo]').forEach(el => {
@@ -1302,6 +1336,7 @@ function cambiarModulo(modulo) {
   document.getElementById('view-rrhh-liquidador').classList.toggle('hidden', modulo !== 'rrhh-liquidador' || bloqueado);
   document.getElementById('view-rrhh-cedi').classList.toggle('hidden', modulo !== 'rrhh-cedi' || bloqueado);
   document.getElementById('view-rrhh-compensatorios').classList.toggle('hidden', modulo !== 'rrhh-compensatorios' || bloqueado);
+  document.getElementById('view-rrhh-historico').classList.toggle('hidden', modulo !== 'rrhh-historico' || bloqueado);
   document.getElementById('view-locked').classList.toggle('hidden', !bloqueado);
 
   if (bloqueado) {
@@ -1324,6 +1359,7 @@ function cambiarModulo(modulo) {
   if (modulo === 'rrhh-liquidador') cargarModuloRrhhLiquidador();
   if (modulo === 'rrhh-cedi') cargarModuloRrhhCedi();
   if (modulo === 'rrhh-compensatorios') cargarModuloCompensatorios();
+  if (modulo === 'rrhh-historico') cargarModuloHistorico();
 }
 
 // Orden lógico según el proceso físico de la bodega (no alfabético).
@@ -3369,6 +3405,123 @@ async function cargarLiquidaciones() {
 // ============================================================
 // MÓDULO DE COMPENSATORIOS
 // ============================================================
+// ---------- HISTÓRICO (Liquidaciones y Asistencia día a día) ----------
+async function cargarModuloHistorico() {
+  ['hist-liq-cedi', 'hist-asis-cedi'].forEach(id => {
+    const sel = document.getElementById(id);
+    if (sel.options.length <= 1) {
+      CEDIS_VALIDOS.forEach(c => sel.insertAdjacentHTML('beforeend', `<option value="${c}">${c}</option>`));
+    }
+  });
+  cambiarTabHistorico('liquidaciones');
+}
+
+document.getElementById('tab-historico-liquidaciones').addEventListener('click', () => cambiarTabHistorico('liquidaciones'));
+document.getElementById('tab-historico-asistencia').addEventListener('click', () => cambiarTabHistorico('asistencia'));
+
+function cambiarTabHistorico(cual) {
+  document.getElementById('panel-historico-liquidaciones').classList.toggle('hidden', cual !== 'liquidaciones');
+  document.getElementById('panel-historico-asistencia').classList.toggle('hidden', cual !== 'asistencia');
+}
+
+document.getElementById('btn-buscar-historico-liquidaciones').addEventListener('click', buscarHistoricoLiquidaciones);
+
+async function buscarHistoricoLiquidaciones() {
+  const estado = document.getElementById('historico-liquidaciones-status');
+  estado.textContent = 'Buscando...';
+
+  let query = sb.from('liquidaciones_nomina_historico')
+    .select('periodo_inicio, periodo_fin, cedi, operario, cedula, horas_ordinarias_diurnas, horas_recargo_nocturno, horas_extra_diurnas, horas_extra_nocturnas, horas_ddo_diurnas, horas_ddo_nocturnas, horas_extra_ddo_diurnas, horas_extra_ddo_nocturnas, total_horas_extra, horas_trabajadas, total_recargos_y_extras, observaciones')
+    .order('periodo_inicio', { ascending: false })
+    .limit(300);
+
+  const operario = document.getElementById('hist-liq-operario').value.trim();
+  const cedi = document.getElementById('hist-liq-cedi').value;
+  const desde = document.getElementById('hist-liq-desde').value;
+  const hasta = document.getElementById('hist-liq-hasta').value;
+
+  if (operario) query = query.ilike('operario', `%${operario}%`);
+  if (cedi) query = query.eq('cedi', cedi);
+  if (desde) query = query.gte('periodo_inicio', desde);
+  if (hasta) query = query.lte('periodo_fin', hasta);
+
+  const { data, error } = await query;
+  if (error) { estado.textContent = 'Error: ' + error.message; return; }
+
+  estado.textContent = `${(data || []).length} registro(s) (máximo 300 a la vez).`;
+
+  document.getElementById('historico-liquidaciones-tabla').innerHTML = `
+    <table class="hist-table open">
+      <tr><th>Periodo</th><th>CEDI</th><th>Operario</th><th>Cédula</th><th>Ordinaria diurna</th><th>Recargo nocturno</th>
+        <th>Extra diurna</th><th>Extra nocturna</th><th>DDO diurno</th><th>DDO nocturno</th><th>Extra DDO diurna</th><th>Extra DDO nocturna</th>
+        <th>Total extra</th><th>Horas trabajadas</th><th>Total $ recargos y extras</th><th>Observaciones</th></tr>
+      ${(data || []).map(r => `
+        <tr>
+          <td>${r.periodo_inicio} a ${r.periodo_fin}</td>
+          <td>${tEsc(r.cedi)}</td><td>${tEsc(r.operario)}</td><td>${tEsc(r.cedula)}</td>
+          <td>${Number(r.horas_ordinarias_diurnas).toFixed(2)}</td><td>${Number(r.horas_recargo_nocturno).toFixed(2)}</td>
+          <td>${Number(r.horas_extra_diurnas).toFixed(2)}</td><td>${Number(r.horas_extra_nocturnas).toFixed(2)}</td>
+          <td>${Number(r.horas_ddo_diurnas).toFixed(2)}</td><td>${Number(r.horas_ddo_nocturnas).toFixed(2)}</td>
+          <td>${Number(r.horas_extra_ddo_diurnas).toFixed(2)}</td><td>${Number(r.horas_extra_ddo_nocturnas).toFixed(2)}</td>
+          <td>${Number(r.total_horas_extra).toFixed(2)}</td><td>${Number(r.horas_trabajadas).toFixed(2)}</td>
+          <td>$ ${Number(r.total_recargos_y_extras).toLocaleString('es-CO', { maximumFractionDigits: 0 })}</td>
+          <td>${tEsc(r.observaciones || '—')}</td>
+        </tr>
+      `).join('')}
+    </table>
+    ${!(data || []).length ? '<div class="empty-state">No hay liquidaciones históricas con ese filtro.</div>' : ''}
+  `;
+}
+
+document.getElementById('btn-buscar-historico-asistencia').addEventListener('click', buscarHistoricoAsistencia);
+
+async function buscarHistoricoAsistencia() {
+  const estado = document.getElementById('historico-asistencia-status');
+  estado.textContent = 'Buscando...';
+
+  let query = sb.from('registros_asistencia_historico')
+    .select('fecha, cedi, hora_entrada, hora_salida, horas_ordinarias_diurnas, horas_recargo_nocturno, horas_recargo_dominical, horas_recargo_nocturno_dominical, horas_extra_diurna, horas_extra_nocturna, horas_extra_dom_fest_diurna, horas_extra_dom_fest_nocturna, empleados(nombre, cedula)')
+    .order('fecha', { ascending: false })
+    .limit(300);
+
+  const operario = document.getElementById('hist-asis-operario').value.trim();
+  const cedi = document.getElementById('hist-asis-cedi').value;
+  const desde = document.getElementById('hist-asis-desde').value;
+  const hasta = document.getElementById('hist-asis-hasta').value;
+
+  if (cedi) query = query.eq('cedi', cedi);
+  if (desde) query = query.gte('fecha', desde);
+  if (hasta) query = query.lte('fecha', hasta);
+
+  const { data, error } = await query;
+  if (error) { estado.textContent = 'Error: ' + error.message; return; }
+
+  // El filtro por nombre se aplica en el navegador porque el buscador es
+  // por texto libre y el nombre viene de la tabla relacionada (empleados).
+  const filtrado = operario ? (data || []).filter(r => (r.empleados?.nombre || '').toLowerCase().includes(operario.toLowerCase())) : (data || []);
+
+  estado.textContent = `${filtrado.length} registro(s) (máximo 300 a la vez).`;
+
+  document.getElementById('historico-asistencia-tabla').innerHTML = `
+    <table class="hist-table open">
+      <tr><th>Fecha</th><th>CEDI</th><th>Operario</th><th>Cédula</th><th>Entrada</th><th>Salida</th>
+        <th>Ordinaria diurna</th><th>Recargo nocturno</th><th>DDO diurno</th><th>DDO nocturno</th><th>Extra diurna</th><th>Extra nocturna</th><th>Extra DDO diurna</th><th>Extra DDO nocturna</th></tr>
+      ${filtrado.map(r => `
+        <tr>
+          <td>${r.fecha}</td><td>${tEsc(r.cedi)}</td><td>${tEsc(r.empleados?.nombre || '—')}</td><td>${tEsc(r.empleados?.cedula || '—')}</td>
+          <td>${new Date(r.hora_entrada).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' })}</td>
+          <td>${new Date(r.hora_salida).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' })}</td>
+          <td>${Number(r.horas_ordinarias_diurnas).toFixed(2)}</td><td>${Number(r.horas_recargo_nocturno).toFixed(2)}</td>
+          <td>${Number(r.horas_recargo_dominical).toFixed(2)}</td><td>${Number(r.horas_recargo_nocturno_dominical).toFixed(2)}</td>
+          <td>${Number(r.horas_extra_diurna).toFixed(2)}</td><td>${Number(r.horas_extra_nocturna).toFixed(2)}</td>
+          <td>${Number(r.horas_extra_dom_fest_diurna).toFixed(2)}</td><td>${Number(r.horas_extra_dom_fest_nocturna).toFixed(2)}</td>
+        </tr>
+      `).join('')}
+    </table>
+    ${!filtrado.length ? '<div class="empty-state">No hay asistencia histórica con ese filtro.</div>' : ''}
+  `;
+}
+
 async function cargarModuloCompensatorios() {
   const esAdmin = SESION.rol === 'admin' || SESION.rol === 'director_nacional';
   document.getElementById('rrhh-sin-acceso-4').classList.toggle('hidden', esAdmin);
