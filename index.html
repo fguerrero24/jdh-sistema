@@ -3975,7 +3975,7 @@ async function guardarLiquidacionFinalYVaciar() {
   const { error: errorInsert } = await sb.from('liquidaciones_nomina_historico').insert(filasHistorico);
   if (errorInsert) { estado.textContent = 'Error al guardar el histórico: ' + errorInsert.message; return; }
 
-  const { data: filasVaciadas, error: errorVaciar } = await sb.rpc('vaciar_registros_asistencia_cedi', { p_cedi: cedi, p_desde: desde, p_hasta: hasta });
+  const { data: filasVaciadas, error: errorVaciar } = await sb.rpc('vaciar_registros_asistencia_cedi', { p_cedi: cedi, p_desde: desde, p_hasta: hasta, p_base_diaria: Number(document.getElementById('nomina-base-diaria').value) });
   if (errorVaciar) { estado.textContent = `Histórico guardado, pero no se pudieron vaciar los registros: ${errorVaciar.message}`; return; }
 
   registrarAuditoria(
