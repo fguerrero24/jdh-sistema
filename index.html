@@ -846,6 +846,100 @@ input:focus,select:focus,textarea:focus{outline:none!important;border-color:#176
   .topbar-title{font-size:16px}.topbar-right #user-name-label{display:none}.kpi-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.kpi-card{min-height:105px;padding:14px}.kpi-value{font-size:23px}.content-pad{padding:16px 10px 40px;}
 }
 
+
+/* ==========================================================
+   SIDEBAR COMPACTA — ICONOS + EXPANSION AL PASAR EL MOUSE
+   En escritorio deja el máximo espacio para la ventana principal.
+   ========================================================== */
+@media (min-width: 901px){
+  .app-shell{position:relative;display:block;min-height:100vh;}
+  .sidebar{
+    position:fixed;
+    inset:0 auto 0 0;
+    width:78px;
+    height:100vh;
+    overflow:hidden;
+    padding:18px 10px;
+    z-index:1000;
+    transition:width .22s cubic-bezier(.2,.8,.2,1), box-shadow .22s ease;
+    border-right:1px solid rgba(255,255,255,.055);
+  }
+  .sidebar:hover{
+    width:264px;
+    overflow-y:auto;
+    box-shadow:18px 0 42px rgba(5,15,30,.28);
+  }
+  .sidebar-brand{
+    width:58px;
+    height:58px;
+    margin:0 0 18px;
+    padding:0;
+    justify-content:center;
+    gap:0;
+    white-space:nowrap;
+    transition:width .22s ease, justify-content .22s ease, padding .22s ease;
+  }
+  .sidebar:hover .sidebar-brand{
+    width:244px;
+    justify-content:flex-start;
+    padding:0 12px;
+    gap:10px;
+  }
+  .sidebar-brand img{flex:0 0 auto;}
+  .sidebar-brand{font-size:0;}
+  .sidebar:hover .sidebar-brand{font-size:15px;}
+
+  .sidebar-item{
+    position:relative;
+    width:58px;
+    min-height:44px;
+    margin:4px 0;
+    padding:10px 0;
+    justify-content:center;
+    gap:10px;
+    white-space:nowrap;
+    font-size:0;
+    transition:width .22s ease, background .18s ease, transform .18s ease, padding .22s ease;
+  }
+  .sidebar:hover .sidebar-item{
+    width:244px;
+    justify-content:flex-start;
+    padding:10px 12px;
+    font-size:12.5px;
+  }
+  .sidebar-item i:first-child{flex:0 0 20px;text-align:center;}
+  .sidebar-item .sidebar-label{display:none;overflow:hidden;text-overflow:ellipsis;}
+  .sidebar:hover .sidebar-item .sidebar-label{display:inline-block;}
+  .sidebar-item .sidebar-badge{display:none;}
+  .sidebar:hover .sidebar-item .sidebar-badge{display:inline-flex;margin-left:auto;}
+
+  .sidebar-item[data-modulo-grupo] > i:last-child{
+    display:none!important;
+  }
+  .sidebar:hover .sidebar-item[data-modulo-grupo] > i:last-child{
+    display:block!important;
+    margin-left:auto!important;
+    font-size:13px!important;
+  }
+
+  .sidebar-sub{
+    border-radius:8px;
+  }
+  .sidebar-sub .sidebar-label{font-size:11.5px;}
+  .sidebar-sub2 .sidebar-label{font-size:11px;}
+
+  .main-content{
+    width:100%;
+    min-height:100vh;
+    margin-left:78px;
+    width:calc(100% - 78px);
+  }
+}
+
+@media (max-width: 900px){
+  .sidebar .sidebar-label{display:inline-block;}
+}
+
 </style>
 </head>
 <body>
@@ -4558,5 +4652,25 @@ function renderControlSemanaFiltrado() {
 }
 
 </script>
+
+<script>
+(function prepararSidebarCompacta(){
+  function wrapSidebarLabels(){
+    document.querySelectorAll('.sidebar .sidebar-item').forEach(item=>{
+      Array.from(item.childNodes).forEach(node=>{
+        if(node.nodeType===Node.TEXT_NODE && node.textContent.trim()){
+          const span=document.createElement('span');
+          span.className='sidebar-label';
+          span.textContent=node.textContent.trim();
+          node.replaceWith(span);
+        }
+      });
+    });
+  }
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',wrapSidebarLabels);
+  else wrapSidebarLabels();
+})();
+</script>
+
 </body>
 </html>
