@@ -4251,15 +4251,15 @@ function renderControlSemanaFiltrado() {
   const cont = document.getElementById('csem-tabla');
   if (!filtrado.length) { cont.innerHTML = '<div class="empty-state">No hay resultados con ese filtro.</div>'; return; }
 
-  cont.innerHTML = `<table class="hist-table open"><tr><th>Operario</th><th>Cédula</th><th>Semana</th><th>Horas ordinarias</th><th>Horas totales (con extra)</th><th>Límite</th><th>Exceso</th><th>Estado</th></tr>${
+  cont.innerHTML = `<table class="hist-table open"><tr><th>Operario</th><th>Cédula</th><th>Semana</th><th>Horas ordinarias</th><th>Diferencia (extra)</th><th>Horas totales</th><th>Límite ordinario</th><th>Estado</th></tr>${
     filtrado.map(r => `<tr ${r.estado === 'Excedido' ? 'style="background:var(--crit-bg)"' : ''}>
       <td>${tEsc(r.operario)}</td>
       <td>${tEsc(r.cedula)}</td>
       <td>${new Date(r.semana_inicio).toLocaleString('es-CO', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })} a ${new Date(r.semana_fin).toLocaleString('es-CO', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}</td>
       <td>${Number(r.horas_ordinarias).toFixed(1)}</td>
+      <td style="font-weight:700;color:${r.horas_extra_semana > 0 ? 'var(--crit-dot)' : 'inherit'}">${Number(r.horas_extra_semana).toFixed(1)}</td>
       <td>${Number(r.horas_totales).toFixed(1)}</td>
       <td>${Number(r.limite_horas).toFixed(0)}</td>
-      <td style="font-weight:700;color:${r.exceso > 0 ? 'var(--crit-dot)' : 'inherit'}">${Number(r.exceso).toFixed(1)}</td>
       <td>${tEsc(r.estado)}</td>
     </tr>`).join('')
   }</table>`;
