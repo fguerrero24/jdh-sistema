@@ -624,6 +624,228 @@
     .indicator-fields .fecha-field, .indicator-fields .valor-field { width:100%; }
   }
 
+
+/* ============================================================
+   JDH MODERN UI 2026 — REDISEÑO VISUAL SIN CAMBIAR LA LÓGICA
+   ============================================================ */
+:root{
+  --modern-bg:#f5f7fb;
+  --modern-panel:#ffffff;
+  --modern-border:#e5e9f0;
+  --modern-text:#172033;
+  --modern-muted:#667085;
+  --modern-primary:#1769e0;
+  --modern-primary-2:#0f56c4;
+  --modern-soft:#edf4ff;
+  --modern-shadow:0 10px 30px rgba(20,35,65,.07);
+}
+
+html{background:var(--modern-bg);}
+body{
+  background:linear-gradient(180deg,#f8faff 0%,#f4f6fa 100%);
+  color:var(--modern-text);
+  font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;
+  letter-spacing:-.01em;
+}
+
+#app-view{
+  --surface-1:#f5f7fb;
+  --surface-2:#fff;
+  --surface-3:#f8fafc;
+  --header-bg:#101b2d;
+  --header-bg-2:#15243a;
+  --text-primary:#172033;
+  --text-secondary:#667085;
+  --text-muted:#98a2b3;
+  --line:#e5e9f0;
+  --s1:#1769e0;
+  --s2:#2d7cf0;
+  --s3:#5b9af7;
+  --s4:#1769e0;
+  --good-bg:#eaf8f1;
+  --good-text:#087443;
+  --good-dot:#12a76b;
+  --crit-bg:#fff0ef;
+  --crit-text:#b42318;
+  --crit-dot:#e5484d;
+  --info-bg:#edf4ff;
+  --info-text:#175cd3;
+  --info-dot:#1769e0;
+  --neutral-bg:#f2f4f7;
+  --neutral-text:#667085;
+  --neutral-dot:#98a2b3;
+  --jdh-blue:#1769e0;
+  --jdh-blue-light:#2d7cf0;
+  --jdh-navy:#101b2d;
+  background:var(--modern-bg);
+}
+
+/* Shell */
+.app-shell{min-height:100vh;background:var(--modern-bg);}
+.sidebar{
+  width:248px;
+  background:#101b2d;
+  padding:18px 12px 16px;
+  box-shadow:8px 0 30px rgba(16,27,45,.08);
+  position:relative;
+  z-index:10;
+}
+.sidebar-brand{
+  height:58px;
+  margin:0 4px 18px;
+  padding:0 12px;
+  border:0;
+  border-radius:14px;
+  background:linear-gradient(135deg,#17283f,#101b2d);
+  box-shadow:inset 0 1px rgba(255,255,255,.06);
+  font-size:15px;
+  letter-spacing:-.02em;
+}
+.sidebar-brand img{width:30px;height:30px;border-radius:9px;box-shadow:0 4px 12px rgba(23,105,224,.25);}
+.sidebar-item{
+  min-height:42px;
+  margin:3px 0;
+  padding:10px 12px;
+  border:1px solid transparent;
+  border-left:0;
+  border-radius:10px;
+  color:#aebbd0;
+  font-size:12.5px;
+  transition:all .18s ease;
+}
+.sidebar-item i{font-size:17px;opacity:.9;}
+.sidebar-item:hover{background:#17283f;border-color:#213650;color:#fff;transform:translateX(2px);}
+.sidebar-item.active{
+  background:linear-gradient(90deg,rgba(23,105,224,.22),rgba(23,105,224,.08));
+  border-color:rgba(45,124,240,.24);
+  border-left:0;
+  color:#fff;
+  box-shadow:inset 3px 0 0 #2d7cf0,0 5px 18px rgba(0,0,0,.08);
+}
+.sidebar-item.locked{color:#62728a;}
+.sidebar-badge{background:#1c3049;color:#9bb0c8;border-radius:999px;padding:3px 8px;font-size:8px;font-weight:700;}
+
+.main-content{min-width:0;background:var(--modern-bg);}
+.topbar{
+  min-height:72px;
+  padding:14px 28px;
+  background:rgba(255,255,255,.9);
+  border-bottom:1px solid var(--modern-border);
+  backdrop-filter:blur(12px);
+  position:sticky;top:0;z-index:8;
+}
+.topbar-title{font-size:18px;font-weight:750;color:#172033;letter-spacing:-.025em;}
+.topbar-right{gap:10px;color:#667085;}
+.topbar-right #user-name-label{font-weight:600;color:#344054;}
+.content-pad{max-width:1500px;padding:28px 30px 64px;}
+
+/* Buttons */
+.btn{
+  border:0!important;
+  border-radius:9px!important;
+  min-height:36px;
+  padding:0 15px!important;
+  font-weight:650!important;
+  letter-spacing:-.01em;
+  box-shadow:0 3px 10px rgba(23,105,224,.14);
+  transition:transform .15s ease,box-shadow .15s ease,background .15s ease;
+}
+.btn:hover{transform:translateY(-1px);box-shadow:0 7px 18px rgba(23,105,224,.18);}
+.btn.ghost{
+  background:#fff!important;color:#344054!important;border:1px solid #d9dee8!important;box-shadow:none!important;
+}
+.btn.ghost:hover{background:#f8fafc!important;border-color:#c7cfdb!important;}
+
+/* KPI cards */
+.kpi-grid{gap:16px;margin-bottom:24px;}
+.kpi-card{
+  position:relative;
+  overflow:hidden;
+  min-height:118px;
+  background:#fff;
+  border:1px solid #e6eaf0;
+  border-radius:16px;
+  padding:18px;
+  box-shadow:var(--modern-shadow);
+  transition:transform .18s ease,box-shadow .18s ease;
+}
+.kpi-card:hover{transform:translateY(-2px);box-shadow:0 16px 36px rgba(20,35,65,.1);}
+.kpi-card:after{content:"";position:absolute;right:-24px;top:-28px;width:90px;height:90px;border-radius:50%;background:var(--modern-soft);opacity:.9;}
+.kpi-label{font-size:10px;font-weight:750;color:#667085;letter-spacing:.07em;}
+.kpi-value{font-size:29px;line-height:1.1;font-weight:800;margin-top:9px;letter-spacing:-.04em;}
+.kpi-value.ok{color:#087443}.kpi-value.bad{color:#c43238}
+
+/* Sections / cards */
+.section-label{
+  margin:24px 0 10px;
+  font-size:10px;font-weight:800;color:#667085;
+  letter-spacing:.1em;text-transform:uppercase;
+}
+.indicator-card,.note-banner,.alert-card,.locked-panel{
+  background:#fff!important;
+  border-color:#e5e9f0!important;
+  border-radius:14px!important;
+  box-shadow:0 8px 24px rgba(20,35,65,.055);
+}
+.alert-card{border-left:4px solid #e5484d!important;padding:14px 16px;margin-bottom:10px;}
+.alert-title{font-size:13px;font-weight:750}.alert-meta{color:#667085;}
+
+/* Tables */
+.hist-table,.data-table,table{
+  border-collapse:separate!important;border-spacing:0!important;
+}
+.hist-table.open,.hist-table{
+  width:100%;overflow:hidden;background:#fff;border:1px solid #e5e9f0!important;border-radius:14px!important;box-shadow:0 8px 24px rgba(20,35,65,.045);
+}
+.hist-table th{
+  background:#f8fafc!important;color:#667085!important;
+  font-size:10px!important;font-weight:800!important;text-transform:uppercase;letter-spacing:.06em;
+  border-bottom:1px solid #e5e9f0!important;
+}
+.hist-table td{font-size:12px;color:#344054;border-bottom:1px solid #f0f2f5!important;}
+.hist-table tr:last-child td{border-bottom:0!important;}
+.hist-table tr:hover td{background:#f8fbff!important;}
+
+/* Inputs */
+input,select,textarea{
+  border-radius:9px!important;
+  border:1px solid #d9dee8!important;
+  background:#fff!important;
+  color:#172033!important;
+  box-shadow:0 1px 2px rgba(16,24,40,.03);
+  transition:border .15s ease,box-shadow .15s ease;
+}
+input:focus,select:focus,textarea:focus{outline:none!important;border-color:#1769e0!important;box-shadow:0 0 0 3px rgba(23,105,224,.11)!important;}
+.indicator-fields{border-top:1px dashed #e1e6ee;gap:10px;}
+.indicator-field label{font-weight:750;letter-spacing:.06em;}
+
+/* Status chips */
+.status-badge,.badge,.pill{border-radius:999px!important;font-weight:750;}
+
+/* Login remains branded, but gets a cleaner card */
+#login-view{background:radial-gradient(circle at 15% 15%,rgba(45,124,240,.18),transparent 35%),#06131f;}
+.login-card{border:1px solid rgba(255,255,255,.1)!important;border-radius:20px!important;box-shadow:0 25px 70px rgba(0,0,0,.28)!important;}
+
+/* Scrollbars */
+*{scrollbar-width:thin;scrollbar-color:#b8c2d0 transparent;}
+*::-webkit-scrollbar{width:8px;height:8px}*::-webkit-scrollbar-track{background:transparent}*::-webkit-scrollbar-thumb{background:#b8c2d0;border-radius:999px}
+
+@media(max-width:1000px){
+  .sidebar{width:220px}.content-pad{padding:22px 20px 50px}.topbar{padding:13px 20px;}
+}
+@media(max-width:800px){
+  .app-shell{flex-direction:column;}
+  .sidebar{width:100%;display:flex;align-items:center;gap:4px;overflow-x:auto;padding:8px;position:sticky;top:0;z-index:20;box-shadow:0 4px 18px rgba(16,27,45,.12);}
+  .sidebar-brand{display:flex;min-width:48px;width:48px;height:42px;padding:0;justify-content:center;margin:0 5px 0 0;}
+  .sidebar-brand img{width:27px;height:27px}.sidebar-brand{font-size:0}.sidebar-brand img+*{display:none}
+  .sidebar-item{min-height:38px;white-space:nowrap;margin:0;padding:8px 11px;}
+  .sidebar-item.active{box-shadow:inset 0 -3px 0 #2d7cf0;}
+  .topbar{position:relative;}.content-pad{padding:18px 14px 44px;}
+}
+@media(max-width:600px){
+  .topbar-title{font-size:16px}.topbar-right #user-name-label{display:none}.kpi-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.kpi-card{min-height:105px;padding:14px}.kpi-value{font-size:23px}.content-pad{padding:16px 10px 40px;}
+}
+
 </style>
 </head>
 <body>
@@ -673,12 +895,13 @@
       <div class="sidebar-item" data-modulo-grupo="rrhh" id="grupo-rrhh"><i class="ti ti-users"></i>Recursos Humanos<i class="ti ti-chevron-down" style="margin-left:auto;font-size:13px;"></i></div>
       <div class="sidebar-item sidebar-sub hidden" data-modulo="rrhh-empleados" style="padding-left:38px;font-size:11.5px;">Empleados y Asistencia</div>
       <div class="sidebar-item sidebar-sub hidden" data-modulo="rrhh-registros" style="padding-left:38px;font-size:11.5px;">Registros</div>
-      <div class="sidebar-item sidebar-sub hidden" data-modulo="rrhh-nomina" style="padding-left:38px;font-size:11.5px;">Liquidador de Nómina</div>
-      <div class="sidebar-item sidebar-sub hidden" data-modulo="rrhh-control-semana" style="padding-left:38px;font-size:11.5px;">Control Semana</div>
-      <div class="sidebar-item sidebar-sub hidden" data-modulo="rrhh-liquidador" style="padding-left:38px;font-size:11.5px;">Liquidador individual</div>
-      <div class="sidebar-item sidebar-sub hidden" data-modulo="rrhh-cedi" style="padding-left:38px;font-size:11.5px;">Liquidación por CEDI</div>
-      <div class="sidebar-item sidebar-sub hidden" data-modulo="rrhh-compensatorios" style="padding-left:38px;font-size:11.5px;">Compensatorios</div>
-      <div class="sidebar-item sidebar-sub hidden" data-modulo="rrhh-historico" style="padding-left:38px;font-size:11.5px;">Histórico</div>
+      <div class="sidebar-item sidebar-sub hidden" data-modulo-grupo="nomina" id="grupo-nomina" style="padding-left:38px;font-size:11.5px;">Nómina<i class="ti ti-chevron-down" style="margin-left:auto;font-size:12px;"></i></div>
+      <div class="sidebar-item sidebar-sub sidebar-sub2 hidden" data-modulo="rrhh-nomina" style="padding-left:58px;font-size:11px;">Liquidador de Nómina</div>
+      <div class="sidebar-item sidebar-sub sidebar-sub2 hidden" data-modulo="rrhh-control-semana" style="padding-left:58px;font-size:11px;">Control Semana</div>
+      <div class="sidebar-item sidebar-sub sidebar-sub2 hidden" data-modulo="rrhh-liquidador" style="padding-left:58px;font-size:11px;">Liquidador individual</div>
+      <div class="sidebar-item sidebar-sub sidebar-sub2 hidden" data-modulo="rrhh-cedi" style="padding-left:58px;font-size:11px;">Liquidación por CEDI</div>
+      <div class="sidebar-item sidebar-sub sidebar-sub2 hidden" data-modulo="rrhh-compensatorios" style="padding-left:58px;font-size:11px;">Compensatorios</div>
+      <div class="sidebar-item sidebar-sub sidebar-sub2 hidden" data-modulo="rrhh-historico" style="padding-left:58px;font-size:11px;">Histórico</div>
       <div class="sidebar-item" data-modulo="admin"><i class="ti ti-settings"></i>Administración</div>
     </div>
 
@@ -1274,7 +1497,63 @@ async function cargarSesionYArrancar() {
   document.getElementById('login-view').classList.add('hidden');
   document.getElementById('app-view').classList.remove('hidden');
 
-  cambiarModulo('torre');
+  const primerModuloVisible = await aplicarPermisosDeMenu();
+  cambiarModulo(primerModuloVisible || 'torre');
+}
+
+// Cada ítem del menú lateral (data-modulo) mapeado al módulo real de la
+// matriz de permisos. Varios ítems del menú pueden apuntar al mismo
+// módulo de permisos (ej. "Empleados y Asistencia" cubre 2 módulos).
+const MAPA_MENU_A_PERMISO = {
+  'torre': ['torre'], 'indicadores': ['indicadores'], 'inventario': ['inventario'],
+  'recepcion-importar': ['importar-cargue'], 'recepcion-rutas': ['rutas-del-dia'], 'recepcion-ranking': ['ranking-auditores'],
+  'reportes': ['reportes'],
+  'rrhh-empleados': ['empleados', 'asistencia'], 'rrhh-registros': ['registros'], 'rrhh-nomina': ['liquidador-nomina'],
+  'rrhh-control-semana': ['control-semana'], 'rrhh-liquidador': ['liquidador-individual'], 'rrhh-cedi': ['liquidacion-cedi'],
+  'rrhh-compensatorios': ['compensatorios'], 'rrhh-historico': ['rrhh-historico'],
+  'admin': ['administracion'],
+};
+// Qué ítems de menú pertenecen a cada grupo desplegable (para poder ocultar
+// el grupo COMPLETO si ninguno de sus hijos quedó visible).
+const GRUPOS_MENU = {
+  'grupo-recepcion': ['recepcion-importar', 'recepcion-rutas', 'recepcion-ranking'],
+  'grupo-rrhh': ['rrhh-empleados', 'rrhh-registros', 'rrhh-nomina', 'rrhh-control-semana', 'rrhh-liquidador', 'rrhh-cedi', 'rrhh-compensatorios', 'rrhh-historico'],
+  'grupo-nomina': ['rrhh-nomina', 'rrhh-control-semana', 'rrhh-liquidador', 'rrhh-cedi', 'rrhh-compensatorios', 'rrhh-historico'],
+};
+
+async function aplicarPermisosDeMenu() {
+  const { data, error } = await sb.rpc('mis_permisos_ver');
+  if (error) { console.error('No se pudo cargar permisos de menú:', error); return null; }
+
+  const permitidos = new Set((data || []).filter(p => p.permitido).map(p => p.modulo_id));
+  let primerVisible = null;
+
+  Object.entries(MAPA_MENU_A_PERMISO).forEach(([itemMenu, modulosNecesarios]) => {
+    const el = document.querySelector(`.sidebar-item[data-modulo="${itemMenu}"]`);
+    if (!el) return;
+    const visible = modulosNecesarios.some(m => permitidos.has(m));
+    // Los ítems "sidebar-sub" ya traían la clase "hidden" por defecto (se
+    // muestran solo al abrir su grupo) -- a esos no les tocamos esa clase,
+    // solo los deshabilitamos con un atributo para que el clic no navegue.
+    if (!visible) {
+      el.classList.add('menu-item-sin-permiso');
+      el.style.display = 'none';
+    } else if (!primerVisible && !el.classList.contains('sidebar-sub') && !el.classList.contains('locked')) {
+      primerVisible = itemMenu;
+    }
+  });
+
+  // Oculta el grupo completo (el encabezado "Recepción y despacho" / "Recursos
+  // Humanos" / "Nómina") si NINGUNO de sus hijos quedó visible.
+  Object.entries(GRUPOS_MENU).forEach(([idGrupo, hijos]) => {
+    const grupoEl = document.getElementById(idGrupo);
+    if (!grupoEl) return;
+    const primerHijoVisible = hijos.find(h => (MAPA_MENU_A_PERMISO[h] || []).some(m => permitidos.has(m)));
+    grupoEl.style.display = primerHijoVisible ? '' : 'none';
+    if (primerHijoVisible && !primerVisible) primerVisible = primerHijoVisible;
+  });
+
+  return primerVisible;
 }
 
 function mostrarLogin(mensaje) {
@@ -1314,7 +1593,20 @@ document.getElementById('grupo-recepcion').addEventListener('click', () => {
   document.querySelectorAll('#grupo-recepcion ~ .sidebar-sub[data-modulo^="recepcion-"]').forEach(el => el.classList.toggle('hidden'));
 });
 document.getElementById('grupo-rrhh').addEventListener('click', () => {
-  document.querySelectorAll('.sidebar-sub[data-modulo^="rrhh-"]').forEach(el => el.classList.toggle('hidden'));
+  const empleadosItem = document.querySelector('.sidebar-sub[data-modulo="rrhh-empleados"]');
+  const seVaACerrar = !empleadosItem.classList.contains('hidden'); // estaba visible -> este clic lo cierra
+  document.querySelector('.sidebar-sub[data-modulo="rrhh-empleados"]').classList.toggle('hidden');
+  document.querySelector('.sidebar-sub[data-modulo="rrhh-registros"]').classList.toggle('hidden');
+  document.getElementById('grupo-nomina').classList.toggle('hidden');
+  // Si el grupo RRHH se acaba de CERRAR, también se cierra "Nómina" y sus 6 hijos
+  // (para no dejar un sub-nivel abierto huérfano cuando se colapsa el padre).
+  if (seVaACerrar) {
+    document.querySelectorAll('.sidebar-sub2').forEach(el => el.classList.add('hidden'));
+  }
+});
+document.getElementById('grupo-nomina').addEventListener('click', (e) => {
+  e.stopPropagation(); // no debe burbujear y disparar también el clic de grupo-rrhh
+  document.querySelectorAll('.sidebar-sub2').forEach(el => el.classList.toggle('hidden'));
 });
 
 function cambiarModulo(modulo) {
