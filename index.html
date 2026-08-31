@@ -1615,11 +1615,15 @@ const GRUPOS_MENU = {
   'grupo-nomina': ['rrhh-nomina', 'rrhh-control-semana', 'rrhh-liquidador', 'rrhh-cedi', 'rrhh-compensatorios', 'rrhh-historico'],
 };
 
+let MIS_PERMISOS_VER = new Set(); // se llena en aplicarPermisosDeMenu(); reutilizado por cada
+                                    // pantalla de RRHH para decidir si mostrar "sin acceso".
+
 async function aplicarPermisosDeMenu() {
   const { data, error } = await sb.rpc('mis_permisos_ver');
   if (error) { console.error('No se pudo cargar permisos de menú:', error); return null; }
 
   const permitidos = new Set((data || []).filter(p => p.permitido).map(p => p.modulo_id));
+  MIS_PERMISOS_VER = permitidos;
   let primerVisible = null;
 
   Object.entries(MAPA_MENU_A_PERMISO).forEach(([itemMenu, modulosNecesarios]) => {
@@ -2519,7 +2523,7 @@ const CARGOS_VALIDOS = ['Coordinador de Inventario','Coordinador de Operaciones'
 const CEDIS_VALIDOS = ['BAQ','BGA','BOG','COP','CTG','PER'];
 
 async function cargarModuloAdmin() {
-  const esAdmin = SESION.rol === 'admin' || SESION.rol === 'director_nacional';
+  const esAdmin = SESION.rol === 'admin' || SESION.rol === 'director_nacional' || MIS_PERMISOS_VER.has('administracion');
   document.getElementById('admin-sin-acceso').classList.toggle('hidden', esAdmin);
   document.getElementById('admin-contenido').classList.toggle('hidden', !esAdmin);
   if (!esAdmin) return;
@@ -2895,7 +2899,7 @@ async function filtrarAuditoria() {
 // horas extras / recargos nocturnos
 // ============================================================
 async function cargarModuloRrhhEmpleados() {
-  const esAdmin = SESION.rol === 'admin' || SESION.rol === 'director_nacional';
+  const esAdmin = SESION.rol === 'admin' || SESION.rol === 'director_nacional' || MIS_PERMISOS_VER.has('empleados') || MIS_PERMISOS_VER.has('asistencia');
   document.getElementById('rrhh-sin-acceso').classList.toggle('hidden', esAdmin);
   document.getElementById('rrhh-contenido-empleados').classList.toggle('hidden', !esAdmin);
   if (!esAdmin) return;
@@ -2914,7 +2918,7 @@ async function cargarModuloRrhhEmpleados() {
 }
 
 async function cargarModuloRrhhLiquidador() {
-  const esAdmin = SESION.rol === 'admin' || SESION.rol === 'director_nacional';
+  const esAdmin = SESION.rol === 'admin' || SESION.rol === 'director_nacional' || MIS_PERMISOS_VER.has('liquidador-individual');
   document.getElementById('rrhh-sin-acceso-2').classList.toggle('hidden', esAdmin);
   document.getElementById('rrhh-contenido-liquidador').classList.toggle('hidden', !esAdmin);
   if (!esAdmin) return;
@@ -2924,7 +2928,7 @@ async function cargarModuloRrhhLiquidador() {
 }
 
 async function cargarModuloRrhhCedi() {
-  const esAdmin = SESION.rol === 'admin' || SESION.rol === 'director_nacional';
+  const esAdmin = SESION.rol === 'admin' || SESION.rol === 'director_nacional' || MIS_PERMISOS_VER.has('liquidacion-cedi');
   document.getElementById('rrhh-sin-acceso-3').classList.toggle('hidden', esAdmin);
   document.getElementById('rrhh-contenido-cedi').classList.toggle('hidden', !esAdmin);
   if (!esAdmin) return;
@@ -3938,7 +3942,7 @@ function renderHistoricoAsistencia() {
 }
 
 async function cargarModuloCompensatorios() {
-  const esAdmin = SESION.rol === 'admin' || SESION.rol === 'director_nacional';
+  const esAdmin = SESION.rol === 'admin' || SESION.rol === 'director_nacional' || MIS_PERMISOS_VER.has('compensatorios');
   document.getElementById('rrhh-sin-acceso-4').classList.toggle('hidden', esAdmin);
   document.getElementById('rrhh-contenido-compensatorios').classList.toggle('hidden', !esAdmin);
   if (!esAdmin) return;
@@ -4075,7 +4079,7 @@ async function cargarHistorialCompensatorios() {
 // MÓDULO: REGISTROS (lista filtrable, editable, eliminable)
 // ============================================================
 async function cargarModuloRegistros() {
-  const esAdmin = SESION.rol === 'admin' || SESION.rol === 'director_nacional';
+  const esAdmin = SESION.rol === 'admin' || SESION.rol === 'director_nacional' || MIS_PERMISOS_VER.has('registros');
   document.getElementById('rrhh-sin-acceso-5').classList.toggle('hidden', esAdmin);
   document.getElementById('rrhh-contenido-registros').classList.toggle('hidden', !esAdmin);
   if (!esAdmin) return;
@@ -4275,7 +4279,7 @@ async function crearRegistroNuevo() {
 let NOMINA_RESULTADO = [];
 
 async function cargarModuloNomina() {
-  const esAdmin = SESION.rol === 'admin' || SESION.rol === 'director_nacional';
+  const esAdmin = SESION.rol === 'admin' || SESION.rol === 'director_nacional' || MIS_PERMISOS_VER.has('liquidador-nomina');
   document.getElementById('rrhh-sin-acceso-6').classList.toggle('hidden', esAdmin);
   document.getElementById('rrhh-contenido-nomina').classList.toggle('hidden', !esAdmin);
   if (!esAdmin) return;
@@ -4586,7 +4590,7 @@ async function guardarLiquidacionFinalYVaciar() {
 let CONTROL_SEMANA_RESULTADO = [];
 
 async function cargarModuloControlSemana() {
-  const esAdmin = SESION.rol === 'admin' || SESION.rol === 'director_nacional';
+  const esAdmin = SESION.rol === 'admin' || SESION.rol === 'director_nacional' || MIS_PERMISOS_VER.has('control-semana');
   document.getElementById('rrhh-sin-acceso-7').classList.toggle('hidden', esAdmin);
   document.getElementById('rrhh-contenido-control-semana').classList.toggle('hidden', !esAdmin);
   if (!esAdmin) return;
