@@ -1615,11 +1615,15 @@ const GRUPOS_MENU = {
   'grupo-nomina': ['rrhh-nomina', 'rrhh-control-semana', 'rrhh-liquidador', 'rrhh-cedi', 'rrhh-compensatorios', 'rrhh-historico'],
 };
 
+let MIS_PERMISOS_VER = new Set(); // se llena en aplicarPermisosDeMenu(); reutilizado por cada
+                                    // pantalla de RRHH para decidir si mostrar "sin acceso".
+
 async function aplicarPermisosDeMenu() {
   const { data, error } = await sb.rpc('mis_permisos_ver');
   if (error) { console.error('No se pudo cargar permisos de menú:', error); return null; }
 
   const permitidos = new Set((data || []).filter(p => p.permitido).map(p => p.modulo_id));
+  MIS_PERMISOS_VER = permitidos;
   let primerVisible = null;
 
   Object.entries(MAPA_MENU_A_PERMISO).forEach(([itemMenu, modulosNecesarios]) => {
@@ -2519,7 +2523,7 @@ const CARGOS_VALIDOS = ['Coordinador de Inventario','Coordinador de Operaciones'
 const CEDIS_VALIDOS = ['BAQ','BGA','BOG','COP','CTG','PER'];
 
 async function cargarModuloAdmin() {
-  const esAdmin = SESION.rol === 'admin' || SESION.rol === 'director_nacional';
+  const esAdmin = SESION.rol === 'admin' || SESION.rol === 'director_nacional' || MIS_PERMISOS_VER.has('administracion');
   document.getElementById('admin-sin-acceso').classList.toggle('hidden', esAdmin);
   document.getElementById('admin-contenido').classList.toggle('hidden', !esAdmin);
   if (!esAdmin) return;
@@ -2895,7 +2899,7 @@ async function filtrarAuditoria() {
 // horas extras / recargos nocturnos
 // ============================================================
 async function cargarModuloRrhhEmpleados() {
-  const esAdmin = SESION.rol === 'admin' || SESION.rol === 'director_nacional';
+  const esAdmin = SESION.rol === 'admin' || SESION.rol === 'director_nacional' || MIS_PERMISOS_VER.has('empleados') || MIS_PERMISOS_VER.has('asistencia');
   document.getElementById('rrhh-sin-acceso').classList.toggle('hidden', esAdmin);
   document.getElementById('rrhh-contenido-empleados').classList.toggle('hidden', !esAdmin);
   if (!esAdmin) return;
@@ -2914,7 +2918,7 @@ async function cargarModuloRrhhEmpleados() {
 }
 
 async function cargarModuloRrhhLiquidador() {
-  const esAdmin = SESION.rol === 'admin' || SESION.rol === 'director_nacional';
+  const esAdmin = SESION.rol === 'admin' || SESION.rol === 'director_nacional' || MIS_PERMISOS_VER.has('liquidador-individual');
   document.getElementById('rrhh-sin-acceso-2').classList.toggle('hidden', esAdmin);
   document.getElementById('rrhh-contenido-liquidador').classList.toggle('hidden', !esAdmin);
   if (!esAdmin) return;
@@ -2924,7 +2928,7 @@ async function cargarModuloRrhhLiquidador() {
 }
 
 async function cargarModuloRrhhCedi() {
-  const esAdmin = SESION.rol === 'admin' || SESION.rol === 'director_nacional';
+  const esAdmin = SESION.rol === 'admin' || SESION.rol === 'director_nacional' || MIS_PERMISOS_VER.has('liquidacion-cedi');
   document.getElementById('rrhh-sin-acceso-3').classList.toggle('hidden', esAdmin);
   document.getElementById('rrhh-contenido-cedi').classList.toggle('hidden', !esAdmin);
   if (!esAdmin) return;
@@ -3938,7 +3942,7 @@ function renderHistoricoAsistencia() {
 }
 
 async function cargarModuloCompensatorios() {
-  const esAdmin = SESION.rol === 'admin' || SESION.rol === 'director_nacional';
+  const esAdmin = SESION.rol === 'admin' || SESION.rol === 'director_nacional' || MIS_PERMISOS_VER.has('compensatorios');
   document.getElementById('rrhh-sin-acceso-4').classList.toggle('hidden', esAdmin);
   document.getElementById('rrhh-contenido-compensatorios').classList.toggle('hidden', !esAdmin);
   if (!esAdmin) return;
@@ -4075,7 +4079,7 @@ async function cargarHistorialCompensatorios() {
 // MÓDULO: REGISTROS (lista filtrable, editable, eliminable)
 // ============================================================
 async function cargarModuloRegistros() {
-  const esAdmin = SESION.rol === 'admin' || SESION.rol === 'director_nacional';
+  const esAdmin = SESION.rol === 'admin' || SESION.rol === 'director_nacional' || MIS_PERMISOS_VER.has('registros');
   document.getElementById('rrhh-sin-acceso-5').classList.toggle('hidden', esAdmin);
   document.getElementById('rrhh-contenido-registros').classList.toggle('hidden', !esAdmin);
   if (!esAdmin) return;
@@ -4275,7 +4279,7 @@ async function crearRegistroNuevo() {
 let NOMINA_RESULTADO = [];
 
 async function cargarModuloNomina() {
-  const esAdmin = SESION.rol === 'admin' || SESION.rol === 'director_nacional';
+  const esAdmin = SESION.rol === 'admin' || SESION.rol === 'director_nacional' || MIS_PERMISOS_VER.has('liquidador-nomina');
   document.getElementById('rrhh-sin-acceso-6').classList.toggle('hidden', esAdmin);
   document.getElementById('rrhh-contenido-nomina').classList.toggle('hidden', !esAdmin);
   if (!esAdmin) return;
@@ -4586,7 +4590,7 @@ async function guardarLiquidacionFinalYVaciar() {
 let CONTROL_SEMANA_RESULTADO = [];
 
 async function cargarModuloControlSemana() {
-  const esAdmin = SESION.rol === 'admin' || SESION.rol === 'director_nacional';
+  const esAdmin = SESION.rol === 'admin' || SESION.rol === 'director_nacional' || MIS_PERMISOS_VER.has('control-semana');
   document.getElementById('rrhh-sin-acceso-7').classList.toggle('hidden', esAdmin);
   document.getElementById('rrhh-contenido-control-semana').classList.toggle('hidden', !esAdmin);
   if (!esAdmin) return;
@@ -4652,248 +4656,5 @@ function renderControlSemanaFiltrado() {
 }
 
 </script>
-
-<script>
-(function prepararSidebarCompacta(){
-  function wrapSidebarLabels(){
-    document.querySelectorAll('.sidebar .sidebar-item').forEach(item=>{
-      Array.from(item.childNodes).forEach(node=>{
-        if(node.nodeType===Node.TEXT_NODE && node.textContent.trim()){
-          const span=document.createElement('span');
-          span.className='sidebar-label';
-          span.textContent=node.textContent.trim();
-          node.replaceWith(span);
-        }
-      });
-    });
-  }
-  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',wrapSidebarLabels);
-  else wrapSidebarLabels();
-})();
-</script>
-
-
-<style id="jdh-vanguardia-2026">
-/* ============================================================
-   JDH CONTROL CENTER 2026 — NAVIGATION RAIL + FLYOUT
-   No altera la lógica de módulos/permisos/datos; solo UX/UI.
-   ============================================================ */
-@media (min-width: 901px){
-  :root{ --jdh-rail:72px; --jdh-flyout:292px; }
-  #app-view{background:#f5f7fb;}
-  #app-view .app-shell{display:block;min-height:100vh;}
-
-  /* Rail: siempre compacto */
-  #app-view .sidebar{
-    position:fixed!important;left:0;top:0;bottom:0;
-    width:var(--jdh-rail)!important;height:100vh;
-    padding:14px 10px!important;
-    overflow:visible!important;
-    z-index:1200;
-    border-right:1px solid rgba(15,31,52,.08)!important;
-    box-shadow:4px 0 24px rgba(12,28,48,.06)!important;
-    transition:none!important;
-  }
-  #app-view .sidebar:hover{width:var(--jdh-rail)!important;box-shadow:4px 0 24px rgba(12,28,48,.06)!important;}
-  #app-view .sidebar-brand{
-    width:52px!important;height:52px!important;margin:0 auto 22px!important;
-    padding:0!important;justify-content:center!important;gap:0!important;
-    border:0!important;border-radius:16px!important;
-    background:linear-gradient(145deg,#172b46,#0d1d31)!important;
-    box-shadow:0 8px 22px rgba(7,22,39,.18);
-    font-size:0!important;
-  }
-  #app-view .sidebar-brand img{width:30px!important;height:30px!important;}
-  #app-view .sidebar-brand img + *{display:none!important;}
-
-  /* Solo los módulos principales viven en el rail. Los submenús salen en flyout. */
-  #app-view .sidebar > .sidebar-sub{display:none!important;}
-  #app-view .sidebar > .sidebar-item{
-    width:52px!important;height:52px!important;min-height:52px!important;
-    margin:6px auto!important;padding:0!important;
-    display:flex!important;align-items:center!important;justify-content:center!important;
-    gap:0!important;border:1px solid transparent!important;border-radius:15px!important;
-    color:#93a3b8!important;background:transparent!important;
-    font-size:0!important;box-shadow:none!important;
-    transition:background .18s ease,border-color .18s ease,color .18s ease,transform .18s ease!important;
-  }
-  #app-view .sidebar > .sidebar-item:hover{
-    color:#dbeafe!important;background:rgba(37,99,235,.11)!important;
-    border-color:rgba(59,130,246,.20)!important;transform:translateY(-1px);
-  }
-  #app-view .sidebar > .sidebar-item.active,
-  #app-view .sidebar > .sidebar-item.nav-parent-active{
-    color:#fff!important;
-    background:linear-gradient(145deg,#1677f2,#0f5ed0)!important;
-    border-color:rgba(255,255,255,.10)!important;
-    box-shadow:0 8px 20px rgba(15,94,208,.24)!important;
-  }
-  #app-view .sidebar > .sidebar-item.locked{opacity:.48;cursor:default;}
-  #app-view .sidebar > .sidebar-item i:first-child{font-size:21px!important;flex:0 0 auto!important;}
-  #app-view .sidebar > .sidebar-item .sidebar-label,
-  #app-view .sidebar > .sidebar-item .sidebar-badge,
-  #app-view .sidebar > .sidebar-item > i:last-child{display:none!important;}
-
-  /* Indicador lateral discreto del módulo activo */
-  #app-view .sidebar > .sidebar-item.active::after,
-  #app-view .sidebar > .sidebar-item.nav-parent-active::after{
-    content:"";position:absolute;left:-10px;width:3px;height:24px;border-radius:0 4px 4px 0;
-    background:#3b82f6;box-shadow:0 0 12px rgba(59,130,246,.7);
-  }
-
-  /* Contenido: ocupa el ancho real */
-  #app-view .main-content{
-    margin-left:var(--jdh-rail)!important;
-    width:calc(100% - var(--jdh-rail))!important;
-    min-height:100vh;
-  }
-  #app-view .topbar{
-    min-height:68px;padding:12px 26px!important;
-    position:sticky;top:0;z-index:900;
-    background:rgba(255,255,255,.88)!important;
-    backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);
-    border-bottom:1px solid #e7edf4!important;
-    box-shadow:0 2px 16px rgba(15,31,52,.035);
-  }
-  #app-view .topbar-title{font-size:17px!important;letter-spacing:-.2px;}
-
-  /* Flyout */
-  #jdh-nav-flyout{
-    position:fixed;left:84px;top:86px;width:var(--jdh-flyout);
-    max-height:calc(100vh - 108px);overflow:auto;
-    padding:12px;z-index:1500;
-    background:rgba(255,255,255,.97);border:1px solid #e4ebf4;
-    border-radius:18px;box-shadow:0 24px 60px rgba(15,31,52,.18),0 4px 14px rgba(15,31,52,.08);
-    opacity:0;transform:translateX(-8px) scale(.985);pointer-events:none;
-    transition:opacity .16s ease,transform .16s ease;
-  }
-  #jdh-nav-flyout.open{opacity:1;transform:translateX(0) scale(1);pointer-events:auto;}
-  #jdh-nav-flyout .flyout-head{padding:8px 10px 10px;border-bottom:1px solid #edf1f6;margin-bottom:7px;}
-  #jdh-nav-flyout .flyout-kicker{font-size:10px;text-transform:uppercase;letter-spacing:.12em;font-weight:800;color:#7b8ba1;}
-  #jdh-nav-flyout .flyout-title{font-size:16px;font-weight:800;color:#142238;margin-top:3px;}
-  #jdh-nav-flyout .flyout-section{margin:8px 0 3px;padding:7px 10px 4px;font-size:10px;text-transform:uppercase;letter-spacing:.08em;font-weight:800;color:#8a98aa;}
-  #jdh-nav-flyout .flyout-item{
-    width:100%;min-height:42px;display:flex;align-items:center;gap:10px;
-    padding:9px 10px;border-radius:11px;cursor:pointer;color:#415168;font-size:12.5px;
-    transition:background .14s ease,color .14s ease,transform .14s ease;
-  }
-  #jdh-nav-flyout .flyout-item:hover{background:#eef5ff;color:#0f5ed0;transform:translateX(2px);}
-  #jdh-nav-flyout .flyout-item.active{background:#e9f2ff;color:#0f5ed0;font-weight:750;}
-  #jdh-nav-flyout .flyout-item i{width:19px;text-align:center;font-size:17px;}
-  #jdh-nav-flyout .flyout-item .flyout-arrow{margin-left:auto;font-size:13px;}
-  #jdh-nav-flyout .flyout-note{margin:8px 4px 2px;padding:8px 10px;border-radius:10px;background:#f7f9fc;color:#8a98aa;font-size:10px;line-height:1.4;}
-
-  /* Tooltips para usuarios que nunca abren el flyout */
-  #app-view .sidebar > .sidebar-item:not([data-modulo-grupo])::before{
-    content:attr(data-tooltip);position:absolute;left:64px;top:50%;transform:translateY(-50%) translateX(-4px);
-    white-space:nowrap;background:#13243a;color:#fff;padding:7px 9px;border-radius:8px;font-size:11px;font-weight:650;
-    opacity:0;pointer-events:none;transition:opacity .12s ease,transform .12s ease;box-shadow:0 8px 20px rgba(10,24,42,.18);
-  }
-  #app-view .sidebar > .sidebar-item:not([data-modulo-grupo]):hover::before{opacity:1;transform:translateY(-50%) translateX(0);}
-
-  /* Separación visual entre grupos */
-  #app-view .sidebar > .sidebar-item[data-modulo="reportes"]{margin-top:18px!important;}
-  #app-view .sidebar > .sidebar-item[data-modulo="admin"]{position:absolute;left:10px;bottom:18px;}
-}
-
-@media(max-width:900px){#jdh-nav-flyout{display:none!important;}}
-</style>
-
-<script id="jdh-vanguardia-nav">
-(function jdhVanguardiaNav(){
-  const rail = document.querySelector('#app-view .sidebar');
-  if(!rail) return;
-
-  const labels = {
-    torre:'Torre de control', indicadores:'Indicadores', inventario:'Inventario',
-    reportes:'Reportes', admin:'Administración'
-  };
-  Object.entries(labels).forEach(([mod,text])=>{
-    const el=rail.querySelector('.sidebar-item[data-modulo="'+mod+'"]');
-    if(el) el.dataset.tooltip=text;
-  });
-
-  const fly=document.createElement('div');
-  fly.id='jdh-nav-flyout';
-  document.body.appendChild(fly);
-
-  const groups={
-    recepcion:{
-      id:'grupo-recepcion', title:'Recepción y despacho', icon:'ti-truck-delivery',
-      items:[['recepcion-importar','Importar cargue','ti-file-import'],['recepcion-rutas','Rutas del día','ti-route'],['recepcion-ranking','Ranking de auditores','ti-trophy']]
-    },
-    rrhh:{
-      id:'grupo-rrhh', title:'Recursos Humanos', icon:'ti-users',
-      items:[['rrhh-empleados','Empleados y asistencia','ti-users'],['rrhh-registros','Registros','ti-clock'],
-        ['__nomina__','Nómina','ti-calculator'],
-        ['rrhh-nomina','Liquidador de Nómina','ti-report-money'],['rrhh-control-semana','Control Semana','ti-calendar-week'],
-        ['rrhh-liquidador','Liquidador individual','ti-user-dollar'],['rrhh-cedi','Liquidación por CEDI','ti-building-warehouse'],
-        ['rrhh-compensatorios','Compensatorios','ti-calendar-plus'],['rrhh-historico','Histórico','ti-history']]
-    }
-  };
-
-  let hideTimer=null, currentGroup=null;
-  function visible(mod){
-    const el=rail.querySelector('.sidebar-item[data-modulo="'+mod+'"]');
-    return !!el && !el.classList.contains('menu-item-sin-permiso') && getComputedStyle(el).display!=='none';
-  }
-  function clickModule(mod){
-    const el=rail.querySelector('.sidebar-item[data-modulo="'+mod+'"]');
-    if(el && !el.classList.contains('locked')) el.click();
-    close();
-  }
-  function render(groupKey){
-    const g=groups[groupKey]; currentGroup=groupKey;
-    let body='';
-    if(groupKey==='recepcion'){
-      body=g.items.filter(x=>visible(x[0])).map(x=>'<div class="flyout-item" data-mod="'+x[0]+'"><i class="ti '+x[2]+'"></i><span>'+x[1]+'</span></div>').join('');
-    } else {
-      const first=g.items.filter(x=>x[0]==='rrhh-empleados'||x[0]==='rrhh-registros').filter(x=>visible(x[0]));
-      body=first.map(x=>'<div class="flyout-item" data-mod="'+x[0]+'"><i class="ti '+x[2]+'"></i><span>'+x[1]+'</span></div>').join('');
-      const nomina=g.items.filter(x=>x[0].startsWith('rrhh-') && x[0]!=='rrhh-empleados' && x[0]!=='rrhh-registros' && x[0]!=='__nomina__' && visible(x[0]));
-      if(nomina.length) body+='<div class="flyout-section">Nómina</div>'+nomina.map(x=>'<div class="flyout-item" data-mod="'+x[0]+'"><i class="ti '+x[2]+'"></i><span>'+x[1]+'</span></div>').join('');
-    }
-    fly.innerHTML='<div class="flyout-head"><div class="flyout-kicker">Módulo</div><div class="flyout-title"><i class="ti '+g.icon+'"></i> '+g.title+'</div></div>'+body+'<div class="flyout-note">Pasa el cursor por el menú lateral para navegar rápidamente.</div>';
-    fly.querySelectorAll('.flyout-item').forEach(item=>{
-      item.addEventListener('click',()=>clickModule(item.dataset.mod));
-    });
-    const active=document.querySelector('.sidebar-item.active[data-modulo]');
-    if(active){const a=fly.querySelector('[data-mod="'+active.dataset.modulo+'"]');if(a)a.classList.add('active');}
-    open();
-  }
-  function open(){clearTimeout(hideTimer);fly.classList.add('open');}
-  function close(){clearTimeout(hideTimer);hideTimer=setTimeout(()=>fly.classList.remove('open'),120);}
-
-  rail.querySelectorAll('.sidebar-item[data-modulo-grupo]').forEach(el=>{
-    const key=el.id==='grupo-recepcion'?'recepcion':'rrhh';
-    el.addEventListener('mouseenter',()=>render(key));
-    el.addEventListener('mouseleave',()=>close());
-  });
-  fly.addEventListener('mouseenter',open);
-  fly.addEventListener('mouseleave',close);
-
-  /* Si el usuario está dentro de un submódulo, resalta su grupo padre. */
-  window.jdhActualizarNavPadre=function(modulo){
-    rail.querySelectorAll('.nav-parent-active').forEach(x=>x.classList.remove('nav-parent-active'));
-    if(String(modulo).startsWith('recepcion-')) rail.querySelector('#grupo-recepcion')?.classList.add('nav-parent-active');
-    if(String(modulo).startsWith('rrhh-')) rail.querySelector('#grupo-rrhh')?.classList.add('nav-parent-active');
-  };
-
-  /* Reaplica después de cada cambio de módulo sin tocar la función original. */
-  const originalCambiar=window.cambiarModulo;
-  if(typeof originalCambiar==='function'){
-    window.cambiarModulo=function(modulo){
-      const r=originalCambiar.apply(this,arguments);
-      setTimeout(()=>window.jdhActualizarNavPadre(modulo),0);
-      return r;
-    };
-  }
-  setTimeout(()=>{
-    const active=rail.querySelector('.sidebar-item.active[data-modulo]');
-    if(active) window.jdhActualizarNavPadre(active.dataset.modulo);
-  },80);
-})();
-</script>
-
 </body>
 </html>
