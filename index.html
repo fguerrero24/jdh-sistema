@@ -1092,78 +1092,126 @@ input:focus,select:focus,textarea:focus{outline:none!important;border-color:#176
         </div>
 
         <div id="view-admin" class="hidden">
-          <div id="admin-sin-acceso" class="hidden empty-state">No tienes permiso para administrar usuarios. Solo Admin y Director Nacional pueden entrar aquí.</div>
-          <div id="admin-contenido">
-            <div class="indicator-fields" style="border:none;padding:0;margin-bottom:16px;">
-              <button class="btn ghost" id="tab-admin-usuarios">Usuarios</button>
-              <button class="btn ghost" id="tab-admin-matriz">Matriz de Permisos</button>
-              <button class="btn ghost" id="tab-admin-auditoria">Auditoría</button>
-            </div>
+  <div id="admin-sin-acceso" class="hidden empty-state">No tienes permiso para administrar usuarios. Solo Admin y Director Nacional pueden entrar aquí.</div>
+  <div id="admin-contenido" class="admin-console">
 
-            <div id="panel-admin-usuarios">
-              <div class="section-label">Crear usuario nuevo</div>
-              <div class="indicator-card" style="margin-bottom:20px;">
-                <div class="indicator-fields">
-                  <div class="indicator-field"><label>Usuario (para iniciar sesión)</label><input type="text" id="nuevo-usuario-login" placeholder="ej. Juan.Perez"></div>
-                  <div class="indicator-field"><label>Nombre completo</label><input type="text" id="nuevo-usuario-nombre" placeholder="Nombre completo"></div>
-                  <div class="indicator-field"><label>Contraseña temporal</label><input type="text" id="nuevo-usuario-password" placeholder="Mínimo 6 caracteres"></div>
-                </div>
-                <div class="indicator-fields" style="border-top:none;padding-top:0;margin-top:8px;">
-                  <div class="indicator-field">
-                    <label>Cargo</label>
-                    <select id="nuevo-usuario-cargo">
-                      <option value="">Sin cargo</option>
-                    </select>
-                  </div>
-                  <div class="indicator-field">
-                    <label>Rol (actual)</label>
-                    <select id="nuevo-usuario-rol"></select>
-                  </div>
-                  <div class="indicator-field">
-                    <label>CEDI</label>
-                    <select id="nuevo-usuario-cedi">
-                      <option value="">Sin CEDI</option>
-                    </select>
-                  </div>
-                  <button class="btn" id="btn-crear-usuario">Crear usuario</button>
-                </div>
-                <div id="crear-usuario-status" style="font-size:12px;color:var(--text-secondary);margin-top:8px;"></div>
-              </div>
+    <div class="admin-hero">
+      <div>
+        <div class="admin-eyebrow"><i class="ti ti-shield-check"></i> CENTRO DE ADMINISTRACIÓN</div>
+        <h1>Control de acceso y usuarios</h1>
+        <p>Gestiona perfiles, permisos por rol y trazabilidad desde un solo lugar.</p>
+      </div>
+      <div class="admin-hero-status"><span class="admin-live-dot"></span> Sistema operativo</div>
+    </div>
 
-              <div class="section-label">Usuarios</div>
-              <div id="admin-usuarios-lista"></div>
-            </div>
+    <div class="admin-summary" id="admin-summary">
+      <div class="admin-stat">
+        <div class="admin-stat-icon blue"><i class="ti ti-users"></i></div>
+        <div><span>Usuarios</span><strong id="admin-stat-total">—</strong></div>
+      </div>
+      <div class="admin-stat">
+        <div class="admin-stat-icon green"><i class="ti ti-user-check"></i></div>
+        <div><span>Activos</span><strong id="admin-stat-activos">—</strong></div>
+      </div>
+      <div class="admin-stat">
+        <div class="admin-stat-icon violet"><i class="ti ti-shield"></i></div>
+        <div><span>Roles disponibles</span><strong id="admin-stat-roles">—</strong></div>
+      </div>
+      <div class="admin-stat">
+        <div class="admin-stat-icon amber"><i class="ti ti-building-warehouse"></i></div>
+        <div><span>CEDIs</span><strong id="admin-stat-cedis">6</strong></div>
+      </div>
+    </div>
 
-            <div id="panel-admin-matriz" class="hidden">
-              <div class="section-label" style="margin-top:0;">Matriz de Permisos</div>
-              <div class="indicator-fields" style="border:none;padding:0;">
-                <div class="indicator-field"><label>Rol</label><select id="matriz-rol-selector"></select></div>
-                <div class="indicator-field"><label>Buscar módulo</label><input type="text" id="matriz-buscador" class="matriz-busqueda" placeholder="🔎 Buscar módulo..."></div>
-                <button class="btn ghost" id="btn-nuevo-rol" style="align-self:flex-end;">+ Nuevo rol</button>
-                <button class="btn" id="btn-eliminar-rol" style="align-self:flex-end;background:var(--crit-dot);">Eliminar este rol</button>
-              </div>
-              <div style="display:flex;gap:8px;margin-top:10px;">
-                <button class="btn ghost" id="btn-matriz-seleccionar-todo">Seleccionar todo</button>
-                <button class="btn ghost" id="btn-matriz-quitar-todo">Quitar todo</button>
-              </div>
-              <div id="matriz-permisos-tabla" style="overflow-x:auto;margin-top:10px;"></div>
-              <div id="matriz-status" style="font-size:12px;color:var(--text-secondary);margin-top:8px;"></div>
-            </div>
+    <div class="admin-tabs" role="tablist">
+      <button class="admin-tab active" id="tab-admin-usuarios" role="tab"><i class="ti ti-users"></i><span>Usuarios</span><small>Perfiles y acceso</small></button>
+      <button class="admin-tab" id="tab-admin-matriz" role="tab"><i class="ti ti-lock-access"></i><span>Permisos</span><small>Matriz por rol</small></button>
+      <button class="admin-tab" id="tab-admin-auditoria" role="tab"><i class="ti ti-history"></i><span>Auditoría</span><small>Actividad del sistema</small></button>
+    </div>
 
-            <div id="panel-admin-auditoria" class="hidden">
-              <div class="section-label" style="margin-top:0;">Auditoría -- registro de acciones</div>
-              <div class="indicator-fields">
-                <div class="indicator-field"><label>Usuario</label><select id="auditoria-filtro-usuario"><option value="">Todos</option></select></div>
-                <div class="indicator-field"><label>Tabla / módulo</label><input type="text" id="auditoria-filtro-tabla" placeholder="ej. empleados"></div>
-                <div class="indicator-field"><label>Desde</label><input type="date" id="auditoria-filtro-desde"></div>
-                <div class="indicator-field"><label>Hasta</label><input type="date" id="auditoria-filtro-hasta"></div>
-                <button class="btn" id="btn-filtrar-auditoria">Filtrar</button>
-              </div>
-              <div id="auditoria-status" style="font-size:12px;color:var(--text-secondary);margin-top:8px;"></div>
-              <div id="auditoria-tabla" style="overflow-x:auto;margin-top:10px;"></div>
-            </div>
-          </div>
+    <div id="panel-admin-usuarios" class="admin-panel">
+      <div class="admin-panel-head">
+        <div>
+          <div class="admin-title"><i class="ti ti-user-plus"></i> Crear usuario</div>
+          <div class="admin-subtitle">Crea un acceso y define su rol y alcance operativo.</div>
         </div>
+      </div>
+
+      <div class="admin-create-card">
+        <div class="admin-form-grid admin-form-grid-main">
+          <div class="admin-field"><label>Usuario</label><input type="text" id="nuevo-usuario-login" placeholder="Ej. juan.perez"></div>
+          <div class="admin-field"><label>Nombre completo</label><input type="text" id="nuevo-usuario-nombre" placeholder="Nombre completo"></div>
+          <div class="admin-field"><label>Contraseña temporal</label><input type="text" id="nuevo-usuario-password" placeholder="Mínimo 6 caracteres"></div>
+        </div>
+        <div class="admin-form-grid">
+          <div class="admin-field"><label>Cargo</label><select id="nuevo-usuario-cargo"><option value="">Sin cargo</option></select></div>
+          <div class="admin-field"><label>Rol</label><select id="nuevo-usuario-rol"></select></div>
+          <div class="admin-field"><label>CEDI</label><select id="nuevo-usuario-cedi"><option value="">Sin CEDI</option></select></div>
+          <div class="admin-action-field"><button class="btn admin-primary-btn" id="btn-crear-usuario"><i class="ti ti-user-plus"></i> Crear usuario</button></div>
+        </div>
+        <div id="crear-usuario-status" class="admin-form-status"></div>
+      </div>
+
+      <div class="admin-section-head">
+        <div><div class="admin-title">Usuarios registrados</div><div class="admin-subtitle">Administra rol, CEDI, estado y alcance.</div></div>
+        <div class="admin-search"><i class="ti ti-search"></i><input id="admin-usuario-buscador" type="search" placeholder="Buscar usuario, nombre o CEDI..."></div>
+      </div>
+      <div id="admin-usuarios-lista"></div>
+    </div>
+
+    <div id="panel-admin-matriz" class="hidden admin-panel">
+      <div class="admin-panel-head">
+        <div>
+          <div class="admin-title"><i class="ti ti-lock-access"></i> Matriz de permisos</div>
+          <div class="admin-subtitle">Define qué puede hacer cada rol en cada módulo.</div>
+        </div>
+        <div class="admin-matrix-actions">
+          <button class="btn ghost" id="btn-nuevo-rol"><i class="ti ti-plus"></i> Nuevo rol</button>
+          <button class="btn admin-danger-soft" id="btn-eliminar-rol"><i class="ti ti-trash"></i> Eliminar rol</button>
+        </div>
+      </div>
+
+      <div class="matrix-toolbar">
+        <div class="matrix-role">
+          <span class="toolbar-label">ROL ACTIVO</span>
+          <select id="matriz-rol-selector"></select>
+        </div>
+        <div class="matrix-search"><i class="ti ti-search"></i><input type="text" id="matriz-buscador" class="matriz-busqueda" placeholder="Buscar módulo..."></div>
+        <div class="matrix-quick">
+          <button class="btn ghost" id="btn-matriz-seleccionar-todo"><i class="ti ti-checks"></i> Todo</button>
+          <button class="btn ghost" id="btn-matriz-quitar-todo"><i class="ti ti-square"></i> Ninguno</button>
+        </div>
+      </div>
+
+      <div class="matrix-info-row">
+        <div class="matrix-info"><span class="matrix-dot on"></span> Permitido <strong id="matrix-count-on">0</strong></div>
+        <div class="matrix-info"><span class="matrix-dot off"></span> No permitido <strong id="matrix-count-off">0</strong></div>
+        <div class="matrix-info matrix-info-right"><i class="ti ti-info-circle"></i> Los cambios se guardan al finalizar.</div>
+      </div>
+
+      <div id="matriz-permisos-tabla" class="matrix-table-wrap"></div>
+      <div id="matriz-status" class="admin-form-status"></div>
+    </div>
+
+    <div id="panel-admin-auditoria" class="hidden admin-panel">
+      <div class="admin-panel-head">
+        <div>
+          <div class="admin-title"><i class="ti ti-history"></i> Auditoría</div>
+          <div class="admin-subtitle">Consulta quién realizó cambios y cuándo.</div>
+        </div>
+      </div>
+      <div class="audit-toolbar">
+        <div class="admin-field"><label>Usuario</label><select id="auditoria-filtro-usuario"><option value="">Todos</option></select></div>
+        <div class="admin-field"><label>Tabla / módulo</label><input type="text" id="auditoria-filtro-tabla" placeholder="Ej. empleados"></div>
+        <div class="admin-field"><label>Desde</label><input type="date" id="auditoria-filtro-desde"></div>
+        <div class="admin-field"><label>Hasta</label><input type="date" id="auditoria-filtro-hasta"></div>
+        <div class="admin-action-field"><button class="btn admin-primary-btn" id="btn-filtrar-auditoria"><i class="ti ti-filter"></i> Filtrar</button></div>
+      </div>
+      <div id="auditoria-status" class="admin-form-status"></div>
+      <div id="auditoria-tabla" class="audit-table-wrap"></div>
+    </div>
+  </div>
+</div>
 
         <div id="view-rrhh-empleados" class="hidden">
           <div id="rrhh-sin-acceso" class="hidden empty-state">No tienes permiso para este módulo. Solo Admin y Director Nacional pueden entrar aquí.</div>
@@ -2574,6 +2622,9 @@ function cambiarTabAdmin(cual) {
   document.getElementById('panel-admin-usuarios').classList.toggle('hidden', cual !== 'usuarios');
   document.getElementById('panel-admin-matriz').classList.toggle('hidden', cual !== 'matriz');
   document.getElementById('panel-admin-auditoria').classList.toggle('hidden', cual !== 'auditoria');
+  document.querySelectorAll('.admin-tab').forEach(btn => btn.classList.remove('active'));
+  const tab = document.getElementById('tab-admin-' + cual);
+  if (tab) tab.classList.add('active');
   if (cual === 'matriz') cargarMatrizPermisos();
   if (cual === 'auditoria') cargarAuditoria();
 }
@@ -2650,97 +2701,72 @@ async function crearUsuarioNuevo() {
 
 function renderUsuariosAdmin(usuarios, cedisAsignadosPorUsuario = {}) {
   const cont = document.getElementById('admin-usuarios-lista');
+  const totalEl = document.getElementById('admin-stat-total');
+  const activosEl = document.getElementById('admin-stat-activos');
+  const rolesEl = document.getElementById('admin-stat-roles');
+  if (totalEl) totalEl.textContent = usuarios.length;
+  if (activosEl) activosEl.textContent = usuarios.filter(u => u.activo).length;
+  if (rolesEl) rolesEl.textContent = (CATALOGO_ROLES_NUEVOS || []).length;
+
   if (!usuarios.length) { cont.innerHTML = '<div class="empty-state">No hay usuarios.</div>'; return; }
 
   cont.innerHTML = usuarios.map(u => {
     const cedisAsignados = cedisAsignadosPorUsuario[u.id] || [];
+    const inicial = (u.nombre || u.usuario || '?').trim().charAt(0).toUpperCase();
     return `
-    <div class="indicator-card" data-perfil="${u.id}">
-      <div class="indicator-top">
-        <div>
-          <div class="indicator-name">${tEsc(u.nombre || u.usuario)}</div>
-          <div class="indicator-meta">Usuario: ${tEsc(u.usuario || '—')}</div>
+    <div class="admin-usuario-card" data-perfil="${u.id}" data-admin-search="${tEsc(`${u.nombre || ''} ${u.usuario || ''} ${u.cedi || ''}`.toLowerCase())}">
+      <div class="admin-user-head">
+        <div class="admin-user-main">
+          <div class="admin-avatar">${tEsc(inicial)}</div>
+          <div>
+            <div class="admin-user-name">${tEsc(u.nombre || u.usuario)}</div>
+            <div class="admin-user-meta">@${tEsc(u.usuario || '—')} · ${tEsc(u.cargo || 'Sin cargo')}</div>
+          </div>
         </div>
         <span class="badge ${u.activo ? 'good' : 'crit'}"><span class="dot"></span>${u.activo ? 'ACTIVO' : 'INACTIVO'}</span>
       </div>
-      <div class="indicator-fields">
-        <div class="indicator-field">
-          <label>Cargo</label>
-          <select class="admin-cargo">
-            <option value="">Sin cargo</option>
-            ${CARGOS_VALIDOS.map(c => `<option value="${c}" ${u.cargo === c ? 'selected' : ''}>${c}</option>`).join('')}
-          </select>
-        </div>
-        <div class="indicator-field">
-          <label>Rol (actual)</label>
-          <select class="admin-rol">
-            ${ROLES_VALIDOS.map(r => `<option value="${r.id}" ${u.rol === r.id ? 'selected' : ''}>${r.label}</option>`).join('')}
-          </select>
-        </div>
-        <div class="indicator-field">
-          <label>CEDI (actual)</label>
-          <select class="admin-cedi">
-            <option value="">Sin CEDI</option>
-            ${CEDIS_VALIDOS.map(c => `<option value="${c}" ${u.cedi === c ? 'selected' : ''}>${c}</option>`).join('')}
-          </select>
-        </div>
-        <div class="indicator-field">
-          <label>Activo</label>
-          <select class="admin-activo">
-            <option value="true" ${u.activo ? 'selected' : ''}>Sí</option>
-            <option value="false" ${!u.activo ? 'selected' : ''}>No</option>
-          </select>
-        </div>
-        <button class="btn" data-guardar-perfil="${u.id}">Guardar</button>
+
+      <div class="admin-user-fields">
+        <div class="admin-field"><label>Cargo</label><select class="admin-cargo"><option value="">Sin cargo</option>${CARGOS_VALIDOS.map(c => `<option value="${c}" ${u.cargo === c ? 'selected' : ''}>${c}</option>`).join('')}</select></div>
+        <div class="admin-field"><label>Rol actual</label><select class="admin-rol">${ROLES_VALIDOS.map(r => `<option value="${r.id}" ${u.rol === r.id ? 'selected' : ''}>${r.label}</option>`).join('')}</select></div>
+        <div class="admin-field"><label>CEDI actual</label><select class="admin-cedi"><option value="">Sin CEDI</option>${CEDIS_VALIDOS.map(c => `<option value="${c}" ${u.cedi === c ? 'selected' : ''}>${c}</option>`).join('')}</select></div>
+        <div class="admin-field"><label>Estado</label><select class="admin-activo"><option value="true" ${u.activo ? 'selected' : ''}>Activo</option><option value="false" ${!u.activo ? 'selected' : ''}>Inactivo</option></select></div>
+        <button class="btn" data-guardar-perfil="${u.id}"><i class="ti ti-device-floppy"></i> Guardar</button>
       </div>
-      <div class="indicator-fields" style="border-top:none;padding-top:0;margin-top:8px;">
-        <label style="font-size:11px;color:var(--text-secondary);display:flex;align-items:center;gap:6px;">
-          <input type="checkbox" class="admin-puede-editar" ${u.puede_editar_registros ? 'checked' : ''}> Puede editar registros
-        </label>
-        <label style="font-size:11px;color:var(--text-secondary);display:flex;align-items:center;gap:6px;">
-          <input type="checkbox" class="admin-puede-eliminar" ${u.puede_eliminar_registros ? 'checked' : ''}> Puede eliminar registros
-        </label>
+
+      <div class="admin-user-extra">
+        <label><input type="checkbox" class="admin-puede-editar" ${u.puede_editar_registros ? 'checked' : ''}> Puede editar registros</label>
+        <label><input type="checkbox" class="admin-puede-eliminar" ${u.puede_eliminar_registros ? 'checked' : ''}> Puede eliminar registros</label>
       </div>
-      <div class="indicator-fields" style="margin-top:8px;">
-        <div class="indicator-field">
-          <label>Rol nuevo (sistema de permisos)</label>
-          <select class="admin-rol-nuevo">
-            <option value="">Sin asignar todavía</option>
-            ${CATALOGO_ROLES_NUEVOS.map(r => `<option value="${r.id}" ${u.rol_nuevo_id === r.id ? 'selected' : ''}>${tEsc(r.nombre)}</option>`).join('')}
-          </select>
-        </div>
-        <div class="indicator-field">
-          <label>Alcance de CEDI</label>
-          <select class="admin-alcance-cedi">
-            <option value="propio" ${u.alcance_cedi === 'propio' ? 'selected' : ''}>Solo su CEDI</option>
-            <option value="asignados" ${u.alcance_cedi === 'asignados' ? 'selected' : ''}>CEDIs asignados</option>
-            <option value="todos" ${u.alcance_cedi === 'todos' ? 'selected' : ''}>Todos los CEDIs</option>
-          </select>
+
+      <div class="admin-user-access">
+        <div class="admin-field"><label>Rol nuevo · sistema de permisos</label><select class="admin-rol-nuevo"><option value="">Sin asignar todavía</option>${CATALOGO_ROLES_NUEVOS.map(r => `<option value="${r.id}" ${u.rol_nuevo_id === r.id ? 'selected' : ''}>${tEsc(r.nombre)}</option>`).join('')}</select></div>
+        <div class="admin-field"><label>Alcance de CEDI</label><select class="admin-alcance-cedi"><option value="propio" ${u.alcance_cedi === 'propio' ? 'selected' : ''}>Solo su CEDI</option><option value="asignados" ${u.alcance_cedi === 'asignados' ? 'selected' : ''}>CEDIs asignados</option><option value="todos" ${u.alcance_cedi === 'todos' ? 'selected' : ''}>Todos los CEDIs</option></select></div>
+      </div>
+
+      <div class="indicator-field admin-cedis-asignados-wrap ${u.alcance_cedi === 'asignados' ? '' : 'hidden'}" style="margin-top:10px;">
+        <label style="font-size:9px;color:var(--text-muted);text-transform:uppercase;">CEDIs asignados</label>
+        <div style="display:flex;flex-wrap:wrap;gap:12px;margin-top:7px;">
+          ${CEDIS_VALIDOS.map(c => `<label style="font-size:10px;color:var(--text-secondary);display:flex;align-items:center;gap:5px;"><input type="checkbox" class="admin-cedi-asignado-item" value="${c}" ${cedisAsignados.includes(c) ? 'checked' : ''}> ${c}</label>`).join('')}
         </div>
       </div>
-      <div class="indicator-field admin-cedis-asignados-wrap ${u.alcance_cedi === 'asignados' ? '' : 'hidden'}" style="margin-top:6px;">
-        <label>CEDIs asignados</label>
-        <div style="display:flex;flex-wrap:wrap;gap:10px;">
-          ${CEDIS_VALIDOS.map(c => `
-            <label style="font-size:11px;color:var(--text-secondary);display:flex;align-items:center;gap:4px;">
-              <input type="checkbox" class="admin-cedi-asignado-item" value="${c}" ${cedisAsignados.includes(c) ? 'checked' : ''}> ${c}
-            </label>
-          `).join('')}
-        </div>
-      </div>
-    </div>
-  `;
+    </div>`;
   }).join('');
 
-  cont.querySelectorAll('[data-guardar-perfil]').forEach(btn => {
-    btn.addEventListener('click', () => guardarPerfilAdmin(btn.dataset.guardarPerfil));
-  });
-  cont.querySelectorAll('.admin-alcance-cedi').forEach(sel => {
-    sel.addEventListener('change', () => {
-      const wrap = sel.closest('[data-perfil]').querySelector('.admin-cedis-asignados-wrap');
-      wrap.classList.toggle('hidden', sel.value !== 'asignados');
+  cont.querySelectorAll('[data-guardar-perfil]').forEach(btn => btn.addEventListener('click', () => guardarPerfilAdmin(btn.dataset.guardarPerfil)));
+  cont.querySelectorAll('.admin-alcance-cedi').forEach(sel => sel.addEventListener('change', () => {
+    const wrap = sel.closest('[data-perfil]').querySelector('.admin-cedis-asignados-wrap');
+    wrap.classList.toggle('hidden', sel.value !== 'asignados');
+  }));
+
+  const buscador = document.getElementById('admin-usuario-buscador');
+  if (buscador && !buscador.dataset.bound) {
+    buscador.dataset.bound = '1';
+    buscador.addEventListener('input', () => {
+      const q = buscador.value.trim().toLowerCase();
+      cont.querySelectorAll('[data-admin-search]').forEach(card => card.style.display = (!q || card.dataset.adminSearch.includes(q)) ? '' : 'none');
     });
-  });
+  }
 }
 
 async function guardarPerfilAdmin(perfilId) {
@@ -2893,10 +2919,22 @@ async function renderMatrizPermisos(rolId) {
   `;
 
   document.getElementById('btn-guardar-matriz').addEventListener('click', () => guardarMatrizPermisos(rolId));
+  document.querySelectorAll('#matriz-permisos-tabla .matriz-check').forEach(chk => chk.addEventListener('change', actualizarResumenMatriz));
+  actualizarResumenMatriz();
   aplicarFiltroMatriz(); // por si ya había texto escrito en el buscador de una vuelta anterior
 }
 
 document.getElementById('matriz-buscador').addEventListener('input', aplicarFiltroMatriz);
+
+function actualizarResumenMatriz() {
+  const checks = [...document.querySelectorAll('#matriz-permisos-tabla .matriz-check')];
+  const on = checks.filter(c => c.checked).length;
+  const off = checks.length - on;
+  const onEl = document.getElementById('matrix-count-on');
+  const offEl = document.getElementById('matrix-count-off');
+  if (onEl) onEl.textContent = on;
+  if (offEl) offEl.textContent = off;
+}
 
 function aplicarFiltroMatriz() {
   const texto = document.getElementById('matriz-buscador').value.trim().toLowerCase();
@@ -2920,10 +2958,12 @@ function aplicarFiltroMatriz() {
 document.getElementById('btn-matriz-seleccionar-todo').addEventListener('click', () => {
   document.querySelectorAll('#matriz-permisos-tabla .matriz-fila-modulo:not(.matriz-fila-oculta) .matriz-check')
     .forEach(chk => { chk.checked = true; });
+  actualizarResumenMatriz();
 });
 document.getElementById('btn-matriz-quitar-todo').addEventListener('click', () => {
   document.querySelectorAll('#matriz-permisos-tabla .matriz-fila-modulo:not(.matriz-fila-oculta) .matriz-check')
     .forEach(chk => { chk.checked = false; });
+  actualizarResumenMatriz();
 });
 
 async function guardarMatrizPermisos(rolId) {
@@ -4921,6 +4961,48 @@ function renderControlSemanaFiltrado() {
 }
 
 @media(max-width:900px){#jdh-nav-flyout{display:none!important;}}
+
+/* ============================================================
+   JDH ADMIN CONSOLE — UX/UI 2026
+   Solo presentación; conserva IDs y lógica de datos.
+   ============================================================ */
+.admin-console{max-width:1500px;margin:0 auto;}
+.admin-hero{display:flex;align-items:flex-end;justify-content:space-between;gap:24px;padding:6px 2px 22px;}
+.admin-eyebrow{font-size:10px;font-weight:800;letter-spacing:.12em;color:var(--modern-primary);display:flex;align-items:center;gap:7px;margin-bottom:7px;}
+.admin-hero h1{margin:0;font-size:26px;line-height:1.15;letter-spacing:-.035em;color:var(--modern-text);}
+.admin-hero p{margin:7px 0 0;color:var(--modern-muted);font-size:13px;}
+.admin-hero-status{display:flex;align-items:center;gap:8px;padding:8px 11px;border:1px solid var(--modern-border);background:#fff;border-radius:999px;font-size:11px;color:#475467;box-shadow:0 4px 14px rgba(20,35,65,.04);}
+.admin-live-dot{width:7px;height:7px;border-radius:50%;background:#21a66b;box-shadow:0 0 0 4px #e5f6ee;}
+
+.admin-summary{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:18px;}
+.admin-stat{background:#fff;border:1px solid var(--modern-border);border-radius:14px;padding:14px 16px;display:flex;align-items:center;gap:12px;box-shadow:var(--modern-shadow);}
+.admin-stat-icon{width:38px;height:38px;border-radius:11px;display:grid;place-items:center;font-size:19px;}
+.admin-stat-icon.blue{background:#edf4ff;color:#1769e0}.admin-stat-icon.green{background:#eaf8f1;color:#17845b}.admin-stat-icon.violet{background:#f2edff;color:#7655d8}.admin-stat-icon.amber{background:#fff6df;color:#b57a08}
+.admin-stat span{display:block;font-size:10px;color:#667085;text-transform:uppercase;letter-spacing:.05em;font-weight:700;}
+.admin-stat strong{display:block;font-size:20px;line-height:1.15;margin-top:3px;color:#172033;}
+
+.admin-tabs{display:flex;gap:8px;border-bottom:1px solid var(--modern-border);margin-bottom:18px;}
+.admin-tab{position:relative;border:1px solid transparent;background:transparent;border-radius:12px 12px 0 0;padding:11px 16px 12px;display:grid;grid-template-columns:auto 1fr;column-gap:9px;text-align:left;color:#667085;cursor:pointer;min-width:145px;}
+.admin-tab i{grid-row:1 / span 2;font-size:18px;align-self:center}.admin-tab span{font-size:12px;font-weight:800;color:#475467}.admin-tab small{font-size:10px;color:#98a2b3;margin-top:2px}.admin-tab:hover{background:#f8faff}.admin-tab.active{background:#fff;border-color:var(--modern-border);border-bottom-color:#fff;color:var(--modern-primary);margin-bottom:-1px;box-shadow:0 -2px 12px rgba(20,35,65,.03)}.admin-tab.active span{color:#1769e0}.admin-tab.active:after{content:"";position:absolute;left:12px;right:12px;bottom:-1px;height:2px;background:#1769e0;border-radius:2px;}
+
+.admin-panel{min-width:0;}
+.admin-panel-head,.admin-section-head{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:12px;}
+.admin-title{font-size:14px;font-weight:800;color:#172033;display:flex;align-items:center;gap:8px}.admin-title i{font-size:17px;color:#1769e0}.admin-subtitle{font-size:11px;color:#667085;margin-top:3px;}
+.admin-create-card{background:#fff;border:1px solid var(--modern-border);border-radius:15px;padding:16px;box-shadow:var(--modern-shadow);margin-bottom:22px;}
+.admin-form-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-top:12px}.admin-form-grid-main{grid-template-columns:repeat(3,minmax(0,1fr));margin-top:0;}
+.admin-field{display:flex;flex-direction:column;gap:5px;min-width:0}.admin-field label,.toolbar-label{font-size:9px;font-weight:800;color:#667085;text-transform:uppercase;letter-spacing:.07em}.admin-field input,.admin-field select,.matrix-role select{height:36px;border:1px solid #d9e0e8;border-radius:9px;background:#fff;color:#172033;padding:0 10px;font-size:12px;outline:none;transition:.15s}.admin-field input:focus,.admin-field select:focus,.matrix-role select:focus{border-color:#7fb1f6;box-shadow:0 0 0 3px #edf4ff;}
+.admin-action-field{display:flex;align-items:flex-end}.admin-primary-btn{height:36px!important;width:100%;display:flex;justify-content:center;align-items:center;gap:7px;font-size:11px!important;border-radius:9px!important}.admin-form-status{min-height:18px;margin-top:8px;font-size:11px;color:#667085;}
+.admin-section-head{margin-top:4px}.admin-search,.matrix-search{position:relative;display:flex;align-items:center}.admin-search i,.matrix-search i{position:absolute;left:11px;color:#98a2b3;font-size:15px}.admin-search input,.matrix-search input{height:36px;width:300px;border:1px solid #d9e0e8;border-radius:10px;padding:0 12px 0 34px;background:#fff;font-size:11px;outline:none}.admin-search input:focus,.matrix-search input:focus{border-color:#7fb1f6;box-shadow:0 0 0 3px #edf4ff;}
+
+.admin-usuario-card{background:#fff;border:1px solid var(--modern-border);border-radius:14px;padding:15px 16px;margin-bottom:10px;box-shadow:0 4px 16px rgba(20,35,65,.045);transition:.16s}.admin-usuario-card:hover{border-color:#cbd7e6;box-shadow:0 8px 24px rgba(20,35,65,.07)}.admin-user-head{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:12px}.admin-user-main{display:flex;align-items:center;gap:10px}.admin-avatar{width:36px;height:36px;border-radius:11px;background:#edf4ff;color:#1769e0;display:grid;place-items:center;font-size:16px;font-weight:800}.admin-user-name{font-size:13px;font-weight:800;color:#172033}.admin-user-meta{font-size:10px;color:#667085;margin-top:2px}.admin-user-fields{display:grid;grid-template-columns:repeat(4,minmax(0,1fr)) auto;gap:10px;align-items:end}.admin-user-extra{display:flex;gap:18px;align-items:center;padding-top:12px;margin-top:12px;border-top:1px solid #edf0f4;flex-wrap:wrap}.admin-user-extra label{font-size:10px;color:#667085;display:flex;align-items:center;gap:6px}.admin-user-extra input[type=checkbox]{accent-color:#1769e0}.admin-user-access{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px;padding-top:12px;border-top:1px solid #edf0f4}.admin-user-access .admin-field{min-width:0}.admin-cedis-asignados-wrap{background:#f8fafc;border:1px dashed #d9e0e8;padding:10px;border-radius:10px}.admin-user-card .btn{height:36px;font-size:11px;border-radius:9px!important;white-space:nowrap}.admin-user-card .badge{font-size:9px;padding:4px 8px;border-radius:999px;}
+
+.matrix-toolbar{display:grid;grid-template-columns:220px minmax(260px,1fr) auto;gap:12px;align-items:end;background:#fff;border:1px solid var(--modern-border);border-radius:14px;padding:14px 16px;box-shadow:var(--modern-shadow);}.matrix-role{display:flex;flex-direction:column;gap:5px}.matrix-role select{width:100%;height:36px}.matrix-quick{display:flex;gap:7px}.matrix-quick .btn{height:36px;font-size:11px}.matrix-info-row{display:flex;align-items:center;gap:18px;padding:9px 3px;color:#667085;font-size:10px}.matrix-info{display:flex;align-items:center;gap:6px}.matrix-info strong{color:#172033}.matrix-info-right{margin-left:auto}.matrix-dot{width:8px;height:8px;border-radius:50%}.matrix-dot.on{background:#1769e0}.matrix-dot.off{background:#c8d0da}.matrix-table-wrap{background:#fff;border:1px solid var(--modern-border);border-radius:14px;overflow:auto;box-shadow:var(--modern-shadow);max-height:calc(100vh - 310px);min-height:280px}.matrix-table-wrap table{border:0!important;border-collapse:separate!important;border-spacing:0!important;width:100%;min-width:780px}.matrix-table-wrap th{position:sticky;top:0;z-index:3;background:#f8fafc!important;border-bottom:1px solid #dfe5ec!important;color:#667085!important;font-size:9px!important;text-transform:uppercase;letter-spacing:.05em;padding:11px 10px!important;white-space:nowrap}.matrix-table-wrap th:not(:first-child),.matrix-table-wrap td:not(:first-child){text-align:center}.matrix-table-wrap td{padding:9px 10px!important;border-bottom:1px solid #edf0f4!important;font-size:11px!important;color:#344054}.matrix-table-wrap tr.matriz-fila-modulo:hover td{background:#f8fbff}.matrix-table-wrap td:first-child{font-weight:650;text-align:left!important;position:sticky;left:0;background:#fff;z-index:2}.matrix-table-wrap tr.matriz-fila-modulo:hover td:first-child{background:#f8fbff}.matrix-table-wrap .matriz-grupo-fila td{background:#f2f6fb!important;color:#475467!important;font-size:9px!important;padding:7px 10px!important;letter-spacing:.08em;border-top:1px solid #e3e9f0!important;position:sticky;left:0;z-index:1}.matrix-table-wrap .perm-switch{width:32px;height:18px}.matrix-table-wrap .perm-switch .perm-slider:before{height:12px;width:12px;top:3px;left:3px}.matrix-table-wrap .perm-switch input:checked + .perm-slider:before{transform:translateX(14px)}.matrix-table-wrap .perm-switch .perm-slider{background:#d5dce5}.matrix-table-wrap .perm-switch input:checked + .perm-slider{background:#1769e0}.admin-matrix-actions{display:flex;gap:8px}.admin-matrix-actions .btn{height:34px;font-size:11px}.admin-danger-soft{background:#fff!important;color:#c2413a!important;border:1px solid #f0c9c5!important}.admin-danger-soft:hover{background:#fff4f2!important;}
+
+.audit-toolbar{display:grid;grid-template-columns:1.2fr 1.4fr 1fr 1fr auto;gap:10px;align-items:end;background:#fff;border:1px solid var(--modern-border);border-radius:14px;padding:14px 16px;box-shadow:var(--modern-shadow)}.audit-toolbar .admin-action-field .btn{height:36px}.audit-table-wrap{background:#fff;border:1px solid var(--modern-border);border-radius:14px;overflow:auto;box-shadow:var(--modern-shadow);margin-top:12px}.audit-table-wrap table{margin:0!important;border:0!important;width:100%;min-width:900px}.audit-table-wrap th{position:sticky;top:0;background:#f8fafc!important;color:#667085!important;font-size:9px!important;text-transform:uppercase;letter-spacing:.05em;padding:10px!important}.audit-table-wrap td{font-size:10.5px!important;padding:9px 10px!important;border-bottom:1px solid #edf0f4!important;color:#344054}.audit-table-wrap tr:hover td{background:#fafcff}
+
+@media(max-width:1000px){.admin-summary{grid-template-columns:repeat(2,1fr)}.admin-form-grid,.admin-form-grid-main{grid-template-columns:repeat(2,1fr)}.admin-user-fields{grid-template-columns:repeat(2,1fr)}.matrix-toolbar{grid-template-columns:1fr 1fr}.matrix-quick{grid-column:1/-1}.audit-toolbar{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:700px){.admin-hero{align-items:flex-start;flex-direction:column}.admin-hero h1{font-size:21px}.admin-summary{grid-template-columns:1fr 1fr}.admin-tabs{overflow-x:auto}.admin-tab{min-width:130px}.admin-search input{width:220px}.admin-form-grid,.admin-form-grid-main,.admin-user-fields,.admin-user-access,.audit-toolbar,.matrix-toolbar{grid-template-columns:1fr}.matrix-quick{grid-column:auto}.matrix-info-right{display:none}.admin-section-head{align-items:flex-start;flex-direction:column}.admin-search{width:100%}.admin-search input{width:100%}}
+
 </style>
 
 <script id="jdh-vanguardia-nav">
