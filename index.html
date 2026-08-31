@@ -4656,5 +4656,25 @@ function renderControlSemanaFiltrado() {
 }
 
 </script>
+
+<script>
+(function prepararSidebarCompacta(){
+  function wrapSidebarLabels(){
+    document.querySelectorAll('.sidebar .sidebar-item').forEach(item=>{
+      Array.from(item.childNodes).forEach(node=>{
+        if(node.nodeType===Node.TEXT_NODE && node.textContent.trim()){
+          const span=document.createElement('span');
+          span.className='sidebar-label';
+          span.textContent=node.textContent.trim();
+          node.replaceWith(span);
+        }
+      });
+    });
+  }
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',wrapSidebarLabels);
+  else wrapSidebarLabels();
+})();
+</script>
+
 </body>
 </html>
