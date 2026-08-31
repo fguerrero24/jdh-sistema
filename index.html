@@ -940,6 +940,18 @@ input:focus,select:focus,textarea:focus{outline:none!important;border-color:#176
   .sidebar .sidebar-label{display:inline-block;}
 }
 
+/* ---------- Matriz de Permisos: switches + buscador + grupos ---------- */
+.perm-switch{position:relative;display:inline-block;width:36px;height:20px;vertical-align:middle;}
+.perm-switch input{opacity:0;width:0;height:0;position:absolute;}
+.perm-switch .perm-slider{position:absolute;cursor:pointer;inset:0;background:#d1d8e0;transition:.15s;border-radius:20px;}
+.perm-switch .perm-slider:before{position:absolute;content:"";height:14px;width:14px;left:3px;top:3px;background:#fff;transition:.15s;border-radius:50%;box-shadow:0 1px 2px rgba(0,0,0,.25);}
+.perm-switch input:checked + .perm-slider{background:var(--accent);}
+.perm-switch input:checked + .perm-slider:before{transform:translateX(16px);}
+.perm-switch input:disabled + .perm-slider{opacity:.4;cursor:not-allowed;}
+.matriz-grupo-fila td{background:#eef2f7;font-weight:800;font-size:11px;letter-spacing:.03em;text-transform:uppercase;color:var(--text-secondary);padding:6px 10px;}
+.matriz-busqueda{width:100%;max-width:280px;padding:7px 10px;border:1px solid var(--border);border-radius:6px;font-size:12.5px;}
+.matriz-fila-oculta{display:none;}
+
 </style>
 </head>
 <body>
@@ -1126,6 +1138,13 @@ input:focus,select:focus,textarea:focus{outline:none!important;border-color:#176
               <div class="section-label" style="margin-top:0;">Matriz de Permisos</div>
               <div class="indicator-fields" style="border:none;padding:0;">
                 <div class="indicator-field"><label>Rol</label><select id="matriz-rol-selector"></select></div>
+                <div class="indicator-field"><label>Buscar módulo</label><input type="text" id="matriz-buscador" class="matriz-busqueda" placeholder="🔎 Buscar módulo..."></div>
+                <button class="btn ghost" id="btn-nuevo-rol" style="align-self:flex-end;">+ Nuevo rol</button>
+                <button class="btn" id="btn-eliminar-rol" style="align-self:flex-end;background:var(--crit-dot);">Eliminar este rol</button>
+              </div>
+              <div style="display:flex;gap:8px;margin-top:10px;">
+                <button class="btn ghost" id="btn-matriz-seleccionar-todo">Seleccionar todo</button>
+                <button class="btn ghost" id="btn-matriz-quitar-todo">Quitar todo</button>
               </div>
               <div id="matriz-permisos-tabla" style="overflow-x:auto;margin-top:10px;"></div>
               <div id="matriz-status" style="font-size:12px;color:var(--text-secondary);margin-top:8px;"></div>
@@ -2772,6 +2791,58 @@ async function cargarMatrizPermisos() {
   renderMatrizPermisos(sel.value || CATALOGO_ROLES_NUEVOS[0]?.id);
 }
 
+document.getElementById('btn-nuevo-rol').addEventListener('click', async () => {
+  const nombre = prompt('Nombre del rol nuevo (ej. "Supervisor de bodega"):');
+  if (!nombre || !nombre.trim()) return;
+  const idSugerido = nombre.trim().toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '') // quita tildes
+    .replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+  const id = prompt('Identificador interno (sin espacios ni tildes, no se puede cambiar después):', idSugerido);
+  if (!id || !id.trim()) return;
+
+  const estado = document.getElementById('matriz-status');
+  estado.textContent = 'Creando rol...';
+  const { error } = await sb.rpc('crear_rol', { p_id: id.trim(), p_nombre: nombre.trim() });
+  if (error) { estado.textContent = 'Error al crear el rol: ' + error.message; return; }
+
+  CATALOGO_ROLES_NUEVOS = null; // invalida caché para que se recargue con el nuevo rol
+  await cargarCatalogosPermisos();
+  document.getElementById('matriz-rol-selector').innerHTML = '';
+  document.getElementById('matriz-rol-selector').replaceWith(document.getElementById('matriz-rol-selector').cloneNode(true)); // limpia listeners viejos
+  await cargarMatrizPermisos();
+  renderMatrizPermisos(id.trim());
+  estado.textContent = `Rol "${nombre.trim()}" creado. Empieza sin ningún permiso marcado -- actívalos abajo y guarda.`;
+});
+
+document.getElementById('btn-eliminar-rol').addEventListener('click', async () => {
+  const sel = document.getElementById('matriz-rol-selector');
+  const rolId = sel.value;
+  const rolNombre = CATALOGO_ROLES_NUEVOS.find(r => r.id === rolId)?.nombre || rolId;
+  if (!confirm(`¿Eliminar el rol "${rolNombre}"? Esto no se puede deshacer. Si algún usuario todavía lo tiene asignado, no se dejará eliminar hasta que se lo cambies primero.`)) return;
+
+  const estado = document.getElementById('matriz-status');
+  estado.textContent = 'Eliminando...';
+  const { error } = await sb.rpc('eliminar_rol', { p_id: rolId });
+  if (error) { estado.textContent = 'No se pudo eliminar: ' + error.message; return; }
+
+  CATALOGO_ROLES_NUEVOS = null;
+  await cargarCatalogosPermisos();
+  document.getElementById('matriz-rol-selector').innerHTML = '';
+  document.getElementById('matriz-rol-selector').replaceWith(document.getElementById('matriz-rol-selector').cloneNode(true));
+  await cargarMatrizPermisos();
+  estado.textContent = `Rol "${rolNombre}" eliminado.`;
+});
+
+// Agrupa los módulos de la matriz por sección, en el mismo orden en que
+// aparecen en el menú lateral real -- así la matriz se lee igual que el menú.
+const GRUPOS_MATRIZ = {
+  'Operación': ['torre', 'indicadores', 'inventario'],
+  'Recepción y despacho': ['importar-cargue', 'rutas-del-dia', 'ranking-auditores', 'reportes'],
+  'Recursos Humanos': ['empleados', 'asistencia', 'registros'],
+  'Nómina': ['liquidador-nomina', 'control-semana', 'liquidador-individual', 'liquidacion-cedi', 'compensatorios', 'rrhh-historico'],
+  'Administración': ['administracion'],
+};
+
 async function renderMatrizPermisos(rolId) {
   if (!rolId) return;
   document.getElementById('matriz-rol-selector').value = rolId;
@@ -2785,26 +2856,75 @@ async function renderMatrizPermisos(rolId) {
   const permitidoMapa = {};
   (permisos || []).forEach(p => { permitidoMapa[`${p.modulo_id}|${p.accion_id}`] = p.permitido; });
 
+  const modulosPorId = {};
+  CATALOGO_MODULOS.forEach(m => { modulosPorId[m.id] = m; });
+
+  // Cualquier módulo que no esté en ningún grupo de arriba (por si se agrega
+  // uno nuevo y se nos olvida clasificarlo) cae en "Otros", para no perderlo.
+  const idsClasificados = new Set(Object.values(GRUPOS_MATRIZ).flat());
+  const otros = CATALOGO_MODULOS.filter(m => !idsClasificados.has(m.id)).map(m => m.id);
+  const grupos = { ...GRUPOS_MATRIZ };
+  if (otros.length) grupos['Otros'] = otros;
+
+  const filaModulo = (m) => `
+    <tr class="matriz-fila-modulo" data-nombre-busqueda="${tEsc(m.nombre.toLowerCase())}">
+      <td>${tEsc(m.nombre)}</td>
+      ${CATALOGO_ACCIONES.map(a => `
+        <td style="text-align:center;">
+          <label class="perm-switch">
+            <input type="checkbox" class="matriz-check" data-modulo="${m.id}" data-accion="${a.id}"
+              ${permitidoMapa[`${m.id}|${a.id}`] ? 'checked' : ''}>
+            <span class="perm-slider"></span>
+          </label>
+        </td>
+      `).join('')}
+    </tr>`;
+
   document.getElementById('matriz-permisos-tabla').innerHTML = `
     <table class="hist-table open" data-matriz-rol="${rolId}">
       <tr><th>Módulo</th>${CATALOGO_ACCIONES.map(a => `<th>${tEsc(a.nombre)}</th>`).join('')}</tr>
-      ${CATALOGO_MODULOS.map(m => `
-        <tr>
-          <td>${tEsc(m.nombre)}</td>
-          ${CATALOGO_ACCIONES.map(a => `
-            <td style="text-align:center;">
-              <input type="checkbox" class="matriz-check" data-modulo="${m.id}" data-accion="${a.id}"
-                ${permitidoMapa[`${m.id}|${a.id}`] ? 'checked' : ''}>
-            </td>
-          `).join('')}
-        </tr>
-      `).join('')}
+      ${Object.entries(grupos).map(([nombreGrupo, ids]) => {
+        const modulosDelGrupo = ids.map(id => modulosPorId[id]).filter(Boolean);
+        if (!modulosDelGrupo.length) return '';
+        return `<tr class="matriz-grupo-fila"><td colspan="${CATALOGO_ACCIONES.length + 1}">${tEsc(nombreGrupo)}</td></tr>${modulosDelGrupo.map(filaModulo).join('')}`;
+      }).join('')}
     </table>
     <button class="btn" id="btn-guardar-matriz" style="margin-top:12px;">Guardar matriz de "${tEsc(CATALOGO_ROLES_NUEVOS.find(r => r.id === rolId)?.nombre || rolId)}"</button>
   `;
 
   document.getElementById('btn-guardar-matriz').addEventListener('click', () => guardarMatrizPermisos(rolId));
+  aplicarFiltroMatriz(); // por si ya había texto escrito en el buscador de una vuelta anterior
 }
+
+document.getElementById('matriz-buscador').addEventListener('input', aplicarFiltroMatriz);
+
+function aplicarFiltroMatriz() {
+  const texto = document.getElementById('matriz-buscador').value.trim().toLowerCase();
+  let grupoActual = null, grupoTuvoAlgunaFilaVisible = false;
+
+  document.querySelectorAll('#matriz-permisos-tabla tr').forEach(fila => {
+    if (fila.classList.contains('matriz-grupo-fila')) {
+      // Antes de pasar al siguiente grupo, decide si el anterior queda oculto o no.
+      if (grupoActual) grupoActual.classList.toggle('matriz-fila-oculta', !grupoTuvoAlgunaFilaVisible);
+      grupoActual = fila;
+      grupoTuvoAlgunaFilaVisible = false;
+    } else if (fila.classList.contains('matriz-fila-modulo')) {
+      const visible = !texto || fila.dataset.nombreBusqueda.includes(texto);
+      fila.classList.toggle('matriz-fila-oculta', !visible);
+      if (visible) grupoTuvoAlgunaFilaVisible = true;
+    }
+  });
+  if (grupoActual) grupoActual.classList.toggle('matriz-fila-oculta', !grupoTuvoAlgunaFilaVisible);
+}
+
+document.getElementById('btn-matriz-seleccionar-todo').addEventListener('click', () => {
+  document.querySelectorAll('#matriz-permisos-tabla .matriz-fila-modulo:not(.matriz-fila-oculta) .matriz-check')
+    .forEach(chk => { chk.checked = true; });
+});
+document.getElementById('btn-matriz-quitar-todo').addEventListener('click', () => {
+  document.querySelectorAll('#matriz-permisos-tabla .matriz-fila-modulo:not(.matriz-fila-oculta) .matriz-check')
+    .forEach(chk => { chk.checked = false; });
+});
 
 async function guardarMatrizPermisos(rolId) {
   const estado = document.getElementById('matriz-status');
@@ -2820,7 +2940,7 @@ async function guardarMatrizPermisos(rolId) {
   const { error } = await sb.from('rol_permisos').upsert(filas, { onConflict: 'rol_id,modulo_id,accion_id' });
   if (error) { estado.textContent = 'Error al guardar: ' + error.message; return; }
 
-  estado.textContent = 'Matriz guardada. Recuerda: esto todavía no cambia lo que cada usuario puede hacer de verdad -- eso se conecta en la Fase 4.';
+  estado.textContent = 'Matriz guardada. Los cambios ya aplican de inmediato para cualquier usuario con este rol asignado.';
 }
 
 // ---------- AUDITORÍA ----------
