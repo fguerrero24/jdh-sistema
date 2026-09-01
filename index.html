@@ -6,6 +6,7 @@
 <title>JDH · Torre de Control</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/apexcharts@3.45.1/dist/apexcharts.min.js"></script>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/dist/tabler-icons.min.css">
 <style>
   :root {
@@ -1041,12 +1042,24 @@ input:focus,select:focus,textarea:focus{outline:none!important;border-color:#176
       <div class="content-pad">
         <div id="view-torre">
           <div class="kpi-grid" id="torre-kpis"></div>
+
+          <div id="torre-resumen-ia" style="background:#0f2033;border-radius:12px;padding:14px 18px;margin:14px 0;color:#cbd5e1;font-size:13px;line-height:1.5;">
+            <div style="font-size:10px;color:#6b829a;text-transform:uppercase;margin-bottom:4px;">🤖 Resumen IA</div>
+            <div id="torre-resumen-ia-texto">Generando resumen...</div>
+          </div>
+
+          <div style="display:grid;grid-template-columns:280px 1fr;gap:16px;margin:14px 0;align-items:start;">
+            <div id="torre-chart-cumplimiento" style="background:#0f2033;border-radius:12px;padding:10px;"></div>
+            <div></div>
+          </div>
+
           <div class="section-label">Alertas activas</div>
           <div id="torre-alertas"></div>
 
           <div id="torre-comparacion-cedis" class="hidden">
             <div class="section-label" style="margin-top:26px;">Comparación entre CEDIs</div>
             <div class="kpi-grid" id="torre-resumen-cedis"></div>
+            <div id="torre-chart-cedis" style="max-width:600px;background:#0f2033;border-radius:12px;padding:10px;margin:14px 0;"></div>
 
             <div class="section-label" style="margin-top:18px;">Mapa de indicadores por CEDI</div>
             <div id="torre-mapa-calor" style="overflow-x:auto;"></div>
@@ -1106,9 +1119,15 @@ input:focus,select:focus,textarea:focus{outline:none!important;border-color:#176
               <button class="btn" id="btn-venc-consultar">Consultar</button>
               <button class="btn ghost" id="btn-venc-exportar">Exportar a Excel</button>
               <button class="btn ghost" id="btn-venc-enviar-correo">📧 Enviar correo (CEDI filtrado)</button>
+              <button class="btn ghost" id="btn-venc-sugerencias-ia">🤖 Sugerencias IA</button>
             </div>
             <div class="inv-chiprow"><button class="inv-chip danger" data-venc-chip="vencido">⛔ Solo vencidos</button><button class="inv-chip danger" data-venc-chip="critico">🔴 Críticos</button><button class="inv-chip warn" data-venc-chip="prioridad">🟠 Prioridad</button><button class="inv-chip" data-venc-chip="picking">Picking /1/</button><button class="inv-chip" data-venc-chip="altura">Altura /2/</button></div>
+            <div id="venc-sugerencias-ia" class="hidden" style="background:#0f2033;border-radius:12px;padding:14px 18px;margin:12px 0;color:#cbd5e1;font-size:13px;line-height:1.5;">
+              <div style="font-size:10px;color:#6b829a;text-transform:uppercase;margin-bottom:4px;">🤖 Sugerencias IA</div>
+              <div id="venc-sugerencias-ia-texto"></div>
+            </div>
             <div id="venc-kpis" style="display:flex;gap:10px;flex-wrap:wrap;margin:12px 0;"></div>
+            <div id="venc-chart-distribucion" style="max-width:420px;background:#0f2033;border-radius:12px;padding:10px;margin-bottom:12px;"></div>
             <div id="venc-status" style="font-size:12px;color:var(--text-secondary);margin:8px 0;"></div>
             <div id="venc-tabla"></div>
           </div>
@@ -1646,6 +1665,8 @@ const SUPABASE_ANON_KEY = 'sb_publishable_g-7cH12m-lLYcNXGbrK3eA_5mG5tydQ';
 
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 let SESION = null;
+let MODULO_ACTUAL = null;
+let ULTIMO_CONTEXTO_TORRE = null;
 
 // ============================================================
 // UTILIDADES
@@ -1892,6 +1913,7 @@ document.getElementById('grupo-nomina').addEventListener('click', (e) => {
 });
 
 function cambiarModulo(modulo) {
+  MODULO_ACTUAL = modulo;
   document.querySelectorAll('.sidebar-item[data-modulo]').forEach(el => el.classList.toggle('active', el.dataset.modulo === modulo));
   document.getElementById('topbar-title').textContent = NOMBRES_MODULO[modulo] || modulo;
 
@@ -1988,6 +2010,12 @@ async function cargarTorreControl() {
     <div class="kpi-card"><div class="kpi-label">Sin datos</div><div class="kpi-value">${sinDatos}</div></div>
   `;
 
+  // ---------- Gráfico de cumplimiento (ApexCharts) ----------
+  renderGraficoCumplimientoTorre(cumple, fuera, sinDatos);
+
+  // ---------- Resumen IA ----------
+  pedirResumenIaTorre({ pctCumplimiento, cumple, fuera, sinDatos, alertas: alertas.map(a => ({ indicador: a.ind.nombre, valor: a.valor, meta: a.ind.meta_texto })) });
+
   // ---------- Tarjetas de Vencimientos, alimentadas por el módulo de Control de Vencimientos ----------
   const cediTorreVenc = puedeVerTodosLosCedis() ? null : SESION.cedi;
   const { data: resumenVenc } = await sb.rpc('resumen_vencimientos_torre', { p_cedi: cediTorreVenc });
@@ -2047,6 +2075,35 @@ async function cargarTorreControl() {
   });
 }
 
+let CHART_CUMPLIMIENTO_TORRE = null;
+function renderGraficoCumplimientoTorre(cumple, fuera, sinDatos) {
+  const el = document.getElementById('torre-chart-cumplimiento');
+  if (!el) return;
+  const opciones = {
+    chart: { type: 'donut', height: 230, foreColor: '#cbd5e1' },
+    series: [cumple, fuera, sinDatos],
+    labels: ['En meta', 'Fuera de meta', 'Sin datos'],
+    colors: ['#4ade9e', '#fb7185', '#6b829a'],
+    legend: { position: 'bottom', fontSize: '11px' },
+    dataLabels: { enabled: true, style: { fontSize: '11px' } },
+    stroke: { width: 2, colors: ['#0f2033'] },
+    plotOptions: { pie: { donut: { labels: { show: true, total: { show: true, label: 'Indicadores', color: '#cbd5e1' } } } } },
+  };
+  if (CHART_CUMPLIMIENTO_TORRE) { CHART_CUMPLIMIENTO_TORRE.updateOptions(opciones); return; }
+  CHART_CUMPLIMIENTO_TORRE = new ApexCharts(el, opciones);
+  CHART_CUMPLIMIENTO_TORRE.render();
+}
+
+async function pedirResumenIaTorre(contexto) {
+  ULTIMO_CONTEXTO_TORRE = contexto;
+  const cont = document.getElementById('torre-resumen-ia-texto');
+  if (!cont) return;
+  cont.textContent = 'Generando resumen...';
+  const { data, error } = await sb.functions.invoke('ai-asistente', { body: { tipo: 'resumen_torre', contexto } });
+  if (error || (data && data.error)) { cont.textContent = 'No se pudo generar el resumen (' + (data?.error || error.message) + ').'; return; }
+  cont.textContent = data.respuesta;
+}
+
 async function cargarComparacionCedis(indicadores) {
   const CEDIS_A_COMPARAR = CEDIS_VALIDOS;
 
@@ -2085,6 +2142,8 @@ async function cargarComparacionCedis(indicadores) {
     </div>`;
   }).join('');
 
+  renderGraficoComparacionCedis(CEDIS_A_COMPARAR, resumenPorCedi);
+
   // Mapa de calor: filas = indicadores, columnas = CEDIs
   const filas = indicadores.map(ind => {
     const celdas = CEDIS_A_COMPARAR.map(cedi => {
@@ -2103,6 +2162,30 @@ async function cargarComparacionCedis(indicadores) {
       ${filas}
     </table>
   `;
+}
+
+let CHART_COMPARACION_CEDIS = null;
+function renderGraficoComparacionCedis(cedis, resumenPorCedi) {
+  const el = document.getElementById('torre-chart-cedis');
+  if (!el) return;
+  const pcts = cedis.map(c => {
+    const s = resumenPorCedi[c];
+    return (s.cumple + s.fuera) > 0 ? Math.round((s.cumple / (s.cumple + s.fuera)) * 100) : 0;
+  });
+  const opciones = {
+    chart: { type: 'bar', height: 240, foreColor: '#cbd5e1', toolbar: { show: false } },
+    series: [{ name: '% Cumplimiento', data: pcts }],
+    xaxis: { categories: cedis, max: 100 },
+    yaxis: { max: 100 },
+    colors: pcts.map(p => p >= 80 ? '#4ade9e' : p >= 60 ? '#f59e0b' : '#ef4444'),
+    plotOptions: { bar: { distributed: true, borderRadius: 4, columnWidth: '55%' } },
+    legend: { show: false },
+    dataLabels: { enabled: true, formatter: v => v + '%', style: { colors: ['#fff'] } },
+    grid: { borderColor: '#1e3350' },
+  };
+  if (CHART_COMPARACION_CEDIS) { CHART_COMPARACION_CEDIS.updateOptions(opciones); return; }
+  CHART_COMPARACION_CEDIS = new ApexCharts(el, opciones);
+  CHART_COMPARACION_CEDIS.render();
 }
 
 async function cargarNotas(indicadorId) {
@@ -4298,7 +4381,100 @@ document.getElementById('btn-venc-consultar').addEventListener('click',consultar
 document.querySelectorAll('[data-venc-chip]').forEach(b=>b.addEventListener('click',()=>{const v=b.dataset.vencChip;if(['vencido','critico','prioridad'].includes(v)){document.getElementById('venc-filtro-criticidad').value=v;document.getElementById('venc-filtro-zona').value='';}else{document.getElementById('venc-filtro-zona').value=v;document.getElementById('venc-filtro-criticidad').value='';}document.querySelectorAll('[data-venc-chip]').forEach(x=>x.classList.remove('active'));b.classList.add('active');renderVencimientos();}));
 async function consultarVencimientos(){const estado=document.getElementById('venc-status');const cedi=document.getElementById('venc-filtro-cedi').value||null;const desde=document.getElementById('venc-filtro-desde').value||null;const hasta=document.getElementById('venc-filtro-hasta').value||null;estado.textContent='Consultando...';const {data,error}=await sb.rpc('analisis_vencimientos',{p_cedi:cedi,p_desde:desde,p_hasta:hasta});if(error){estado.textContent='Error: '+error.message;return;}VENCIMIENTOS_CACHE=data||[];if(!MAESTRA_INVENTARIO_MAP.size)await cargarMaestraVidaUtil();renderVencimientos();}
 function enriquecerVenc(r){const m=metaMaestraInventario(r);const dias=Number.isFinite(Number(r.dias_para_vencer))?Number(r.dias_para_vencer):diasRestantesInventario(r.fecha_caducidad);const vida=Number(m?.vida_util_dias);const costo=Number(m?.costo_promedio_unitario)||0;const valor=(Number(r.cantidad_disponible)||0)*costo;if(dias==null)return {m,dias,vida:null,pct:null,estado:'sinvida',costo,valor};if(dias<=0)return {m,dias,vida:vida>0?vida:null,pct:vida>0?dias/vida*100:null,estado:'vencido',costo,valor};if(!(vida>0))return {m,dias,vida:null,pct:null,estado:'sinvida',costo,valor};const pct=Math.min(100,Math.max(0,dias/vida*100));const estado=pct<=15?'critico':pct<=30?'prioridad':pct<=50?'atencion':'normal';return {m,dias,vida,pct,estado,costo,valor};}
-function renderVencimientos(){const texto=document.getElementById('venc-filtro-texto').value.trim().toLowerCase(),crit=document.getElementById('venc-filtro-criticidad').value,zona=document.getElementById('venc-filtro-zona').value;const all=VENCIMIENTOS_CACHE.map(r=>({r,e:enriquecerVenc(r),zona:zonaInventario(r.ubicacion)}));const filtrado=all.filter(x=>{const r=x.r,e=x.e;const txt=!texto||[r.producto,r.lote,r.ubicacion,r.referencia].some(v=>String(v||'').toLowerCase().includes(texto));return txt&&(!crit||e.estado===crit)&&(!zona||x.zona===zona);});document.getElementById('venc-status').textContent=`${filtrado.length.toLocaleString('es-CO')} registros visibles de ${all.length.toLocaleString('es-CO')}.`;const stats={vencido:0,critico:0,prioridad:0,atencion:0,normal:0};let unidades=0,valor=0;all.forEach(x=>{stats[x.e.estado]=(stats[x.e.estado]||0)+1;if(['vencido','critico','prioridad'].includes(x.e.estado)){unidades+=Number(x.r.cantidad_disponible)||0;valor+=x.e.valor;}});document.getElementById('venc-kpis').innerHTML=Object.entries(stats).map(([g,n])=>`<div class="inv-kpi ${g==='vencido'||g==='critico'?'danger':g==='prioridad'?'warn':''}" style="cursor:default"><div class="inv-kpi-label">${etiquetaEstadoInventario(g)}</div><div class="inv-kpi-value">${n.toLocaleString('es-CO')}</div><div class="inv-kpi-meta">registros</div></div>`).join('')+`<div class="inv-kpi danger" style="cursor:default"><div class="inv-kpi-label">Valor en riesgo</div><div class="inv-kpi-value">${formatoCOP(valor)}</div><div class="inv-kpi-meta">${unidades.toLocaleString('es-CO')} unidades</div></div>`;const cont=document.getElementById('venc-tabla');if(!filtrado.length){cont.innerHTML='<div class="inv-empty">Sin resultados con estos segmentadores.</div>';return;}filtrado.sort((a,b)=>(a.e.dias??999999)-(b.e.dias??999999));cont.innerHTML=`<table class="inv-table"><thead><tr><th>Estado</th><th>CEDI</th><th>Producto</th><th>Lote</th><th>Zona</th><th>Vencimiento</th><th>Días</th><th>Vida restante</th><th>Disponible</th><th>Valor</th></tr></thead><tbody>${filtrado.map(x=>`<tr><td><span class="inv-risk risk-${x.e.estado}">${etiquetaEstadoInventario(x.e.estado)}</span></td><td>${tEsc(x.r.cedi||'—')}</td><td class="inv-product">${tEsc(x.r.producto||'—')}</td><td>${tEsc(x.r.lote||'—')}</td><td><span class="inv-zone ${x.zona}">${x.zona==='picking'?'PICKING /1/':x.zona==='altura'?'ALTURA /2/':'OTRAS'}</span></td><td>${x.r.fecha_caducidad?new Date(x.r.fecha_caducidad).toLocaleDateString('es-CO'):'—'}</td><td style="font-weight:800">${x.e.dias??'—'}</td><td class="inv-pct">${x.e.pct!=null?x.e.pct.toFixed(1)+'%':'—'}</td><td>${Number(x.r.cantidad_disponible||0).toLocaleString('es-CO')}</td><td class="inv-money">${x.e.valor?formatoCOP(x.e.valor):'—'}</td></tr>`).join('')}</tbody></table>`;}
+function renderVencimientos(){const texto=document.getElementById('venc-filtro-texto').value.trim().toLowerCase(),crit=document.getElementById('venc-filtro-criticidad').value,zona=document.getElementById('venc-filtro-zona').value;const all=VENCIMIENTOS_CACHE.map(r=>({r,e:enriquecerVenc(r),zona:zonaInventario(r.ubicacion)}));const filtrado=all.filter(x=>{const r=x.r,e=x.e;const txt=!texto||[r.producto,r.lote,r.ubicacion,r.referencia].some(v=>String(v||'').toLowerCase().includes(texto));return txt&&(!crit||e.estado===crit)&&(!zona||x.zona===zona);});document.getElementById('venc-status').textContent=`${filtrado.length.toLocaleString('es-CO')} registros visibles de ${all.length.toLocaleString('es-CO')}.`;const stats={vencido:0,critico:0,prioridad:0,atencion:0,normal:0};let unidades=0,valor=0;all.forEach(x=>{stats[x.e.estado]=(stats[x.e.estado]||0)+1;if(['vencido','critico','prioridad'].includes(x.e.estado)){unidades+=Number(x.r.cantidad_disponible)||0;valor+=x.e.valor;}});document.getElementById('venc-kpis').innerHTML=Object.entries(stats).map(([g,n])=>`<div class="inv-kpi ${g==='vencido'||g==='critico'?'danger':g==='prioridad'?'warn':''}" style="cursor:default"><div class="inv-kpi-label">${etiquetaEstadoInventario(g)}</div><div class="inv-kpi-value">${n.toLocaleString('es-CO')}</div><div class="inv-kpi-meta">registros</div></div>`).join('')+`<div class="inv-kpi danger" style="cursor:default"><div class="inv-kpi-label">Valor en riesgo</div><div class="inv-kpi-value">${formatoCOP(valor)}</div><div class="inv-kpi-meta">${unidades.toLocaleString('es-CO')} unidades</div></div>`;renderGraficoDistribucionVencimientos(stats);const cont=document.getElementById('venc-tabla');if(!filtrado.length){cont.innerHTML='<div class="inv-empty">Sin resultados con estos segmentadores.</div>';return;}filtrado.sort((a,b)=>(a.e.dias??999999)-(b.e.dias??999999));cont.innerHTML=`<table class="inv-table"><thead><tr><th>Estado</th><th>CEDI</th><th>Producto</th><th>Lote</th><th>Zona</th><th>Vencimiento</th><th>Días</th><th>Vida restante</th><th>Disponible</th><th>Valor</th></tr></thead><tbody>${filtrado.map(x=>`<tr><td><span class="inv-risk risk-${x.e.estado}">${etiquetaEstadoInventario(x.e.estado)}</span></td><td>${tEsc(x.r.cedi||'—')}</td><td class="inv-product">${tEsc(x.r.producto||'—')}</td><td>${tEsc(x.r.lote||'—')}</td><td><span class="inv-zone ${x.zona}">${x.zona==='picking'?'PICKING /1/':x.zona==='altura'?'ALTURA /2/':'OTRAS'}</span></td><td>${x.r.fecha_caducidad?new Date(x.r.fecha_caducidad).toLocaleDateString('es-CO'):'—'}</td><td style="font-weight:800">${x.e.dias??'—'}</td><td class="inv-pct">${x.e.pct!=null?x.e.pct.toFixed(1)+'%':'—'}</td><td>${Number(x.r.cantidad_disponible||0).toLocaleString('es-CO')}</td><td class="inv-money">${x.e.valor?formatoCOP(x.e.valor):'—'}</td></tr>`).join('')}</tbody></table>`;}
+
+// Recalcula el mismo filtro/enriquecimiento que ya usa renderVencimientos(),
+// para que "Exportar" y "Enviar correo" siempre reflejen justo lo que se ve
+// en pantalla en ese momento (mismo texto/criticidad/zona filtrados).
+let CHART_DISTRIBUCION_VENCIMIENTOS = null;
+function renderGraficoDistribucionVencimientos(stats) {
+  const el = document.getElementById('venc-chart-distribucion');
+  if (!el) return;
+  const grupos = ['vencido', 'critico', 'prioridad', 'atencion', 'normal'];
+  const opciones = {
+    chart: { type: 'bar', height: 220, foreColor: '#cbd5e1', toolbar: { show: false } },
+    series: [{ name: 'Registros', data: grupos.map(g => stats[g] || 0) }],
+    xaxis: { categories: grupos.map(g => etiquetaEstadoInventario(g)) },
+    colors: ['#ef4444'],
+    plotOptions: { bar: { distributed: true, borderRadius: 4, horizontal: true } },
+    legend: { show: false },
+    dataLabels: { enabled: true, style: { colors: ['#fff'] } },
+    grid: { borderColor: '#1e3350' },
+  };
+  // Colorea cada barra según su nivel de riesgo (no todas del mismo color).
+  opciones.colors = grupos.map(g => ({ vencido: '#dc2626', critico: '#ea580c', prioridad: '#f59e0b', atencion: '#eab308', normal: '#16a34a' }[g]));
+  if (CHART_DISTRIBUCION_VENCIMIENTOS) { CHART_DISTRIBUCION_VENCIMIENTOS.updateOptions(opciones); return; }
+  CHART_DISTRIBUCION_VENCIMIENTOS = new ApexCharts(el, opciones);
+  CHART_DISTRIBUCION_VENCIMIENTOS.render();
+}
+
+document.getElementById('btn-venc-sugerencias-ia').addEventListener('click', async () => {
+  const panel = document.getElementById('venc-sugerencias-ia');
+  const cont = document.getElementById('venc-sugerencias-ia-texto');
+  panel.classList.remove('hidden');
+  cont.textContent = 'Generando sugerencias...';
+
+  const filas = filasVencimientosFiltradasActuales()
+    .filter(x => ['vencido', 'critico', 'prioridad'].includes(x.e.estado))
+    .sort((a, b) => (a.e.dias ?? 999999) - (b.e.dias ?? 999999))
+    .slice(0, 25)
+    .map(x => ({ producto: x.r.producto, lote: x.r.lote, cedi: x.r.cedi, dias_para_vencer: x.e.dias, disponible: x.r.cantidad_disponible, valor_en_riesgo: x.e.valor, zona: x.zona }));
+
+  if (!filas.length) { cont.textContent = 'No hay productos en riesgo con el filtro actual -- nada que priorizar.'; return; }
+
+  const { data, error } = await sb.functions.invoke('ai-asistente', { body: { tipo: 'sugerencias_vencimientos', contexto: { productos_en_riesgo: filas } } });
+  if (error || (data && data.error)) { cont.textContent = 'No se pudo generar (' + (data?.error || error.message) + ').'; return; }
+  cont.textContent = data.respuesta;
+});
+
+function filasVencimientosFiltradasActuales() {
+  const texto = document.getElementById('venc-filtro-texto').value.trim().toLowerCase();
+  const crit = document.getElementById('venc-filtro-criticidad').value;
+  const zona = document.getElementById('venc-filtro-zona').value;
+  return VENCIMIENTOS_CACHE.map(r => ({ r, e: enriquecerVenc(r), zona: zonaInventario(r.ubicacion) })).filter(x => {
+    const r = x.r;
+    const txt = !texto || [r.producto, r.lote, r.ubicacion, r.referencia].some(v => String(v || '').toLowerCase().includes(texto));
+    return txt && (!crit || x.e.estado === crit) && (!zona || x.zona === zona);
+  });
+}
+
+document.getElementById('btn-venc-exportar').addEventListener('click', () => {
+  const filas = filasVencimientosFiltradasActuales();
+  if (!filas.length) { mostrarToast('No hay datos para exportar con este filtro.'); return; }
+
+  const filasExcel = filas.map(x => ({
+    'Estado': etiquetaEstadoInventario(x.e.estado), 'CEDI': x.r.cedi, 'Producto': x.r.producto, 'Referencia': x.r.referencia,
+    'Lote': x.r.lote, 'Zona': x.zona === 'picking' ? 'Picking /1/' : x.zona === 'altura' ? 'Altura /2/' : 'Otras',
+    'Vencimiento': x.r.fecha_caducidad, 'Días': x.e.dias, 'Vida útil restante (%)': x.e.pct != null ? Number(x.e.pct.toFixed(1)) : null,
+    'Disponible': x.r.cantidad_disponible, 'Costo unitario': x.e.costo, 'Valor en riesgo': x.e.valor, 'Ubicación': x.r.ubicacion,
+  }));
+  const hoja = XLSX.utils.json_to_sheet(filasExcel);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, hoja, 'Vencimientos');
+  XLSX.writeFile(wb, `Vencimientos_${fechaColombiaHoy()}.xlsx`);
+});
+
+document.getElementById('btn-venc-enviar-correo').addEventListener('click', async () => {
+  const cedi = document.getElementById('venc-filtro-cedi').value;
+  const desde = document.getElementById('venc-filtro-desde').value || null;
+  const hasta = document.getElementById('venc-filtro-hasta').value || null;
+  const estado = document.getElementById('venc-status');
+
+  if (!cedi) {
+    mostrarToast('Elige un CEDI específico antes de enviar el correo (no se envía sin CEDI, para no mezclar destinatarios).');
+    return;
+  }
+
+  estado.textContent = 'Enviando correo...';
+  const { data, error } = await sb.functions.invoke('enviar-informe-vencimientos', { body: { cedi, desde, hasta } });
+
+  if (error || (data && data.error)) {
+    estado.textContent = 'Error al enviar: ' + (data?.error || error.message);
+    return;
+  }
+  estado.textContent = `Correo enviado a: ${data.enviado_a.join(', ')} (${data.filas} registros incluidos).`;
+  mostrarToast('Informe enviado correctamente.');
+});
 
 // ---------- Pestaña: Rotación FEFO ----------
 document.getElementById('btn-fefo-consultar').addEventListener('click', consultarFefo);
@@ -5791,7 +5967,79 @@ function renderControlSemanaFiltrado() {
     if(active) window.jdhActualizarNavPadre(active.dataset.modulo);
   },80);
 })();
+
+// ---------- Asistente flotante de IA (pregunta libre sobre la pantalla actual) ----------
+function obtenerContextoModuloActual() {
+  switch (MODULO_ACTUAL) {
+    case 'vencimientos':
+      return { pantalla: 'Control de Vencimientos', vencimientos: (typeof VENCIMIENTOS_CACHE !== 'undefined' ? VENCIMIENTOS_CACHE.slice(0, 80) : []), rotaciones_fefo: (typeof FEFO_CACHE !== 'undefined' ? FEFO_CACHE.slice(0, 40) : []) };
+    case 'inventario-wms':
+      return { pantalla: 'Inventario WMS', inventario: (typeof INVENTARIO_CACHE !== 'undefined' ? INVENTARIO_CACHE.slice(0, 80) : []) };
+    case 'torre':
+      return { pantalla: 'Torre de Control', resumen: ULTIMO_CONTEXTO_TORRE };
+    case 'rrhh-nomina':
+      return { pantalla: 'Liquidador de Nómina', nomina: (typeof NOMINA_CACHE !== 'undefined' ? NOMINA_CACHE.slice(0, 80) : []) };
+    case 'control-semana':
+      return { pantalla: 'Control Semana', control_semana: (typeof CONTROL_SEMANA_RESULTADO !== 'undefined' ? CONTROL_SEMANA_RESULTADO.slice(0, 80) : []) };
+    case 'registros':
+      return { pantalla: 'Registros', registros: (typeof REGISTROS_CACHE !== 'undefined' ? REGISTROS_CACHE.slice(0, 80) : []) };
+    default:
+      return { pantalla: NOMBRES_MODULO[MODULO_ACTUAL] || MODULO_ACTUAL, nota: 'No hay datos específicos cargados de esta pantalla para el asistente -- responde con lo que sepas en general.' };
+  }
+}
+
+document.getElementById('ia-flotante-btn').addEventListener('click', () => {
+  document.getElementById('ia-flotante-panel').classList.toggle('hidden');
+});
+document.getElementById('ia-flotante-cerrar').addEventListener('click', () => {
+  document.getElementById('ia-flotante-panel').classList.add('hidden');
+});
+
+async function enviarPreguntaIaFlotante() {
+  const input = document.getElementById('ia-flotante-input');
+  const pregunta = input.value.trim();
+  if (!pregunta) return;
+  const historial = document.getElementById('ia-flotante-historial');
+
+  historial.insertAdjacentHTML('beforeend', `<div style="align-self:flex-end;background:var(--accent,#2563eb);color:#fff;padding:7px 10px;border-radius:10px 10px 2px 10px;max-width:85%;">${tEsc(pregunta)}</div>`);
+  input.value = '';
+  historial.scrollTop = historial.scrollHeight;
+
+  const idRespuesta = 'ia-resp-' + Date.now();
+  historial.insertAdjacentHTML('beforeend', `<div id="${idRespuesta}" style="align-self:flex-start;background:#1e3350;padding:7px 10px;border-radius:10px 10px 10px 2px;max-width:90%;">Pensando...</div>`);
+  historial.scrollTop = historial.scrollHeight;
+
+  const contexto = obtenerContextoModuloActual();
+  const { data, error } = await sb.functions.invoke('ai-asistente', { body: { tipo: 'pregunta_libre', contexto, pregunta } });
+
+  const burbuja = document.getElementById(idRespuesta);
+  if (error || (data && data.error)) {
+    burbuja.textContent = 'Error: ' + (data?.error || error.message);
+  } else {
+    burbuja.textContent = data.respuesta;
+  }
+  historial.scrollTop = historial.scrollHeight;
+}
+
+document.getElementById('ia-flotante-enviar').addEventListener('click', enviarPreguntaIaFlotante);
+document.getElementById('ia-flotante-input').addEventListener('keydown', (e) => { if (e.key === 'Enter') enviarPreguntaIaFlotante(); });
 </script>
+
+<div id="ia-flotante-btn" title="Preguntar a IA sobre esta pantalla" style="position:fixed;bottom:22px;right:22px;width:52px;height:52px;border-radius:50%;background:var(--accent, #2563eb);color:#fff;display:flex;align-items:center;justify-content:center;font-size:22px;cursor:pointer;box-shadow:0 4px 14px rgba(0,0,0,.3);z-index:9000;">🤖</div>
+
+<div id="ia-flotante-panel" class="hidden" style="position:fixed;bottom:84px;right:22px;width:340px;max-height:460px;background:#0f2033;border-radius:14px;box-shadow:0 8px 30px rgba(0,0,0,.4);z-index:9000;display:flex;flex-direction:column;overflow:hidden;">
+  <div style="padding:12px 14px;border-bottom:1px solid #1e3350;display:flex;justify-content:space-between;align-items:center;">
+    <div style="color:#fff;font-size:13px;font-weight:700;">🤖 Preguntar a IA</div>
+    <div id="ia-flotante-cerrar" style="cursor:pointer;color:#6b829a;font-size:18px;">×</div>
+  </div>
+  <div id="ia-flotante-historial" style="flex:1;overflow-y:auto;padding:12px 14px;display:flex;flex-direction:column;gap:10px;font-size:12.5px;color:#cbd5e1;">
+    <div style="color:#6b829a;">Pregunta sobre lo que ves en esta pantalla -- ej. "¿cuáles rutas están fuera de OTIF?" o "¿qué operario tiene más horas extra?".</div>
+  </div>
+  <div style="padding:10px;border-top:1px solid #1e3350;display:flex;gap:6px;">
+    <input type="text" id="ia-flotante-input" placeholder="Escribe tu pregunta..." style="flex:1;padding:8px 10px;border-radius:8px;border:1px solid #1e3350;background:#0a1826;color:#fff;font-size:12.5px;">
+    <button class="btn" id="ia-flotante-enviar" style="padding:8px 12px;">➤</button>
+  </div>
+</div>
 
 </body>
 </html>
