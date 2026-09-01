@@ -105,6 +105,7 @@
       <tr>
         <th>CEDI</th><th>Rutas</th><th>Finalizadas</th><th>Fill Rate</th>
         <th>OTIF Picking</th><th>Picking tarde (&gt;4am)</th><th>OTIF Packing</th><th>Packing tarde (&gt;6am)</th><th>Total Kilos</th><th>Total Líneas</th><th>Duración</th><th>Takt Time</th><th>Proyección de fin</th>
+        <th>Prom. Pedidos/ruta</th><th>Prom. Líneas/ruta</th><th>Prom. Kilos/ruta</th><th>Prom. Visitas/ruta</th><th>Prom. Cargue (Packing)</th>
       </tr>
     </thead>
     <tbody id="comparacion-cedis-filas"></tbody>
@@ -776,6 +777,20 @@ async function cargarComparacionTodosCedis() {
 
     const { proyeccionTexto, taktPromedio } = calcularProyeccionYTakt(rutasCedi, finalizadas.length);
 
+    // Promedios por ruta de este CEDI -- para comparar CEDI por CEDI
+    const totalPedidosCedi = rutasCedi.reduce((s, r) => s + (r.pedidos || 0), 0);
+    const totalVisitasCedi = rutasCedi.reduce((s, r) => s + (r.visitas || 0), 0);
+    const promPedidosCedi = rutasCedi.length ? totalPedidosCedi / rutasCedi.length : null;
+    const promLineasCedi = rutasCedi.length ? totalLineas / rutasCedi.length : null;
+    const promKilosCedi = rutasCedi.length ? totalKilos / rutasCedi.length : null;
+    const promVisitasCedi = rutasCedi.length ? totalVisitasCedi / rutasCedi.length : null;
+    const duracionesPackingCedi = rutasCedi
+      .map(r => segundosTranscurridos(r.packing_iniciado_en, r.packing_pausado_desde, r.packing_segundos_pausados, r.packing_finalizado_en))
+      .filter(seg => seg != null);
+    const promCargueCedi = duracionesPackingCedi.length
+      ? (duracionesPackingCedi.reduce((s, seg) => s + seg, 0) / duracionesPackingCedi.length) / 60
+      : null;
+
     totalRutas += rutasCedi.length;
     totalFinalizadas += finalizadas.length;
     totalKilosGlobal += totalKilos;
@@ -797,6 +812,11 @@ async function cargarComparacionTodosCedis() {
       <td data-duracion-cedi="${cedi}">—</td>
       <td>${taktPromedio != null ? taktPromedio.toFixed(1) + 's' : '—'}</td>
       <td>${proyeccionTexto}</td>
+      <td>${promPedidosCedi != null ? promPedidosCedi.toFixed(1) : '—'}</td>
+      <td>${promLineasCedi != null ? promLineasCedi.toFixed(1) : '—'}</td>
+      <td>${promKilosCedi != null ? promKilosCedi.toLocaleString('es-CO', { maximumFractionDigits: 0 }) + ' kg' : '—'}</td>
+      <td>${promVisitasCedi != null ? promVisitasCedi.toFixed(1) : '—'}</td>
+      <td>${promCargueCedi != null ? promCargueCedi.toFixed(1) + ' min' : '—'}</td>
     </tr>`;
   }).join('');
 
