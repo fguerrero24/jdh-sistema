@@ -2595,8 +2595,8 @@ async function cargarModuloAdmin() {
   document.getElementById('admin-contenido').classList.toggle('hidden', !esAdmin);
   if (!esAdmin) return;
 
-  llenarSelectoresNuevoUsuario();
   await cargarCatalogosPermisos();
+  llenarSelectoresNuevoUsuario();
 
   const [{ data: perfiles, error }, { data: asignaciones }] = await Promise.all([
     sb.from('perfiles').select('*').order('nombre'),
@@ -2625,6 +2625,10 @@ function cambiarTabAdmin(cual) {
   document.querySelectorAll('.admin-tab').forEach(btn => btn.classList.remove('active'));
   const tab = document.getElementById('tab-admin-' + cual);
   if (tab) tab.classList.add('active');
+  // Se refresca cada vez que se entra a la pestaña -- así un rol creado o
+  // eliminado en la Matriz aparece de inmediato en Usuarios, sin necesitar
+  // recargar toda la página.
+  if (cual === 'usuarios') cargarModuloAdmin();
   if (cual === 'matriz') cargarMatrizPermisos();
   if (cual === 'auditoria') cargarAuditoria();
 }
@@ -2652,8 +2656,8 @@ function llenarSelectoresNuevoUsuario() {
     CARGOS_VALIDOS.forEach(c => selCargo.insertAdjacentHTML('beforeend', `<option value="${c}">${c}</option>`));
   }
   const selRol = document.getElementById('nuevo-usuario-rol');
-  if (!selRol.options.length) {
-    ROLES_VALIDOS.forEach(r => selRol.insertAdjacentHTML('beforeend', `<option value="${r.id}">${r.label}</option>`));
+  if (CATALOGO_ROLES_NUEVOS) {
+    selRol.innerHTML = CATALOGO_ROLES_NUEVOS.map(r => `<option value="${r.id}">${tEsc(r.nombre)}</option>`).join('');
   }
   const selCedi = document.getElementById('nuevo-usuario-cedi');
   if (selCedi.options.length <= 1) {
@@ -2663,12 +2667,22 @@ function llenarSelectoresNuevoUsuario() {
 
 document.getElementById('btn-crear-usuario').addEventListener('click', crearUsuarioNuevo);
 
+// El mismo mapeo que usa el disparador en la base de datos (rol_nuevo_id ->
+// rol viejo) -- se usa aquí solo para que la función en la nube que crea el
+// usuario (que todavía espera el campo viejo) reciba algo compatible. La
+// fuente de verdad real, de aquí en adelante, es rol_nuevo_id.
+const MAPA_ROL_NUEVO_A_VIEJO = {
+  administrador: 'admin', director_nacional: 'director_nacional', supply_chain: 'supply_chain',
+  coordinador_operaciones: 'coordinador_operaciones', director_logistico: 'director_logistico', usuario: 'usuario',
+};
+
 async function crearUsuarioNuevo() {
   const usuario = document.getElementById('nuevo-usuario-login').value.trim();
   const nombre = document.getElementById('nuevo-usuario-nombre').value.trim();
   const password = document.getElementById('nuevo-usuario-password').value;
   const cargo = document.getElementById('nuevo-usuario-cargo').value || null;
-  const rol = document.getElementById('nuevo-usuario-rol').value;
+  const rolNuevoId = document.getElementById('nuevo-usuario-rol').value;
+  const rolViejoCompatible = MAPA_ROL_NUEVO_A_VIEJO[rolNuevoId] || 'usuario';
   const cedi = document.getElementById('nuevo-usuario-cedi').value || null;
   const estado = document.getElementById('crear-usuario-status');
 
@@ -2684,12 +2698,19 @@ async function crearUsuarioNuevo() {
   estado.textContent = 'Creando usuario...';
 
   const { data, error } = await sb.functions.invoke('rapid-task', {
-    body: { usuario, nombre, cargo, rol, cedi, password },
+    body: { usuario, nombre, cargo, rol: rolViejoCompatible, cedi, password },
   });
 
   if (error || (data && data.error)) {
     estado.textContent = 'Error: ' + (data?.error || error.message);
     return;
+  }
+
+  // La función en la nube todavía no conoce rol_nuevo_id -- se lo asignamos
+  // aquí mismo justo después de crear el usuario, buscándolo por su login.
+  const { data: perfilNuevo } = await sb.from('perfiles').select('id').eq('usuario', usuario).single();
+  if (perfilNuevo) {
+    await sb.from('perfiles').update({ rol_nuevo_id: rolNuevoId || null }).eq('id', perfilNuevo.id);
   }
 
   estado.textContent = `Usuario "${usuario}" creado correctamente. Avísale su contraseña temporal por fuera de la app.`;
@@ -2728,7 +2749,7 @@ function renderUsuariosAdmin(usuarios, cedisAsignadosPorUsuario = {}) {
 
       <div class="admin-user-fields">
         <div class="admin-field"><label>Cargo</label><select class="admin-cargo"><option value="">Sin cargo</option>${CARGOS_VALIDOS.map(c => `<option value="${c}" ${u.cargo === c ? 'selected' : ''}>${c}</option>`).join('')}</select></div>
-        <div class="admin-field"><label>Rol actual</label><select class="admin-rol">${ROLES_VALIDOS.map(r => `<option value="${r.id}" ${u.rol === r.id ? 'selected' : ''}>${r.label}</option>`).join('')}</select></div>
+        <div class="admin-field"><label>Rol</label><select class="admin-rol-nuevo"><option value="">Sin asignar todavía</option>${CATALOGO_ROLES_NUEVOS.map(r => `<option value="${r.id}" ${u.rol_nuevo_id === r.id ? 'selected' : ''}>${tEsc(r.nombre)}</option>`).join('')}</select></div>
         <div class="admin-field"><label>CEDI actual</label><select class="admin-cedi"><option value="">Sin CEDI</option>${CEDIS_VALIDOS.map(c => `<option value="${c}" ${u.cedi === c ? 'selected' : ''}>${c}</option>`).join('')}</select></div>
         <div class="admin-field"><label>Estado</label><select class="admin-activo"><option value="true" ${u.activo ? 'selected' : ''}>Activo</option><option value="false" ${!u.activo ? 'selected' : ''}>Inactivo</option></select></div>
         <button class="btn" data-guardar-perfil="${u.id}"><i class="ti ti-device-floppy"></i> Guardar</button>
@@ -2740,7 +2761,6 @@ function renderUsuariosAdmin(usuarios, cedisAsignadosPorUsuario = {}) {
       </div>
 
       <div class="admin-user-access">
-        <div class="admin-field"><label>Rol nuevo · sistema de permisos</label><select class="admin-rol-nuevo"><option value="">Sin asignar todavía</option>${CATALOGO_ROLES_NUEVOS.map(r => `<option value="${r.id}" ${u.rol_nuevo_id === r.id ? 'selected' : ''}>${tEsc(r.nombre)}</option>`).join('')}</select></div>
         <div class="admin-field"><label>Alcance de CEDI</label><select class="admin-alcance-cedi"><option value="propio" ${u.alcance_cedi === 'propio' ? 'selected' : ''}>Solo su CEDI</option><option value="asignados" ${u.alcance_cedi === 'asignados' ? 'selected' : ''}>CEDIs asignados</option><option value="todos" ${u.alcance_cedi === 'todos' ? 'selected' : ''}>Todos los CEDIs</option></select></div>
       </div>
 
@@ -2772,7 +2792,6 @@ function renderUsuariosAdmin(usuarios, cedisAsignadosPorUsuario = {}) {
 async function guardarPerfilAdmin(perfilId) {
   const card = document.querySelector(`[data-perfil="${perfilId}"]`);
   const cargo = card.querySelector('.admin-cargo').value || null;
-  const rol = card.querySelector('.admin-rol').value;
   const cedi = card.querySelector('.admin-cedi').value || null;
   const activo = card.querySelector('.admin-activo').value === 'true';
   const puede_editar_registros = card.querySelector('.admin-puede-editar').checked;
@@ -2786,8 +2805,11 @@ async function guardarPerfilAdmin(perfilId) {
     return;
   }
 
+  // "rol" (el campo viejo) ya no se toca desde aquí -- un disparador en la
+  // base de datos lo mantiene sincronizado automáticamente a partir de
+  // rol_nuevo_id, para que Rutas/Auditores sigan funcionando igual.
   const { error } = await sb.from('perfiles')
-    .update({ cargo, rol, cedi, activo, puede_editar_registros, puede_eliminar_registros, rol_nuevo_id, alcance_cedi })
+    .update({ cargo, cedi, activo, puede_editar_registros, puede_eliminar_registros, rol_nuevo_id, alcance_cedi })
     .eq('id', perfilId);
 
   if (error) { mostrarToast('No se pudo guardar: ' + error.message); return; }
