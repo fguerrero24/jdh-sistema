@@ -2285,6 +2285,7 @@ async function importarCargue() {
     pedido: ['Nro documento', 'Documento'],
     visita: ['Desc. sucursal despacho', 'Cliente'],
     peso: ['Peso en KL', 'Peso', 'Pedida en KL'],
+    valor_venta: ['Valor subtotal', 'Valor total'],
   };
   function valorPor(fila, concepto) {
     for (const nombreCol of ALIAS[concepto]) {
@@ -2335,13 +2336,14 @@ async function importarCargue() {
 
     const key = cedi + '||' + rutaNombre;
     if (!grupos[key]) {
-      grupos[key] = { cedi, ruta_nombre: rutaNombre, pedidosSet: new Set(), visitasSet: new Set(), lineas: 0, peso: 0 };
+      grupos[key] = { cedi, ruta_nombre: rutaNombre, pedidosSet: new Set(), visitasSet: new Set(), lineas: 0, peso: 0, valor_venta: 0 };
     }
     const g = grupos[key];
     g.pedidosSet.add(pedido);
     g.visitasSet.add(String(valorPor(fila, 'visita')));
     g.lineas += 1;
     g.peso += Number(valorPor(fila, 'peso')) || 0;
+    g.valor_venta += Number(valorPor(fila, 'valor_venta')) || 0;
   });
 
   if (sinMapeoCo.size) {
@@ -2357,6 +2359,7 @@ async function importarCargue() {
     lineas: g.lineas,
     peso: Math.round(g.peso * 100) / 100,
     visitas: g.visitasSet.size,
+    valor_venta: Math.round(g.valor_venta * 100) / 100,
   }));
 
   const cedis = [...new Set(registros.map(r => r.cedi))];
@@ -2366,7 +2369,7 @@ async function importarCargue() {
     const nombres = existentes.map(e => e.ruta_nombre).join(', ');
     const confirmar = confirm(
       `Ya hay ${existentes.length} ruta(s) cargadas para el ${fecha}: ${nombres}.\n\n` +
-      `Si continúas, se actualizan los datos de Pedidos/Líneas/Peso/Visitas de las rutas que coincidan ` +
+      `Si continúas, se actualizan los datos de Pedidos/Líneas/Peso/Visitas/Valor de venta de las rutas que coincidan ` +
       `(el progreso de Picking/Packing/Muelle/Auditor NO se pierde). ¿Seguro que quieres importar de nuevo?`
     );
     if (!confirmar) { estado.textContent = 'Importación cancelada.'; return; }
@@ -2454,7 +2457,7 @@ function renderListaRutas(rutas) {
         <div>
           <div style="display:inline-block;background:var(--jdh-blue);color:#fff;font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px;margin-bottom:4px;">${tEsc(r.cedi)}</div>
           <div class="indicator-name">${tEsc(r.ruta_nombre)}</div>
-          <div class="indicator-meta">${r.pedidos} pedidos · ${r.lineas} líneas · ${Number(r.peso).toLocaleString('es-CO',{maximumFractionDigits:0})} kg · ${r.visitas} visitas</div>
+          <div class="indicator-meta">${r.pedidos} pedidos · ${r.lineas} líneas · ${Number(r.peso).toLocaleString('es-CO',{maximumFractionDigits:0})} kg · ${r.visitas} visitas · $ ${Number(r.valor_venta || 0).toLocaleString('es-CO',{maximumFractionDigits:0})}</div>
         </div>
         <button class="hist-toggle" data-eliminar-ruta="${r.id}" style="color:var(--crit-dot)">Eliminar ruta</button>
       </div>
