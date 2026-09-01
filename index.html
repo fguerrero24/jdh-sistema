@@ -5152,6 +5152,10 @@ function renderControlSemanaFiltrado() {
   document.body.appendChild(fly);
 
   const groups={
+    inventario:{
+      id:'grupo-inventario', title:'Inventario', icon:'ti-package',
+      items:[['inventario-wms','Inventario WMS','ti-package']]
+    },
     recepcion:{
       id:'grupo-recepcion', title:'Recepción y despacho', icon:'ti-truck-delivery',
       items:[['recepcion-importar','Importar cargue','ti-file-import'],['recepcion-rutas','Rutas del día','ti-route'],['recepcion-ranking','Ranking de auditores','ti-trophy']]
@@ -5179,7 +5183,7 @@ function renderControlSemanaFiltrado() {
   function render(groupKey){
     const g=groups[groupKey]; currentGroup=groupKey;
     let body='';
-    if(groupKey==='recepcion'){
+    if(groupKey==='recepcion' || groupKey==='inventario'){
       body=g.items.filter(x=>visible(x[0])).map(x=>'<div class="flyout-item" data-mod="'+x[0]+'"><i class="ti '+x[2]+'"></i><span>'+x[1]+'</span></div>').join('');
     } else {
       const first=g.items.filter(x=>x[0]==='rrhh-empleados'||x[0]==='rrhh-registros').filter(x=>visible(x[0]));
@@ -5199,7 +5203,8 @@ function renderControlSemanaFiltrado() {
   function close(){clearTimeout(hideTimer);hideTimer=setTimeout(()=>fly.classList.remove('open'),120);}
 
   rail.querySelectorAll('.sidebar-item[data-modulo-grupo]').forEach(el=>{
-    const key=el.id==='grupo-recepcion'?'recepcion':'rrhh';
+    const key=el.id==='grupo-recepcion'?'recepcion':(el.id==='grupo-inventario'?'inventario':(el.id==='grupo-rrhh'?'rrhh':null));
+    if(!key) return; // grupo-nomina, por ejemplo, es un sub-grupo -- no tiene flyout propio
     el.addEventListener('mouseenter',()=>render(key));
     el.addEventListener('mouseleave',()=>close());
   });
@@ -5211,6 +5216,7 @@ function renderControlSemanaFiltrado() {
     rail.querySelectorAll('.nav-parent-active').forEach(x=>x.classList.remove('nav-parent-active'));
     if(String(modulo).startsWith('recepcion-')) rail.querySelector('#grupo-recepcion')?.classList.add('nav-parent-active');
     if(String(modulo).startsWith('rrhh-')) rail.querySelector('#grupo-rrhh')?.classList.add('nav-parent-active');
+    if(String(modulo).startsWith('inventario-')) rail.querySelector('#grupo-inventario')?.classList.add('nav-parent-active');
   };
 
   /* Reaplica después de cada cambio de módulo sin tocar la función original. */
