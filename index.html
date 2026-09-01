@@ -4487,19 +4487,66 @@ document.getElementById('btn-imp-procesar').addEventListener('click', async () =
     else filasProcesadas.push(registro);
   });
 
-  IMPORTACION_FILAS_PROCESADAS = filasProcesadas;
+  // PostgreSQL no permite que un mismo INSERT ... ON CONFLICT DO UPDATE
+  // intente afectar dos veces la misma fila. Por eso deduplicamos por la
+  // misma clave que usa el upsert (Referencia), antes de dividir en lotes.
+  // Se conserva la ÚLTIMA aparición, que normalmente corresponde al dato
+  // más reciente/completo del archivo. También normalizamos espacios y
+  // mayúsculas para evitar duplicados como "ABC123" y " ABC123 ".
+  const normalizarClaveImportacion = valor => String(valor ?? '')
+    .trim()
+    .replace(/\s+/g, ' ')
+    .toUpperCase();
 
-  estado.textContent = `${filasProcesadas.length} registro(s) listos para importar` +
-    (erroresFilas.length ? `. ${erroresFilas.length} fila(s) se ignoraron por no traer "${Object.entries(config.columnas).find(([,d]) => d.requerido)[1].alias[0]}" (filas: ${erroresFilas.slice(0, 15).join(', ')}${erroresFilas.length > 15 ? '...' : ''}).` : '.');
+  const indicesPorClave = new Map();
+  const duplicadosImportacion = [];
+  filasProcesadas.forEach((registro, indice) => {
+    const clave = normalizarClaveImportacion(registro[config.conflicto]);
+    if (!clave) return;
+    if (indicesPorClave.has(clave)) {
+      duplicadosImportacion.push({
+        clave,
+        filaAnterior: indicesPorClave.get(clave) + 2,
+        filaNueva: indice + 2
+      });
+    }
+    indicesPorClave.set(clave, indice);
+  });
+
+  const filasUnicas = Array.from(indicesPorClave.values())
+    .sort((a, b) => a - b)
+    .map(indice => filasProcesadas[indice]);
+
+  IMPORTACION_FILAS_PROCESADAS = filasUnicas;
+
+  const textoDuplicados = duplicadosImportacion.length
+    ? ` Se eliminaron ${duplicadosImportacion.length} duplicado(s) por "${config.conflicto}"; se conserva la última aparición.`
+    : '';
+  const textoErrores = erroresFilas.length
+    ? `. ${erroresFilas.length} fila(s) se ignoraron por no traer "${Object.entries(config.columnas).find(([,d]) => d.requerido)[1].alias[0]}" (filas: ${erroresFilas.slice(0, 15).join(', ')}${erroresFilas.length > 15 ? '...' : ''})`
+    : '';
+
+  estado.textContent = `${filasUnicas.length} registro(s) únicos listos para importar${textoDuplicados}${textoErrores}.`;
 
   const columnasVista = Object.keys(config.columnas);
   document.getElementById('imp-preview').innerHTML = `
-    <p style="font-size:12px;color:var(--text-secondary);">Vista previa (primeras 10 filas):</p>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin:10px 0;">
+      <span class="chip">${filasProcesadas.length.toLocaleString('es-CO')} filas válidas</span>
+      <span class="chip" style="${duplicadosImportacion.length ? 'border-color:#f59e0b;color:#b45309;' : ''}">${duplicadosImportacion.length.toLocaleString('es-CO')} duplicados eliminados</span>
+      <span class="chip">${filasUnicas.length.toLocaleString('es-CO')} registros a importar</span>
+    </div>
+    ${duplicadosImportacion.length ? `<details style="margin:8px 0 14px;">
+      <summary style="cursor:pointer;font-size:12px;font-weight:700;color:#b45309;">Ver referencias duplicadas (${duplicadosImportacion.length})</summary>
+      <div style="margin-top:8px;max-height:180px;overflow:auto;font-size:11px;color:var(--text-secondary);">${
+        duplicadosImportacion.slice(0, 100).map(d => `<div style="padding:3px 0;border-bottom:1px solid var(--border);"><strong>${tEsc(d.clave)}</strong> · filas ${d.filaAnterior} → ${d.filaNueva} (se conserva ${d.filaNueva})</div>`).join('')
+      }${duplicadosImportacion.length > 100 ? `<div style="padding-top:6px;">... y ${duplicadosImportacion.length - 100} más.</div>` : ''}</div>
+    </details>` : ''}
+    <p style="font-size:12px;color:var(--text-secondary);">Vista previa (primeras 10 filas únicas):</p>
     <table class="hist-table open"><tr>${columnasVista.map(c => `<th>${tEsc(c)}</th>`).join('')}</tr>${
-      filasProcesadas.slice(0, 10).map(r => `<tr>${columnasVista.map(c => `<td>${tEsc(r[c] ?? '—')}</td>`).join('')}</tr>`).join('')
+      filasUnicas.slice(0, 10).map(r => `<tr>${columnasVista.map(c => `<td>${tEsc(r[c] ?? '—')}</td>`).join('')}</tr>`).join('')
     }</table>`;
 
-  document.getElementById('btn-imp-confirmar').classList.toggle('hidden', filasProcesadas.length === 0);
+  document.getElementById('btn-imp-confirmar').classList.toggle('hidden', filasUnicas.length === 0);
 });
 
 document.getElementById('btn-imp-confirmar').addEventListener('click', async () => {
@@ -4515,12 +4562,33 @@ document.getElementById('btn-imp-confirmar').addEventListener('click', async () 
 
   const TAM_LOTE = 500;
   let importados = 0;
-  for (let i = 0; i < IMPORTACION_FILAS_PROCESADAS.length; i += TAM_LOTE) {
-    const lote = IMPORTACION_FILAS_PROCESADAS.slice(i, i + TAM_LOTE).map(r => ({ ...r, actualizado_en: new Date().toISOString(), actualizado_por: SESION.id }));
+  const total = IMPORTACION_FILAS_PROCESADAS.length;
+
+  for (let i = 0; i < total; i += TAM_LOTE) {
+    // Segunda barrera de seguridad: aunque el arreglo ya fue deduplicado,
+    // cada lote vuelve a validarse contra la clave de conflicto.
+    const mapaLote = new Map();
+    IMPORTACION_FILAS_PROCESADAS.slice(i, i + TAM_LOTE).forEach(r => {
+      const clave = String(r[config.conflicto] ?? '').trim().replace(/\s+/g, ' ').toUpperCase();
+      if (clave) mapaLote.set(clave, r);
+    });
+
+    const lote = Array.from(mapaLote.values()).map(r => ({
+      ...r,
+      actualizado_en: new Date().toISOString(),
+      actualizado_por: SESION.id
+    }));
+
+    if (!lote.length) continue;
+
     const { error } = await sb.from(config.tabla).upsert(lote, { onConflict: config.conflicto });
-    if (error) { estado.textContent = `Error en el lote ${i}-${i + TAM_LOTE}: ${error.message}`; boton.disabled = false; return; }
+    if (error) {
+      estado.textContent = `Error en el lote ${i + 1}-${Math.min(i + TAM_LOTE, total)}: ${error.message}`;
+      boton.disabled = false;
+      return;
+    }
     importados += lote.length;
-    estado.textContent = `Importando... ${importados}/${IMPORTACION_FILAS_PROCESADAS.length}`;
+    estado.textContent = `Importando... ${importados.toLocaleString('es-CO')}/${total.toLocaleString('es-CO')}`;
   }
 
   boton.disabled = false;
