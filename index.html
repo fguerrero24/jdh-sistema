@@ -992,7 +992,8 @@ input:focus,select:focus,textarea:focus{outline:none!important;border-color:#176
       </div>
       <div class="sidebar-item active" data-modulo="torre"><i class="ti ti-broadcast"></i>Torre de control</div>
       <div class="sidebar-item" data-modulo="indicadores"><i class="ti ti-chart-bar"></i>Indicadores</div>
-      <div class="sidebar-item locked" data-modulo="inventario"><i class="ti ti-package"></i>Inventario<span class="sidebar-badge">pronto</span></div>
+      <div class="sidebar-item" data-modulo-grupo="inventario" id="grupo-inventario"><i class="ti ti-package"></i>Inventario<i class="ti ti-chevron-down" style="margin-left:auto;font-size:13px;"></i></div>
+      <div class="sidebar-item sidebar-sub hidden" data-modulo="inventario-wms" style="padding-left:38px;font-size:11.5px;">Inventario WMS</div>
       <div class="sidebar-item" data-modulo-grupo="recepcion" id="grupo-recepcion"><i class="ti ti-truck-delivery"></i>Recepción y despacho<i class="ti ti-chevron-down" style="margin-left:auto;font-size:13px;"></i></div>
       <div class="sidebar-item sidebar-sub hidden" data-modulo="recepcion-importar" style="padding-left:38px;font-size:11.5px;">Importar cargue</div>
       <div class="sidebar-item sidebar-sub hidden" data-modulo="recepcion-rutas" style="padding-left:38px;font-size:11.5px;">Rutas del día</div>
@@ -1039,6 +1040,17 @@ input:focus,select:focus,textarea:focus{outline:none!important;border-color:#176
           <div class="note-banner">Los indicadores diarios y semanales se acumulan para obtener el resultado mensual. En indicadores de porcentaje y ratio se acumulan numeradores y denominadores; no se promedian porcentajes diarios.</div>
           <div class="indicator-list" id="indicator-list"></div>
           <div class="empty-state hidden" id="empty-indicadores">No tienes indicadores asignados a tu cargo todavía.</div>
+        </div>
+
+        <div id="view-inventario" class="hidden">
+          <div class="section-label" style="margin-top:0;">Inventario WMS (Odoo)</div>
+          <div class="indicator-fields" style="border:none;padding:0;">
+            <button class="btn" id="btn-sync-inventario"><i class="ti ti-refresh"></i> Actualizar inventario desde Odoo</button>
+            <div class="indicator-field"><label>CEDI</label><select id="inv-filtro-cedi"><option value="">Todos</option></select></div>
+            <div class="indicator-field"><label>Buscar producto o código</label><input type="text" id="inv-filtro-producto" placeholder="Escribe para filtrar..."></div>
+          </div>
+          <div id="inv-status" style="font-size:12px;color:var(--text-secondary);margin:8px 0;"></div>
+          <div id="inv-tabla"></div>
         </div>
 
         <div id="view-locked" class="hidden">
@@ -1666,7 +1678,7 @@ async function cargarSesionYArrancar() {
 // matriz de permisos. Varios ítems del menú pueden apuntar al mismo
 // módulo de permisos (ej. "Empleados y Asistencia" cubre 2 módulos).
 const MAPA_MENU_A_PERMISO = {
-  'torre': ['torre'], 'indicadores': ['indicadores'], 'inventario': ['inventario'],
+  'torre': ['torre'], 'indicadores': ['indicadores'], 'inventario-wms': ['inventario'],
   'recepcion-importar': ['importar-cargue'], 'recepcion-rutas': ['rutas-del-dia'], 'recepcion-ranking': ['ranking-auditores'],
   'reportes': ['reportes'],
   'rrhh-empleados': ['empleados', 'asistencia'], 'rrhh-registros': ['registros'], 'rrhh-nomina': ['liquidador-nomina'],
@@ -1677,6 +1689,7 @@ const MAPA_MENU_A_PERMISO = {
 // Qué ítems de menú pertenecen a cada grupo desplegable (para poder ocultar
 // el grupo COMPLETO si ninguno de sus hijos quedó visible).
 const GRUPOS_MENU = {
+  'grupo-inventario': ['inventario-wms'],
   'grupo-recepcion': ['recepcion-importar', 'recepcion-rutas', 'recepcion-ranking'],
   'grupo-rrhh': ['rrhh-empleados', 'rrhh-registros', 'rrhh-nomina', 'rrhh-control-semana', 'rrhh-liquidador', 'rrhh-cedi', 'rrhh-compensatorios', 'rrhh-historico'],
   'grupo-nomina': ['rrhh-nomina', 'rrhh-control-semana', 'rrhh-liquidador', 'rrhh-cedi', 'rrhh-compensatorios', 'rrhh-historico'],
@@ -1735,7 +1748,7 @@ function mostrarLogin(mensaje) {
 // NAVEGACIÓN ENTRE MÓDULOS
 // ============================================================
 const NOMBRES_MODULO = {
-  torre: 'Torre de control', indicadores: 'Indicadores', inventario: 'Inventario',
+  torre: 'Torre de control', indicadores: 'Indicadores', 'inventario-wms': 'Inventario · Inventario WMS',
   'recepcion-importar': 'Recepción y despacho · Importar cargue',
   'recepcion-rutas': 'Recepción y despacho · Rutas del día',
   'recepcion-ranking': 'Recepción y despacho · Ranking de auditores',
@@ -1754,6 +1767,9 @@ document.querySelectorAll('.sidebar-item[data-modulo]').forEach(el => {
   el.addEventListener('click', () => cambiarModulo(el.dataset.modulo));
 });
 
+document.getElementById('grupo-inventario').addEventListener('click', () => {
+  document.querySelectorAll('#grupo-inventario ~ .sidebar-sub[data-modulo^="inventario-"]').forEach(el => el.classList.toggle('hidden'));
+});
 document.getElementById('grupo-recepcion').addEventListener('click', () => {
   document.querySelectorAll('#grupo-recepcion ~ .sidebar-sub[data-modulo^="recepcion-"]').forEach(el => el.classList.toggle('hidden'));
 });
@@ -1795,6 +1811,7 @@ function cambiarModulo(modulo) {
   document.getElementById('view-rrhh-cedi').classList.toggle('hidden', modulo !== 'rrhh-cedi' || bloqueado);
   document.getElementById('view-rrhh-compensatorios').classList.toggle('hidden', modulo !== 'rrhh-compensatorios' || bloqueado);
   document.getElementById('view-rrhh-historico').classList.toggle('hidden', modulo !== 'rrhh-historico' || bloqueado);
+  document.getElementById('view-inventario').classList.toggle('hidden', modulo !== 'inventario-wms' || bloqueado);
   document.getElementById('view-locked').classList.toggle('hidden', !bloqueado);
 
   if (bloqueado) {
@@ -1818,6 +1835,7 @@ function cambiarModulo(modulo) {
   if (modulo === 'rrhh-cedi') cargarModuloRrhhCedi();
   if (modulo === 'rrhh-compensatorios') cargarModuloCompensatorios();
   if (modulo === 'rrhh-historico') cargarModuloHistorico();
+  if (modulo === 'inventario-wms') cargarModuloInventario();
 }
 
 // Orden lógico según el proceso físico de la bodega (no alfabético).
@@ -3974,6 +3992,91 @@ async function cargarLiquidaciones() {
       <td>${tEsc(l.periodo_inicio)} a ${tEsc(l.periodo_fin)}</td>
       <td>${fmt$(l.valor_total)}</td>
       <td>${tEsc(l.observaciones || '')}</td>
+    </tr>`).join('')
+  }</table>`;
+}
+
+// ============================================================
+// MÓDULO DE INVENTARIO (WMS / Odoo)
+// ============================================================
+let INVENTARIO_CACHE = [];
+
+async function cargarModuloInventario() {
+  const selCedi = document.getElementById('inv-filtro-cedi');
+  if (selCedi.options.length <= 1) {
+    CEDIS_VALIDOS.forEach(c => selCedi.insertAdjacentHTML('beforeend', `<option value="${c}">${c}</option>`));
+  }
+  await traerInventario();
+}
+
+document.getElementById('btn-sync-inventario').addEventListener('click', async () => {
+  const estado = document.getElementById('inv-status');
+  const boton = document.getElementById('btn-sync-inventario');
+  boton.disabled = true;
+  estado.textContent = 'Conectando con Odoo y trayendo el inventario... esto puede tardar uno o dos minutos.';
+
+  const { data, error } = await sb.functions.invoke('sync-inventario-odoo');
+
+  boton.disabled = false;
+  if (error || (data && data.error)) {
+    estado.textContent = 'Error al sincronizar: ' + (data?.error || error.message);
+    return;
+  }
+
+  estado.textContent = `Listo: ${data.filas.toLocaleString('es-CO')} filas actualizadas desde Odoo (de ${data.total_odoo.toLocaleString('es-CO')} registros totales en stock.quant).`;
+  await traerInventario();
+});
+
+async function traerInventario() {
+  const estado = document.getElementById('inv-status');
+  const cedi = document.getElementById('inv-filtro-cedi').value;
+
+  let q = sb.from('inventario_wms').select('*').order('producto').limit(3000);
+  if (cedi) q = q.eq('cedi', cedi);
+  else if (!puedeVerTodosLosCedis()) q = q.eq('cedi', SESION.cedi);
+
+  const { data, error } = await q;
+  if (error) { estado.textContent = 'Error al cargar: ' + error.message; return; }
+
+  INVENTARIO_CACHE = data || [];
+  if (INVENTARIO_CACHE.length) {
+    const masReciente = INVENTARIO_CACHE.reduce((max, r) => r.actualizado_en > max ? r.actualizado_en : max, INVENTARIO_CACHE[0].actualizado_en);
+    estado.textContent = `${INVENTARIO_CACHE.length.toLocaleString('es-CO')} registro(s) (máximo 3000 a la vez). Última actualización desde Odoo: ${new Date(masReciente).toLocaleString('es-CO')}.`;
+  } else {
+    estado.textContent = 'Sin inventario cargado todavía -- dale clic a "Actualizar inventario desde Odoo".';
+  }
+  renderInventario();
+}
+
+document.getElementById('inv-filtro-cedi').addEventListener('change', traerInventario);
+document.getElementById('inv-filtro-producto').addEventListener('input', renderInventario);
+
+function renderInventario() {
+  const texto = document.getElementById('inv-filtro-producto').value.trim().toLowerCase();
+  const filtrado = texto
+    ? INVENTARIO_CACHE.filter(r =>
+        (r.producto || '').toLowerCase().includes(texto) ||
+        (r.codigo_barras_ubicacion || '').toLowerCase().includes(texto))
+    : INVENTARIO_CACHE;
+
+  const cont = document.getElementById('inv-tabla');
+  if (!filtrado.length) { cont.innerHTML = '<div class="empty-state">No hay inventario con ese filtro.</div>'; return; }
+
+  cont.innerHTML = `<table class="hist-table open"><tr>
+      <th>CEDI</th><th>Producto</th><th>Ubicación</th><th>Lote</th><th>Paquete</th>
+      <th>Fecha caducidad</th><th>Cant. inventario</th><th>Cant. disponible</th><th>UM</th><th>Código de barras</th>
+    </tr>${
+    filtrado.map(r => `<tr>
+      <td>${tEsc(r.cedi || '—')}</td>
+      <td>${tEsc(r.producto)}</td>
+      <td>${tEsc(r.ubicacion || '—')}</td>
+      <td>${tEsc(r.lote || '—')}</td>
+      <td>${tEsc(r.paquete || '—')}</td>
+      <td>${r.fecha_caducidad ? new Date(r.fecha_caducidad).toLocaleDateString('es-CO') : '—'}</td>
+      <td>${Number(r.cantidad_inventario).toLocaleString('es-CO')}</td>
+      <td>${Number(r.cantidad_disponible).toLocaleString('es-CO')}</td>
+      <td>${tEsc(r.unidad_medida || '—')}</td>
+      <td>${tEsc(r.codigo_barras_ubicacion || '—')}</td>
     </tr>`).join('')
   }</table>`;
 }
