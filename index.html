@@ -994,6 +994,7 @@ input:focus,select:focus,textarea:focus{outline:none!important;border-color:#176
       <div class="sidebar-item" data-modulo="indicadores"><i class="ti ti-chart-bar"></i>Indicadores</div>
       <div class="sidebar-item" data-modulo-grupo="inventario" id="grupo-inventario"><i class="ti ti-package"></i>Inventario<i class="ti ti-chevron-down" style="margin-left:auto;font-size:13px;"></i></div>
       <div class="sidebar-item sidebar-sub hidden" data-modulo="inventario-wms" style="padding-left:38px;font-size:11.5px;">Inventario WMS</div>
+      <div class="sidebar-item sidebar-sub hidden" data-modulo="vencimientos" style="padding-left:38px;font-size:11.5px;">Vencimientos</div>
       <div class="sidebar-item" data-modulo-grupo="recepcion" id="grupo-recepcion"><i class="ti ti-truck-delivery"></i>Recepción y despacho<i class="ti ti-chevron-down" style="margin-left:auto;font-size:13px;"></i></div>
       <div class="sidebar-item sidebar-sub hidden" data-modulo="recepcion-importar" style="padding-left:38px;font-size:11.5px;">Importar cargue</div>
       <div class="sidebar-item sidebar-sub hidden" data-modulo="recepcion-rutas" style="padding-left:38px;font-size:11.5px;">Rutas del día</div>
@@ -1051,6 +1052,54 @@ input:focus,select:focus,textarea:focus{outline:none!important;border-color:#176
           </div>
           <div id="inv-status" style="font-size:12px;color:var(--text-secondary);margin:8px 0;"></div>
           <div id="inv-tabla"></div>
+        </div>
+
+        <div id="view-vencimientos" class="hidden">
+          <div class="section-label" style="margin-top:0;">Control de Vencimientos</div>
+
+          <div style="display:flex;gap:8px;margin-bottom:10px;">
+            <button class="btn ghost admin-tab active" id="tab-venc-tabla">Vencimientos</button>
+            <button class="btn ghost admin-tab" id="tab-venc-fefo">Rotación FEFO</button>
+            <button class="btn ghost admin-tab" id="tab-venc-destinatarios">Destinatarios</button>
+          </div>
+
+          <div id="panel-venc-tabla">
+            <div class="indicator-fields" style="border:none;padding:0;">
+              <div class="indicator-field"><label>CEDI</label><select id="venc-filtro-cedi"><option value="">Todos</option></select></div>
+              <div class="indicator-field"><label>Vence desde</label><input type="date" id="venc-filtro-desde"></div>
+              <div class="indicator-field"><label>Vence hasta</label><input type="date" id="venc-filtro-hasta"></div>
+              <div class="indicator-field"><label>Buscar producto o lote</label><input type="text" id="venc-filtro-texto" placeholder="Escribe para filtrar..."></div>
+              <button class="btn" id="btn-venc-consultar">Consultar</button>
+              <button class="btn ghost" id="btn-venc-exportar">Exportar a Excel</button>
+              <button class="btn ghost" id="btn-venc-enviar-correo">📧 Enviar correo (CEDI filtrado)</button>
+            </div>
+            <div id="venc-kpis" style="display:flex;gap:10px;flex-wrap:wrap;margin:12px 0;"></div>
+            <div id="venc-status" style="font-size:12px;color:var(--text-secondary);margin:8px 0;"></div>
+            <div id="venc-tabla"></div>
+          </div>
+
+          <div id="panel-venc-fefo" class="hidden">
+            <div class="indicator-fields" style="border:none;padding:0;">
+              <div class="indicator-field"><label>CEDI</label><select id="fefo-filtro-cedi"><option value="">Todos</option></select></div>
+              <button class="btn" id="btn-fefo-consultar">Consultar</button>
+              <button class="btn ghost" id="btn-fefo-exportar">Exportar a Excel</button>
+            </div>
+            <div id="fefo-kpis" style="display:flex;gap:10px;flex-wrap:wrap;margin:12px 0;"></div>
+            <div id="fefo-status" style="font-size:12px;color:var(--text-secondary);margin:8px 0;"></div>
+            <div id="fefo-tabla"></div>
+          </div>
+
+          <div id="panel-venc-destinatarios" class="hidden">
+            <p style="font-size:12.5px;color:var(--text-secondary);">Cada CEDI tiene su propia lista -- el correo de Vencimientos solo se manda a los destinatarios configurados para el CEDI que filtres al momento de enviarlo.</p>
+            <div class="indicator-fields" style="border:none;padding:0;">
+              <div class="indicator-field"><label>CEDI</label><select id="dest-nuevo-cedi"></select></div>
+              <div class="indicator-field"><label>Correo</label><input type="email" id="dest-nuevo-email" placeholder="nombre@empresa.com"></div>
+              <div class="indicator-field"><label>Nombre (opcional)</label><input type="text" id="dest-nuevo-nombre" placeholder="Para identificarlo"></div>
+              <button class="btn" id="btn-dest-agregar">+ Agregar destinatario</button>
+            </div>
+            <div id="dest-status" style="font-size:12px;color:var(--text-secondary);margin:8px 0;"></div>
+            <div id="dest-tabla"></div>
+          </div>
         </div>
 
         <div id="view-locked" class="hidden">
@@ -1678,7 +1727,7 @@ async function cargarSesionYArrancar() {
 // matriz de permisos. Varios ítems del menú pueden apuntar al mismo
 // módulo de permisos (ej. "Empleados y Asistencia" cubre 2 módulos).
 const MAPA_MENU_A_PERMISO = {
-  'torre': ['torre'], 'indicadores': ['indicadores'], 'inventario-wms': ['inventario'],
+  'torre': ['torre'], 'indicadores': ['indicadores'], 'inventario-wms': ['inventario'], 'vencimientos': ['vencimientos'],
   'recepcion-importar': ['importar-cargue'], 'recepcion-rutas': ['rutas-del-dia'], 'recepcion-ranking': ['ranking-auditores'],
   'reportes': ['reportes'],
   'rrhh-empleados': ['empleados', 'asistencia'], 'rrhh-registros': ['registros'], 'rrhh-nomina': ['liquidador-nomina'],
@@ -1689,7 +1738,7 @@ const MAPA_MENU_A_PERMISO = {
 // Qué ítems de menú pertenecen a cada grupo desplegable (para poder ocultar
 // el grupo COMPLETO si ninguno de sus hijos quedó visible).
 const GRUPOS_MENU = {
-  'grupo-inventario': ['inventario-wms'],
+  'grupo-inventario': ['inventario-wms', 'vencimientos'],
   'grupo-recepcion': ['recepcion-importar', 'recepcion-rutas', 'recepcion-ranking'],
   'grupo-rrhh': ['rrhh-empleados', 'rrhh-registros', 'rrhh-nomina', 'rrhh-control-semana', 'rrhh-liquidador', 'rrhh-cedi', 'rrhh-compensatorios', 'rrhh-historico'],
   'grupo-nomina': ['rrhh-nomina', 'rrhh-control-semana', 'rrhh-liquidador', 'rrhh-cedi', 'rrhh-compensatorios', 'rrhh-historico'],
@@ -1748,7 +1797,7 @@ function mostrarLogin(mensaje) {
 // NAVEGACIÓN ENTRE MÓDULOS
 // ============================================================
 const NOMBRES_MODULO = {
-  torre: 'Torre de control', indicadores: 'Indicadores', 'inventario-wms': 'Inventario · Inventario WMS',
+  torre: 'Torre de control', indicadores: 'Indicadores', 'inventario-wms': 'Inventario · Inventario WMS', vencimientos: 'Inventario · Vencimientos',
   'recepcion-importar': 'Recepción y despacho · Importar cargue',
   'recepcion-rutas': 'Recepción y despacho · Rutas del día',
   'recepcion-ranking': 'Recepción y despacho · Ranking de auditores',
@@ -1768,7 +1817,7 @@ document.querySelectorAll('.sidebar-item[data-modulo]').forEach(el => {
 });
 
 document.getElementById('grupo-inventario').addEventListener('click', () => {
-  document.querySelectorAll('#grupo-inventario ~ .sidebar-sub[data-modulo^="inventario-"]').forEach(el => el.classList.toggle('hidden'));
+  document.querySelectorAll('.sidebar-sub[data-modulo="inventario-wms"], .sidebar-sub[data-modulo="vencimientos"]').forEach(el => el.classList.toggle('hidden'));
 });
 document.getElementById('grupo-recepcion').addEventListener('click', () => {
   document.querySelectorAll('#grupo-recepcion ~ .sidebar-sub[data-modulo^="recepcion-"]').forEach(el => el.classList.toggle('hidden'));
@@ -1812,6 +1861,7 @@ function cambiarModulo(modulo) {
   document.getElementById('view-rrhh-compensatorios').classList.toggle('hidden', modulo !== 'rrhh-compensatorios' || bloqueado);
   document.getElementById('view-rrhh-historico').classList.toggle('hidden', modulo !== 'rrhh-historico' || bloqueado);
   document.getElementById('view-inventario').classList.toggle('hidden', modulo !== 'inventario-wms' || bloqueado);
+  document.getElementById('view-vencimientos').classList.toggle('hidden', modulo !== 'vencimientos' || bloqueado);
   document.getElementById('view-locked').classList.toggle('hidden', !bloqueado);
 
   if (bloqueado) {
@@ -1836,6 +1886,7 @@ function cambiarModulo(modulo) {
   if (modulo === 'rrhh-compensatorios') cargarModuloCompensatorios();
   if (modulo === 'rrhh-historico') cargarModuloHistorico();
   if (modulo === 'inventario-wms') cargarModuloInventario();
+  if (modulo === 'vencimientos') cargarModuloVencimientos();
 }
 
 // Orden lógico según el proceso físico de la bodega (no alfabético).
@@ -1882,6 +1933,32 @@ async function cargarTorreControl() {
     <div class="kpi-card"><div class="kpi-label">Fuera de meta</div><div class="kpi-value bad">${fuera}</div></div>
     <div class="kpi-card"><div class="kpi-label">Sin datos</div><div class="kpi-value">${sinDatos}</div></div>
   `;
+
+  // ---------- Tarjetas de Vencimientos, alimentadas por el módulo de Control de Vencimientos ----------
+  const cediTorreVenc = puedeVerTodosLosCedis() ? null : SESION.cedi;
+  const { data: resumenVenc } = await sb.rpc('resumen_vencimientos_torre', { p_cedi: cediTorreVenc });
+  if (resumenVenc && resumenVenc[0]) {
+    const rv = resumenVenc[0];
+    document.getElementById('torre-kpis').insertAdjacentHTML('beforeend', `
+      <div class="kpi-card" id="torre-card-vencimientos-criticos" style="cursor:pointer;border-left:4px solid var(--crit-dot);" title="Ver Control de Vencimientos">
+        <div class="kpi-label">🔴 Vencimientos críticos (≤15 días)</div><div class="kpi-value bad">${rv.vencimientos_criticos}</div>
+      </div>
+      <div class="kpi-card" style="border-left:4px solid #f59e0b;">
+        <div class="kpi-label">🟠 Próximos 30 días</div><div class="kpi-value">${rv.proximos_30_dias}</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">📦 Unidades en riesgo (≤30 días)</div><div class="kpi-value">${Number(rv.unidades_en_riesgo).toLocaleString('es-CO')}</div>
+      </div>
+      <div class="kpi-card" id="torre-card-rotaciones-urgentes" style="cursor:pointer;border-left:4px solid var(--crit-dot);" title="Ver Rotación FEFO">
+        <div class="kpi-label">🔄 Rotaciones urgentes</div><div class="kpi-value bad">${rv.rotaciones_urgentes}</div>
+      </div>
+    `);
+    document.getElementById('torre-card-vencimientos-criticos')?.addEventListener('click', () => cambiarModulo('vencimientos'));
+    document.getElementById('torre-card-rotaciones-urgentes')?.addEventListener('click', () => {
+      cambiarModulo('vencimientos');
+      setTimeout(() => { cambiarTabVencimientos('fefo'); if (!FEFO_CACHE.length) consultarFefo(); }, 50);
+    });
+  }
 
   if (puedeVerTodosLosCedis()) {
     document.getElementById('torre-comparacion-cedis').classList.remove('hidden');
@@ -4082,6 +4159,240 @@ function renderInventario() {
 }
 
 // ============================================================
+// MÓDULO DE CONTROL DE VENCIMIENTOS
+// ============================================================
+let VENCIMIENTOS_CACHE = [];
+let FEFO_CACHE = [];
+
+const COLORES_CATEGORIA_VENC = {
+  'Vencido': 'var(--crit-dot)', 'Crítico (0-15 días)': '#ea580c', 'Alta prioridad (16-30 días)': '#f59e0b',
+  'Seguimiento (31-60 días)': '#eab308', 'Sin riesgo (>60 días)': '#16a34a', 'Sin fecha': '#9ca3af',
+};
+const COLORES_FEFO = {
+  'Rotación urgente': 'var(--crit-dot)', 'Rotación recomendada': '#f59e0b', 'Revisar': '#eab308', 'FEFO correcto': '#16a34a',
+};
+
+async function cargarModuloVencimientos() {
+  ['venc-filtro-cedi', 'fefo-filtro-cedi', 'dest-nuevo-cedi'].forEach(id => {
+    const sel = document.getElementById(id);
+    if (sel.options.length <= (id === 'dest-nuevo-cedi' ? 0 : 1)) {
+      CEDIS_VALIDOS.forEach(c => sel.insertAdjacentHTML('beforeend', `<option value="${c}">${c}</option>`));
+    }
+  });
+  cambiarTabVencimientos('tabla');
+  await consultarVencimientos();
+}
+
+document.getElementById('tab-venc-tabla').addEventListener('click', () => cambiarTabVencimientos('tabla'));
+document.getElementById('tab-venc-fefo').addEventListener('click', () => { cambiarTabVencimientos('fefo'); if (!FEFO_CACHE.length) consultarFefo(); });
+document.getElementById('tab-venc-destinatarios').addEventListener('click', () => { cambiarTabVencimientos('destinatarios'); cargarDestinatarios(); });
+
+function cambiarTabVencimientos(cual) {
+  document.getElementById('panel-venc-tabla').classList.toggle('hidden', cual !== 'tabla');
+  document.getElementById('panel-venc-fefo').classList.toggle('hidden', cual !== 'fefo');
+  document.getElementById('panel-venc-destinatarios').classList.toggle('hidden', cual !== 'destinatarios');
+  document.querySelectorAll('#view-vencimientos .admin-tab').forEach(b => b.classList.remove('active'));
+  document.getElementById('tab-venc-' + cual).classList.add('active');
+}
+
+// ---------- Pestaña: Tabla de vencimientos ----------
+document.getElementById('btn-venc-consultar').addEventListener('click', consultarVencimientos);
+document.getElementById('venc-filtro-texto').addEventListener('input', renderVencimientos);
+
+async function consultarVencimientos() {
+  const estado = document.getElementById('venc-status');
+  const cedi = document.getElementById('venc-filtro-cedi').value || null;
+  const desde = document.getElementById('venc-filtro-desde').value || null;
+  const hasta = document.getElementById('venc-filtro-hasta').value || null;
+
+  estado.textContent = 'Consultando...';
+  const { data, error } = await sb.rpc('analisis_vencimientos', { p_cedi: cedi, p_desde: desde, p_hasta: hasta });
+  if (error) { estado.textContent = 'Error: ' + error.message; return; }
+
+  VENCIMIENTOS_CACHE = data || [];
+  renderVencimientos();
+}
+
+function renderVencimientos() {
+  const texto = document.getElementById('venc-filtro-texto').value.trim().toLowerCase();
+  const filtrado = texto
+    ? VENCIMIENTOS_CACHE.filter(r => (r.producto || '').toLowerCase().includes(texto) || (r.lote || '').toLowerCase().includes(texto))
+    : VENCIMIENTOS_CACHE;
+
+  document.getElementById('venc-status').textContent = `${filtrado.length.toLocaleString('es-CO')} registro(s) de ${VENCIMIENTOS_CACHE.length.toLocaleString('es-CO')}.`;
+
+  const conteos = {};
+  let unidadesEnRiesgo = 0;
+  VENCIMIENTOS_CACHE.forEach(r => {
+    conteos[r.categoria] = (conteos[r.categoria] || 0) + 1;
+    if (r.dias_para_vencer != null && r.dias_para_vencer <= 30) unidadesEnRiesgo += Number(r.cantidad_disponible) || 0;
+  });
+
+  document.getElementById('venc-kpis').innerHTML = Object.entries(conteos).map(([cat, n]) => `
+    <div class="kpi-card" style="border-left:4px solid ${COLORES_CATEGORIA_VENC[cat] || '#999'};">
+      <div class="kpi-label">${tEsc(cat)}</div><div class="kpi-value">${n}</div>
+    </div>`).join('') + `
+    <div class="kpi-card" style="border-left:4px solid var(--jdh-blue);">
+      <div class="kpi-label">Unidades en riesgo (≤30 días)</div><div class="kpi-value">${unidadesEnRiesgo.toLocaleString('es-CO')}</div>
+    </div>`;
+
+  const cont = document.getElementById('venc-tabla');
+  if (!filtrado.length) { cont.innerHTML = '<div class="empty-state">Sin resultados con este filtro.</div>'; return; }
+
+  cont.innerHTML = `<table class="hist-table open"><tr>
+      <th></th><th>CEDI</th><th>Producto</th><th>Lote</th><th>Vencimiento</th><th>Días</th>
+      <th>Inventario</th><th>Disponible</th><th>Ubicación</th>
+    </tr>${filtrado.map(r => `<tr>
+      <td><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${COLORES_CATEGORIA_VENC[r.categoria] || '#999'};" title="${tEsc(r.categoria)}"></span></td>
+      <td>${tEsc(r.cedi || '—')}</td>
+      <td>${tEsc(r.producto)}</td>
+      <td>${tEsc(r.lote || '—')}</td>
+      <td>${r.fecha_caducidad ? new Date(r.fecha_caducidad).toLocaleDateString('es-CO') : '—'}</td>
+      <td style="font-weight:700;color:${r.dias_para_vencer != null && r.dias_para_vencer < 0 ? 'var(--crit-dot)' : 'inherit'}">${r.dias_para_vencer ?? '—'}</td>
+      <td>${Number(r.cantidad_inventario).toLocaleString('es-CO')}</td>
+      <td>${Number(r.cantidad_disponible).toLocaleString('es-CO')}</td>
+      <td>${tEsc(r.ubicacion || '—')}</td>
+    </tr>`).join('')}</table>`;
+}
+
+document.getElementById('btn-venc-exportar').addEventListener('click', () => {
+  if (!VENCIMIENTOS_CACHE.length) { mostrarToast('No hay datos para exportar -- consulta primero.'); return; }
+  const filas = VENCIMIENTOS_CACHE.map(r => ({
+    'CEDI': r.cedi, 'Producto': r.producto, 'Lote': r.lote, 'Categoría': r.categoria,
+    'Vencimiento': r.fecha_caducidad, 'Días': r.dias_para_vencer,
+    'Cant. inventario': r.cantidad_inventario, 'Cant. disponible': r.cantidad_disponible, 'Ubicación': r.ubicacion,
+  }));
+  const hoja = XLSX.utils.json_to_sheet(filas);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, hoja, 'Vencimientos');
+  XLSX.writeFile(wb, `Vencimientos_${fechaColombiaHoy()}.xlsx`);
+});
+
+document.getElementById('btn-venc-enviar-correo').addEventListener('click', async () => {
+  const cedi = document.getElementById('venc-filtro-cedi').value;
+  const desde = document.getElementById('venc-filtro-desde').value || null;
+  const hasta = document.getElementById('venc-filtro-hasta').value || null;
+  const estado = document.getElementById('venc-status');
+
+  if (!cedi) {
+    mostrarToast('Elige un CEDI específico antes de enviar el correo (no se envía sin CEDI, para no mezclar destinatarios).');
+    return;
+  }
+
+  estado.textContent = 'Enviando correo...';
+  const { data, error } = await sb.functions.invoke('enviar-informe-vencimientos', { body: { cedi, desde, hasta } });
+
+  if (error || (data && data.error)) {
+    estado.textContent = 'Error al enviar: ' + (data?.error || error.message);
+    return;
+  }
+  estado.textContent = `Correo enviado a: ${data.enviado_a.join(', ')} (${data.filas} registros incluidos).`;
+  mostrarToast('Informe enviado correctamente.');
+});
+
+// ---------- Pestaña: Rotación FEFO ----------
+document.getElementById('btn-fefo-consultar').addEventListener('click', consultarFefo);
+
+async function consultarFefo() {
+  const estado = document.getElementById('fefo-status');
+  const cedi = document.getElementById('fefo-filtro-cedi').value || null;
+
+  estado.textContent = 'Consultando...';
+  const { data, error } = await sb.rpc('analisis_fefo', { p_cedi: cedi });
+  if (error) { estado.textContent = 'Error: ' + error.message; return; }
+
+  FEFO_CACHE = data || [];
+  estado.textContent = `${FEFO_CACHE.length.toLocaleString('es-CO')} pareja(s) producto+lote comparadas entre Picking y Packing.`;
+  renderFefo();
+}
+
+function renderFefo() {
+  const conteos = {};
+  FEFO_CACHE.forEach(r => { conteos[r.clasificacion] = (conteos[r.clasificacion] || 0) + 1; });
+
+  document.getElementById('fefo-kpis').innerHTML = Object.entries(conteos).map(([cat, n]) => `
+    <div class="kpi-card" style="border-left:4px solid ${COLORES_FEFO[cat] || '#999'};">
+      <div class="kpi-label">${tEsc(cat)}</div><div class="kpi-value">${n}</div>
+    </div>`).join('');
+
+  const cont = document.getElementById('fefo-tabla');
+  if (!FEFO_CACHE.length) { cont.innerHTML = '<div class="empty-state">No hay parejas Picking/Packing del mismo producto y lote para comparar.</div>'; return; }
+
+  cont.innerHTML = `<table class="hist-table open"><tr>
+      <th></th><th>CEDI</th><th>Producto</th><th>Lote</th><th>Vence Picking</th><th>Vence Packing</th>
+      <th>Diferencia</th><th>Cant. Picking</th><th>Cant. Packing</th><th>Acción sugerida</th>
+    </tr>${FEFO_CACHE.map(r => `<tr ${r.clasificacion === 'Rotación urgente' ? 'style="background:var(--crit-bg)"' : ''}>
+      <td><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${COLORES_FEFO[r.clasificacion] || '#999'};" title="${tEsc(r.clasificacion)}"></span></td>
+      <td>${tEsc(r.cedi || '—')}</td>
+      <td>${tEsc(r.producto)}</td>
+      <td>${tEsc(r.lote || '—')}</td>
+      <td>${r.fecha_picking ? new Date(r.fecha_picking).toLocaleDateString('es-CO') : '—'}</td>
+      <td>${r.fecha_packing ? new Date(r.fecha_packing).toLocaleDateString('es-CO') : '—'}</td>
+      <td style="font-weight:700;">${r.diferencia_dias ?? '—'} días</td>
+      <td>${Number(r.cantidad_picking).toLocaleString('es-CO')}</td>
+      <td>${Number(r.cantidad_packing).toLocaleString('es-CO')}</td>
+      <td style="font-size:11.5px;color:var(--text-secondary);">${tEsc(r.accion_sugerida)}</td>
+    </tr>`).join('')}</table>`;
+}
+
+document.getElementById('btn-fefo-exportar').addEventListener('click', () => {
+  if (!FEFO_CACHE.length) { mostrarToast('No hay datos para exportar -- consulta primero.'); return; }
+  const filas = FEFO_CACHE.map(r => ({
+    'CEDI': r.cedi, 'Producto': r.producto, 'Lote': r.lote, 'Clasificación': r.clasificacion,
+    'Vence Picking': r.fecha_picking, 'Vence Packing': r.fecha_packing, 'Diferencia (días)': r.diferencia_dias,
+    'Cant. Picking': r.cantidad_picking, 'Cant. Packing': r.cantidad_packing, 'Acción sugerida': r.accion_sugerida,
+  }));
+  const hoja = XLSX.utils.json_to_sheet(filas);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, hoja, 'Rotacion FEFO');
+  XLSX.writeFile(wb, `Rotacion_FEFO_${fechaColombiaHoy()}.xlsx`);
+});
+
+// ---------- Pestaña: Destinatarios por CEDI ----------
+document.getElementById('btn-dest-agregar').addEventListener('click', async () => {
+  const cedi = document.getElementById('dest-nuevo-cedi').value;
+  const email = document.getElementById('dest-nuevo-email').value.trim();
+  const nombre = document.getElementById('dest-nuevo-nombre').value.trim() || null;
+  const estado = document.getElementById('dest-status');
+
+  if (!email || !email.includes('@')) { estado.textContent = 'Escribe un correo válido.'; return; }
+
+  const { error } = await sb.from('destinatarios_vencimientos').insert({ cedi, email, nombre });
+  if (error) { estado.textContent = 'Error: ' + error.message; return; }
+
+  document.getElementById('dest-nuevo-email').value = '';
+  document.getElementById('dest-nuevo-nombre').value = '';
+  estado.textContent = 'Destinatario agregado.';
+  cargarDestinatarios();
+});
+
+async function cargarDestinatarios() {
+  const estado = document.getElementById('dest-status');
+  const { data, error } = await sb.from('destinatarios_vencimientos').select('*').order('cedi').order('email');
+  if (error) { estado.textContent = 'Error: ' + error.message; return; }
+
+  const cont = document.getElementById('dest-tabla');
+  if (!data || !data.length) { cont.innerHTML = '<div class="empty-state">Todavía no hay destinatarios configurados en ningún CEDI.</div>'; return; }
+
+  cont.innerHTML = `<table class="hist-table open"><tr><th>CEDI</th><th>Correo</th><th>Nombre</th><th>Activo</th><th></th></tr>${
+    data.map(d => `<tr>
+      <td>${tEsc(d.cedi)}</td><td>${tEsc(d.email)}</td><td>${tEsc(d.nombre || '—')}</td>
+      <td>${d.activo ? 'Sí' : 'No'}</td>
+      <td><button class="hist-toggle" data-eliminar-destinatario="${d.id}" style="color:var(--crit-dot)">Eliminar</button></td>
+    </tr>`).join('')
+  }</table>`;
+
+  cont.querySelectorAll('[data-eliminar-destinatario]').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      if (!confirm('¿Eliminar este destinatario?')) return;
+      const { error } = await sb.from('destinatarios_vencimientos').delete().eq('id', btn.dataset.eliminarDestinatario);
+      if (error) { mostrarToast('Error: ' + error.message); return; }
+      cargarDestinatarios();
+    });
+  });
+}
+
+// ============================================================
 // MÓDULO DE COMPENSATORIOS
 // ============================================================
 // ---------- HISTÓRICO (Liquidaciones y Asistencia día a día) ----------
@@ -5154,7 +5465,7 @@ function renderControlSemanaFiltrado() {
   const groups={
     inventario:{
       id:'grupo-inventario', title:'Inventario', icon:'ti-package',
-      items:[['inventario-wms','Inventario WMS','ti-package']]
+      items:[['inventario-wms','Inventario WMS','ti-package'],['vencimientos','Vencimientos','ti-calendar-exclamation']]
     },
     recepcion:{
       id:'grupo-recepcion', title:'Recepción y despacho', icon:'ti-truck-delivery',
@@ -5216,7 +5527,7 @@ function renderControlSemanaFiltrado() {
     rail.querySelectorAll('.nav-parent-active').forEach(x=>x.classList.remove('nav-parent-active'));
     if(String(modulo).startsWith('recepcion-')) rail.querySelector('#grupo-recepcion')?.classList.add('nav-parent-active');
     if(String(modulo).startsWith('rrhh-')) rail.querySelector('#grupo-rrhh')?.classList.add('nav-parent-active');
-    if(String(modulo).startsWith('inventario-')) rail.querySelector('#grupo-inventario')?.classList.add('nav-parent-active');
+    if(String(modulo).startsWith('inventario-') || modulo === 'vencimientos') rail.querySelector('#grupo-inventario')?.classList.add('nav-parent-active');
   };
 
   /* Reaplica después de cada cambio de módulo sin tocar la función original. */
