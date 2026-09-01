@@ -953,6 +953,21 @@ input:focus,select:focus,textarea:focus{outline:none!important;border-color:#176
 .matriz-fila-oculta{display:none;}
 
 </style>
+
+<style id="jdh-inventory-vanguard">
+/* ============================================================
+   JDH INVENTARIO 2026 — Control Tower / Exception Management
+   ============================================================ */
+.inv-hero{position:relative;overflow:hidden;border:1px solid var(--border,#e5e7eb);border-radius:18px;padding:18px 20px;margin-bottom:14px;background:linear-gradient(135deg,#ffffff 0%,#f5f8ff 55%,#eef4ff 100%);box-shadow:0 8px 28px rgba(15,23,42,.07)}
+.inv-hero:after{content:"";position:absolute;width:220px;height:220px;right:-70px;top:-120px;border-radius:50%;background:rgba(37,99,235,.08);pointer-events:none}
+.inv-hero-top{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;position:relative;z-index:1}.inv-eyebrow{font-size:10px;font-weight:800;letter-spacing:.13em;text-transform:uppercase;color:#2563eb}.inv-title{font-size:22px;font-weight:800;letter-spacing:-.03em;color:#0f172a;margin:3px 0}.inv-subtitle{font-size:12px;color:#64748b;max-width:720px}.inv-sync{display:flex;align-items:center;gap:8px;white-space:nowrap}
+.inv-kpis{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:10px;margin:12px 0 14px}.inv-kpi{border:1px solid #e5e7eb;border-radius:14px;padding:12px 13px;background:#fff;min-width:0;box-shadow:0 3px 14px rgba(15,23,42,.04);cursor:pointer;transition:.18s transform,.18s box-shadow,.18s border-color}.inv-kpi:hover{transform:translateY(-2px);box-shadow:0 8px 22px rgba(15,23,42,.08);border-color:#bfdbfe}.inv-kpi.active{border-color:#2563eb;box-shadow:0 0 0 2px rgba(37,99,235,.12)}.inv-kpi-label{font-size:10px;color:#64748b;font-weight:700;text-transform:uppercase;letter-spacing:.05em}.inv-kpi-value{font-size:20px;font-weight:850;letter-spacing:-.03em;color:#0f172a;margin-top:4px}.inv-kpi-meta{font-size:10px;color:#94a3b8;margin-top:2px}.inv-kpi.danger .inv-kpi-value{color:#dc2626}.inv-kpi.warn .inv-kpi-value{color:#d97706}.inv-kpi.good .inv-kpi-value{color:#15803d}.inv-kpi.info .inv-kpi-value{color:#2563eb}
+.inv-filterbar{border:1px solid #e5e7eb;border-radius:16px;background:#fff;padding:12px;margin-bottom:12px;box-shadow:0 4px 16px rgba(15,23,42,.04)}.inv-filter-row{display:grid;grid-template-columns:1.1fr 1.1fr 1.2fr 1.1fr 1.5fr auto;gap:9px;align-items:end}.inv-filter label{display:block;font-size:10px;text-transform:uppercase;font-weight:800;letter-spacing:.05em;color:#64748b;margin:0 0 5px}.inv-filter select,.inv-filter input{width:100%;height:36px;border:1px solid #dbe2ea;border-radius:9px;padding:0 10px;background:#f8fafc;color:#0f172a;font-size:12px;outline:none}.inv-filter select:focus,.inv-filter input:focus{border-color:#60a5fa;box-shadow:0 0 0 3px rgba(59,130,246,.1);background:#fff}.inv-filter-actions{display:flex;gap:6px}.inv-chiprow{display:flex;gap:6px;flex-wrap:wrap;margin-top:9px}.inv-chip{border:1px solid #dbe2ea;background:#f8fafc;color:#475569;border-radius:999px;padding:6px 10px;font-size:10px;font-weight:750;cursor:pointer}.inv-chip:hover,.inv-chip.active{background:#eff6ff;border-color:#93c5fd;color:#1d4ed8}.inv-chip.danger.active{background:#fef2f2;border-color:#fca5a5;color:#b91c1c}.inv-chip.warn.active{background:#fff7ed;border-color:#fdba74;color:#c2410c}
+.inv-section{border:1px solid #e5e7eb;border-radius:16px;background:#fff;overflow:hidden;box-shadow:0 4px 16px rgba(15,23,42,.04)}.inv-section-head{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:13px 15px;border-bottom:1px solid #edf1f5}.inv-section-title{font-weight:800;font-size:13px;color:#0f172a}.inv-section-note{font-size:10px;color:#94a3b8}.inv-table-wrap{overflow:auto;max-height:62vh}.inv-table{width:100%;border-collapse:separate;border-spacing:0;font-size:11px}.inv-table th{position:sticky;top:0;z-index:2;background:#f8fafc;color:#64748b;text-transform:uppercase;letter-spacing:.04em;font-size:9px;font-weight:800;padding:10px;border-bottom:1px solid #e2e8f0;text-align:left;white-space:nowrap}.inv-table td{padding:9px 10px;border-bottom:1px solid #f1f5f9;color:#334155;white-space:nowrap}.inv-table tr:hover td{background:#f8fbff}.inv-product{font-weight:750;color:#0f172a;max-width:260px;white-space:normal}.inv-zone{display:inline-flex;align-items:center;border-radius:999px;padding:4px 7px;font-size:9px;font-weight:800}.inv-zone.picking{background:#eff6ff;color:#1d4ed8}.inv-zone.altura{background:#f5f3ff;color:#6d28d9}.inv-zone.other{background:#f1f5f9;color:#64748b}.inv-risk{display:inline-flex;align-items:center;gap:5px;border-radius:999px;padding:4px 8px;font-size:9px;font-weight:800}.inv-risk:before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor}.risk-vencido{background:#fef2f2;color:#b91c1c}.risk-critico{background:#fff1f2;color:#be123c}.risk-prioridad{background:#fff7ed;color:#c2410c}.risk-atencion{background:#fefce8;color:#a16207}.risk-normal{background:#f0fdf4;color:#15803d}.risk-sinvida{background:#f1f5f9;color:#64748b}.inv-money{font-weight:800;color:#0f172a}.inv-pct{font-variant-numeric:tabular-nums;font-weight:800}.inv-empty{padding:32px;text-align:center;color:#64748b;font-size:12px}
+.inv-exception-grid{display:grid;grid-template-columns:1.4fr .8fr;gap:12px;margin-bottom:12px}.inv-alert{border:1px solid #fee2e2;background:linear-gradient(135deg,#fff,#fff7f7);border-radius:16px;padding:14px}.inv-alert h4{margin:0 0 8px;font-size:12px}.inv-alert-row{display:grid;grid-template-columns:1fr auto auto;gap:10px;align-items:center;padding:8px 0;border-bottom:1px solid #f1f5f9;font-size:11px}.inv-alert-row:last-child{border-bottom:0}.inv-mini-card{border:1px solid #e5e7eb;border-radius:16px;padding:14px;background:#fff}.inv-mini-value{font-size:24px;font-weight:850;color:#0f172a}.inv-mini-label{font-size:10px;color:#64748b;text-transform:uppercase;font-weight:800}.inv-progress{height:7px;border-radius:99px;background:#eef2f7;overflow:hidden;margin-top:9px}.inv-progress>span{display:block;height:100%;border-radius:99px;background:linear-gradient(90deg,#2563eb,#60a5fa)}
+.fefo-hero{border:1px solid #dbeafe;background:linear-gradient(135deg,#eff6ff,#fff);border-radius:16px;padding:14px 16px;margin-bottom:12px}.fefo-hero-title{font-weight:850;color:#0f172a;font-size:14px}.fefo-hero-copy{font-size:11px;color:#64748b;margin-top:3px}.fefo-kpis-modern{display:grid;grid-template-columns:repeat(4,1fr);gap:9px;margin:12px 0}.fefo-kpi{border:1px solid #e5e7eb;border-radius:13px;padding:11px;background:#fff}.fefo-kpi-label{font-size:9px;color:#64748b;font-weight:800;text-transform:uppercase}.fefo-kpi-value{font-size:19px;font-weight:850;margin-top:3px}.fefo-table .hist-table{font-size:11px}
+@media(max-width:1100px){.inv-kpis{grid-template-columns:repeat(3,1fr)}.inv-filter-row{grid-template-columns:repeat(3,1fr)}.inv-exception-grid{grid-template-columns:1fr}}@media(max-width:700px){.inv-kpis{grid-template-columns:repeat(2,1fr)}.inv-filter-row{grid-template-columns:1fr}.inv-hero-top{flex-direction:column}.fefo-kpis-modern{grid-template-columns:repeat(2,1fr)}}
+</style>
 </head>
 <body>
 
@@ -995,6 +1010,7 @@ input:focus,select:focus,textarea:focus{outline:none!important;border-color:#176
       <div class="sidebar-item" data-modulo-grupo="inventario" id="grupo-inventario"><i class="ti ti-package"></i>Inventario<i class="ti ti-chevron-down" style="margin-left:auto;font-size:13px;"></i></div>
       <div class="sidebar-item sidebar-sub hidden" data-modulo="inventario-wms" style="padding-left:38px;font-size:11.5px;">Inventario WMS</div>
       <div class="sidebar-item sidebar-sub hidden" data-modulo="vencimientos" style="padding-left:38px;font-size:11.5px;">Vencimientos</div>
+      <div class="sidebar-item sidebar-sub hidden" data-modulo="importacion-maestros" style="padding-left:38px;font-size:11.5px;">Importación de Maestros</div>
       <div class="sidebar-item" data-modulo-grupo="recepcion" id="grupo-recepcion"><i class="ti ti-truck-delivery"></i>Recepción y despacho<i class="ti ti-chevron-down" style="margin-left:auto;font-size:13px;"></i></div>
       <div class="sidebar-item sidebar-sub hidden" data-modulo="recepcion-importar" style="padding-left:38px;font-size:11.5px;">Importar cargue</div>
       <div class="sidebar-item sidebar-sub hidden" data-modulo="recepcion-rutas" style="padding-left:38px;font-size:11.5px;">Rutas del día</div>
@@ -1044,17 +1060,33 @@ input:focus,select:focus,textarea:focus{outline:none!important;border-color:#176
         </div>
 
         <div id="view-inventario" class="hidden">
-          <div class="section-label" style="margin-top:0;">Inventario WMS (Odoo)</div>
-          <div class="indicator-fields" style="border:none;padding:0;">
-            <button class="btn" id="btn-sync-inventario"><i class="ti ti-refresh"></i> Actualizar inventario desde Odoo</button>
-            <div class="indicator-field"><label>CEDI</label><select id="inv-filtro-cedi"><option value="">Todos</option></select></div>
-            <div class="indicator-field"><label>Buscar producto o código</label><input type="text" id="inv-filtro-producto" placeholder="Escribe para filtrar..."></div>
-          </div>
-          <div id="inv-status" style="font-size:12px;color:var(--text-secondary);margin:8px 0;"></div>
-          <div id="inv-tabla"></div>
-        </div>
+  <div class="inv-hero">
+    <div class="inv-hero-top">
+      <div><div class="inv-eyebrow">JDH · Inventory Control Tower</div><div class="inv-title">Inventario WMS</div><div class="inv-subtitle">Visibilidad de stock, vida útil, valor económico y excepciones. La operación se prioriza por riesgo, no por volumen de filas.</div></div>
+      <div class="inv-sync"><button class="btn" id="btn-sync-inventario"><i class="ti ti-refresh"></i> Sincronizar Odoo</button></div>
+    </div>
+  </div>
+  <div id="inv-kpis" class="inv-kpis"></div>
+  <div class="inv-filterbar">
+    <div class="inv-filter-row">
+      <div class="inv-filter"><label>CEDI</label><select id="inv-filtro-cedi"><option value="">Todos</option></select></div>
+      <div class="inv-filter"><label>Zona</label><select id="inv-filtro-zona"><option value="">Todas</option><option value="picking">Picking /1/</option><option value="altura">Altura /2/</option><option value="other">Otras</option></select></div>
+      <div class="inv-filter"><label>Criticidad</label><select id="inv-filtro-criticidad"><option value="">Todas</option><option value="vencido">Vencidos</option><option value="critico">Crítico</option><option value="prioridad">Prioridad</option><option value="atencion">Atención</option><option value="normal">Normal</option><option value="sinvida">Sin vida útil</option></select></div>
+      <div class="inv-filter"><label>Vencimiento</label><select id="inv-filtro-rango"><option value="">Todos</option><option value="0">Vencidos</option><option value="7">0–7 días</option><option value="15">8–15 días</option><option value="30">16–30 días</option><option value="60">31–60 días</option><option value="plus60">+60 días</option></select></div>
+      <div class="inv-filter"><label>Producto / lote</label><input type="text" id="inv-filtro-producto" placeholder="Buscar referencia, producto, lote o ubicación..."></div>
+      <div class="inv-filter-actions"><button class="btn ghost" id="btn-inv-limpiar"><i class="ti ti-filter-off"></i> Limpiar</button></div>
+    </div>
+    <div class="inv-chiprow"><button class="inv-chip danger" data-inv-chip="vencido">⛔ Vencidos</button><button class="inv-chip danger" data-inv-chip="critico">🔴 Críticos</button><button class="inv-chip warn" data-inv-chip="prioridad">🟠 Prioridad</button><button class="inv-chip" data-inv-chip="picking">Picking /1/</button><button class="inv-chip" data-inv-chip="altura">Altura /2/</button><button class="inv-chip" data-inv-chip="fefo">🔄 Riesgo FEFO</button></div>
+  </div>
+  <div id="inv-status" style="font-size:11px;color:var(--text-secondary);margin:8px 2px;"></div>
+  <div class="inv-exception-grid">
+    <div class="inv-alert"><h4>🚨 Excepciones prioritarias</h4><div id="inv-excepciones"><div class="inv-empty">Cargando análisis...</div></div></div>
+    <div class="inv-mini-card"><div class="inv-mini-label">Valor económico en riesgo</div><div class="inv-mini-value" id="inv-valor-riesgo">$0</div><div class="inv-mini-label" style="margin-top:10px;">% del inventario disponible</div><div class="inv-progress"><span id="inv-riesgo-progress" style="width:0%"></span></div><div id="inv-riesgo-meta" style="font-size:10px;color:#94a3b8;margin-top:6px;">Sin datos</div></div>
+  </div>
+  <div class="inv-section"><div class="inv-section-head"><div><div class="inv-section-title">Existencias y vida útil</div><div class="inv-section-note" id="inv-tabla-note">Ordenado por prioridad operativa</div></div><div class="inv-section-note">/1/ Picking · /2/ Altura</div></div><div class="inv-table-wrap" id="inv-tabla"></div></div>
+</div>
 
-        <div id="view-vencimientos" class="hidden">
+<div id="view-vencimientos" class="hidden">
           <div class="section-label" style="margin-top:0;">Control de Vencimientos</div>
 
           <div style="display:flex;gap:8px;margin-bottom:10px;">
@@ -1068,11 +1100,14 @@ input:focus,select:focus,textarea:focus{outline:none!important;border-color:#176
               <div class="indicator-field"><label>CEDI</label><select id="venc-filtro-cedi"><option value="">Todos</option></select></div>
               <div class="indicator-field"><label>Vence desde</label><input type="date" id="venc-filtro-desde"></div>
               <div class="indicator-field"><label>Vence hasta</label><input type="date" id="venc-filtro-hasta"></div>
+              <div class="indicator-field"><label>Criticidad</label><select id="venc-filtro-criticidad"><option value="">Todas</option><option value="vencido">Vencidos</option><option value="critico">Crítico</option><option value="prioridad">Prioridad</option><option value="atencion">Atención</option><option value="normal">Normal</option><option value="sinvida">Sin vida útil</option></select></div>
+              <div class="indicator-field"><label>Zona</label><select id="venc-filtro-zona"><option value="">Todas</option><option value="picking">Picking /1/</option><option value="altura">Altura /2/</option><option value="other">Otras</option></select></div>
               <div class="indicator-field"><label>Buscar producto o lote</label><input type="text" id="venc-filtro-texto" placeholder="Escribe para filtrar..."></div>
               <button class="btn" id="btn-venc-consultar">Consultar</button>
               <button class="btn ghost" id="btn-venc-exportar">Exportar a Excel</button>
               <button class="btn ghost" id="btn-venc-enviar-correo">📧 Enviar correo (CEDI filtrado)</button>
             </div>
+            <div class="inv-chiprow"><button class="inv-chip danger" data-venc-chip="vencido">⛔ Solo vencidos</button><button class="inv-chip danger" data-venc-chip="critico">🔴 Críticos</button><button class="inv-chip warn" data-venc-chip="prioridad">🟠 Prioridad</button><button class="inv-chip" data-venc-chip="picking">Picking /1/</button><button class="inv-chip" data-venc-chip="altura">Altura /2/</button></div>
             <div id="venc-kpis" style="display:flex;gap:10px;flex-wrap:wrap;margin:12px 0;"></div>
             <div id="venc-status" style="font-size:12px;color:var(--text-secondary);margin:8px 0;"></div>
             <div id="venc-tabla"></div>
@@ -1100,6 +1135,22 @@ input:focus,select:focus,textarea:focus{outline:none!important;border-color:#176
             <div id="dest-status" style="font-size:12px;color:var(--text-secondary);margin:8px 0;"></div>
             <div id="dest-tabla"></div>
           </div>
+        </div>
+
+        <div id="view-importacion-maestros" class="hidden">
+          <div class="section-label" style="margin-top:0;">Importación de Maestros</div>
+          <div class="indicator-fields" style="border:none;padding:0;">
+            <div class="indicator-field"><label>Tipo de importación</label>
+              <select id="imp-tipo">
+                <option value="maestra_articulos_siesa">Maestra de Artículos (SIESA)</option>
+              </select>
+            </div>
+            <div class="indicator-field"><label>Archivo (.xlsx o .csv)</label><input type="file" id="imp-archivo" accept=".xlsx,.xls,.csv"></div>
+            <button class="btn" id="btn-imp-procesar">Procesar archivo</button>
+          </div>
+          <div id="imp-status" style="font-size:12px;color:var(--text-secondary);margin:8px 0;"></div>
+          <div id="imp-preview"></div>
+          <button class="btn hidden" id="btn-imp-confirmar" style="margin-top:10px;">Confirmar e importar a la base de datos</button>
         </div>
 
         <div id="view-locked" class="hidden">
@@ -1728,6 +1779,7 @@ async function cargarSesionYArrancar() {
 // módulo de permisos (ej. "Empleados y Asistencia" cubre 2 módulos).
 const MAPA_MENU_A_PERMISO = {
   'torre': ['torre'], 'indicadores': ['indicadores'], 'inventario-wms': ['inventario'], 'vencimientos': ['vencimientos'],
+  'importacion-maestros': ['importacion-maestros'],
   'recepcion-importar': ['importar-cargue'], 'recepcion-rutas': ['rutas-del-dia'], 'recepcion-ranking': ['ranking-auditores'],
   'reportes': ['reportes'],
   'rrhh-empleados': ['empleados', 'asistencia'], 'rrhh-registros': ['registros'], 'rrhh-nomina': ['liquidador-nomina'],
@@ -1738,7 +1790,7 @@ const MAPA_MENU_A_PERMISO = {
 // Qué ítems de menú pertenecen a cada grupo desplegable (para poder ocultar
 // el grupo COMPLETO si ninguno de sus hijos quedó visible).
 const GRUPOS_MENU = {
-  'grupo-inventario': ['inventario-wms', 'vencimientos'],
+  'grupo-inventario': ['inventario-wms', 'vencimientos', 'importacion-maestros'],
   'grupo-recepcion': ['recepcion-importar', 'recepcion-rutas', 'recepcion-ranking'],
   'grupo-rrhh': ['rrhh-empleados', 'rrhh-registros', 'rrhh-nomina', 'rrhh-control-semana', 'rrhh-liquidador', 'rrhh-cedi', 'rrhh-compensatorios', 'rrhh-historico'],
   'grupo-nomina': ['rrhh-nomina', 'rrhh-control-semana', 'rrhh-liquidador', 'rrhh-cedi', 'rrhh-compensatorios', 'rrhh-historico'],
@@ -1797,7 +1849,7 @@ function mostrarLogin(mensaje) {
 // NAVEGACIÓN ENTRE MÓDULOS
 // ============================================================
 const NOMBRES_MODULO = {
-  torre: 'Torre de control', indicadores: 'Indicadores', 'inventario-wms': 'Inventario · Inventario WMS', vencimientos: 'Inventario · Vencimientos',
+  torre: 'Torre de control', indicadores: 'Indicadores', 'inventario-wms': 'Inventario · Inventario WMS', vencimientos: 'Inventario · Vencimientos', 'importacion-maestros': 'Inventario · Importación de Maestros',
   'recepcion-importar': 'Recepción y despacho · Importar cargue',
   'recepcion-rutas': 'Recepción y despacho · Rutas del día',
   'recepcion-ranking': 'Recepción y despacho · Ranking de auditores',
@@ -1817,7 +1869,7 @@ document.querySelectorAll('.sidebar-item[data-modulo]').forEach(el => {
 });
 
 document.getElementById('grupo-inventario').addEventListener('click', () => {
-  document.querySelectorAll('.sidebar-sub[data-modulo="inventario-wms"], .sidebar-sub[data-modulo="vencimientos"]').forEach(el => el.classList.toggle('hidden'));
+  document.querySelectorAll('.sidebar-sub[data-modulo="inventario-wms"], .sidebar-sub[data-modulo="vencimientos"], .sidebar-sub[data-modulo="importacion-maestros"]').forEach(el => el.classList.toggle('hidden'));
 });
 document.getElementById('grupo-recepcion').addEventListener('click', () => {
   document.querySelectorAll('#grupo-recepcion ~ .sidebar-sub[data-modulo^="recepcion-"]').forEach(el => el.classList.toggle('hidden'));
@@ -1862,6 +1914,7 @@ function cambiarModulo(modulo) {
   document.getElementById('view-rrhh-historico').classList.toggle('hidden', modulo !== 'rrhh-historico' || bloqueado);
   document.getElementById('view-inventario').classList.toggle('hidden', modulo !== 'inventario-wms' || bloqueado);
   document.getElementById('view-vencimientos').classList.toggle('hidden', modulo !== 'vencimientos' || bloqueado);
+  document.getElementById('view-importacion-maestros').classList.toggle('hidden', modulo !== 'importacion-maestros' || bloqueado);
   document.getElementById('view-locked').classList.toggle('hidden', !bloqueado);
 
   if (bloqueado) {
@@ -1887,6 +1940,7 @@ function cambiarModulo(modulo) {
   if (modulo === 'rrhh-historico') cargarModuloHistorico();
   if (modulo === 'inventario-wms') cargarModuloInventario();
   if (modulo === 'vencimientos') cargarModuloVencimientos();
+  if (modulo === 'importacion-maestros') cargarModuloImportacionMaestros();
 }
 
 // Orden lógico según el proceso físico de la bodega (no alfabético).
@@ -4079,6 +4133,7 @@ async function cargarLiquidaciones() {
 let INVENTARIO_CACHE = [];
 
 async function cargarModuloInventario() {
+  await cargarMaestraVidaUtil();
   const selCedi = document.getElementById('inv-filtro-cedi');
   if (selCedi.options.length <= 1) {
     CEDIS_VALIDOS.forEach(c => selCedi.insertAdjacentHTML('beforeend', `<option value="${c}">${c}</option>`));
@@ -4104,191 +4159,146 @@ document.getElementById('btn-sync-inventario').addEventListener('click', async (
   await traerInventario();
 });
 
+let MAESTRA_INVENTARIO_CACHE = [];
+let MAESTRA_INVENTARIO_MAP = new Map();
+async function cargarMaestraVidaUtil() {
+  try {
+    const { data, error } = await sb.from('maestra_articulos_siesa').select('referencia,descripcion,costo_promedio_unitario,vida_util_dias,categoria,linea,grupo').limit(50000);
+    if (error) throw error;
+    MAESTRA_INVENTARIO_CACHE = data || [];
+    const map = new Map();
+    MAESTRA_INVENTARIO_CACHE.forEach(m => {
+      [m.referencia, m.descripcion].forEach(k => { const n = normalizarClaveInventario(k); if (n && !map.has(n)) map.set(n, m); });
+    });
+    MAESTRA_INVENTARIO_MAP = map;
+  } catch (e) {
+    MAESTRA_INVENTARIO_CACHE = []; MAESTRA_INVENTARIO_MAP = new Map();
+    console.warn('No fue posible cargar la maestra de artículos:', e);
+  }
+}
+
+function normalizarClaveInventario(v) { return String(v ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/\s+/g,' ').trim().toUpperCase(); }
+function metaMaestraInventario(r) {
+  const claves = [r.referencia,r.codigo_producto,r.codigo,r.producto,r.descripcion].map(normalizarClaveInventario).filter(Boolean);
+  for (const k of claves) { const m = MAESTRA_INVENTARIO_MAP.get(k); if (m) return m; }
+  return null;
+}
+function zonaInventario(ubicacion) {
+  const u = String(ubicacion || '').toUpperCase();
+  if (/\/1\//.test(u)) return 'picking';
+  if (/\/2\//.test(u)) return 'altura';
+  return 'other';
+}
+function diasRestantesInventario(fecha) {
+  if (!fecha) return null;
+  const hoy = new Date(); hoy.setHours(0,0,0,0);
+  const f = new Date(fecha + (String(fecha).length <= 10 ? 'T00:00:00' : ''));
+  if (Number.isNaN(f.getTime())) return null;
+  f.setHours(0,0,0,0);
+  return Math.round((f-hoy)/86400000);
+}
+function evaluarVidaInventario(r) {
+  const m = metaMaestraInventario(r);
+  const dias = diasRestantesInventario(r.fecha_caducidad);
+  const vida = Number(m?.vida_util_dias);
+  const costo = Number(m?.costo_promedio_unitario) || 0;
+  const disponible = Number(r.cantidad_disponible) || 0;
+  const valor = disponible * costo;
+  if (dias == null) return { maestra:m, dias, vida:vida>0?vida:null, pct:null, estado:'sinvida', valor, costo };
+  if (dias <= 0) return { maestra:m, dias, vida:vida>0?vida:null, pct:vida>0 ? (dias/vida)*100 : null, estado:'vencido', valor, costo };
+  if (!(vida > 0)) return { maestra:m, dias, vida:null, pct:null, estado:'sinvida', valor, costo };
+  const pct = Math.min(100, Math.max(0, dias/vida*100));
+  let estado='normal'; if (pct <= 15) estado='critico'; else if (pct <= 30) estado='prioridad'; else if (pct <= 50) estado='atencion';
+  return { maestra:m, dias, vida, pct, estado, valor, costo };
+}
+function etiquetaEstadoInventario(e){ return ({vencido:'Vencido',critico:'Crítico',prioridad:'Prioridad',atencion:'Atención',normal:'Normal',sinvida:'Sin vida útil'})[e] || e; }
+function formatoCOP(v){ return '$' + Math.round(Number(v)||0).toLocaleString('es-CO'); }
+
 async function traerInventario() {
   const estado = document.getElementById('inv-status');
   const cedi = document.getElementById('inv-filtro-cedi').value;
-
-  let q = sb.from('inventario_wms').select('*').order('producto').limit(3000);
-  if (cedi) q = q.eq('cedi', cedi);
-  else if (!puedeVerTodosLosCedis()) q = q.eq('cedi', SESION.cedi);
-
-  const { data, error } = await q;
-  if (error) { estado.textContent = 'Error al cargar: ' + error.message; return; }
-
-  INVENTARIO_CACHE = data || [];
-  if (INVENTARIO_CACHE.length) {
-    const masReciente = INVENTARIO_CACHE.reduce((max, r) => r.actualizado_en > max ? r.actualizado_en : max, INVENTARIO_CACHE[0].actualizado_en);
-    estado.textContent = `${INVENTARIO_CACHE.length.toLocaleString('es-CO')} registro(s) (máximo 3000 a la vez). Última actualización desde Odoo: ${new Date(masReciente).toLocaleString('es-CO')}.`;
-  } else {
-    estado.textContent = 'Sin inventario cargado todavía -- dale clic a "Actualizar inventario desde Odoo".';
+  estado.textContent = 'Cargando inventario completo...';
+  let rows = [], from = 0, pageSize = 1000;
+  while (true) {
+    let q = sb.from('inventario_wms').select('*').order('producto').range(from, from + pageSize - 1);
+    if (cedi) q = q.eq('cedi', cedi); else if (!puedeVerTodosLosCedis()) q = q.eq('cedi', SESION.cedi);
+    const { data, error } = await q;
+    if (error) { estado.textContent = 'Error al cargar: ' + error.message; return; }
+    rows = rows.concat(data || []);
+    if (!data || data.length < pageSize) break;
+    from += pageSize;
+    if (from >= 50000) break;
   }
+  INVENTARIO_CACHE = rows;
+  if (!MAESTRA_INVENTARIO_MAP.size) await cargarMaestraVidaUtil();
+  estado.textContent = `${INVENTARIO_CACHE.length.toLocaleString('es-CO')} registros cargados. Vida útil: ${MAESTRA_INVENTARIO_MAP.size.toLocaleString('es-CO')} referencias disponibles en maestra.`;
   renderInventario();
 }
 
 document.getElementById('inv-filtro-cedi').addEventListener('change', traerInventario);
-document.getElementById('inv-filtro-producto').addEventListener('input', renderInventario);
+['inv-filtro-producto','inv-filtro-zona','inv-filtro-criticidad','inv-filtro-rango'].forEach(id => document.getElementById(id).addEventListener(id.includes('producto')?'input':'change', renderInventario));
+document.getElementById('btn-inv-limpiar').addEventListener('click', () => { ['inv-filtro-zona','inv-filtro-criticidad','inv-filtro-rango'].forEach(id=>document.getElementById(id).value=''); document.getElementById('inv-filtro-producto').value=''; document.querySelectorAll('[data-inv-chip]').forEach(x=>x.classList.remove('active')); renderInventario(); });
+document.querySelectorAll('[data-inv-chip]').forEach(b=>b.addEventListener('click',()=>{ const v=b.dataset.invChip; if(v==='fefo'){ document.getElementById('tab-venc-fefo')?.click(); return; } const sel=document.getElementById('inv-filtro-criticidad'); const zona=document.getElementById('inv-filtro-zona'); if(['vencido','critico','prioridad'].includes(v)) { sel.value=v; zona.value=''; } else { zona.value=v; sel.value=''; } document.querySelectorAll('[data-inv-chip]').forEach(x=>x.classList.remove('active')); b.classList.add('active'); renderInventario(); }));
 
 function renderInventario() {
   const texto = document.getElementById('inv-filtro-producto').value.trim().toLowerCase();
-  const filtrado = texto
-    ? INVENTARIO_CACHE.filter(r =>
-        (r.producto || '').toLowerCase().includes(texto) ||
-        (r.codigo_barras_ubicacion || '').toLowerCase().includes(texto))
-    : INVENTARIO_CACHE;
-
-  const cont = document.getElementById('inv-tabla');
-  if (!filtrado.length) { cont.innerHTML = '<div class="empty-state">No hay inventario con ese filtro.</div>'; return; }
-
-  cont.innerHTML = `<table class="hist-table open"><tr>
-      <th>CEDI</th><th>Producto</th><th>Ubicación</th><th>Lote</th><th>Paquete</th>
-      <th>Fecha caducidad</th><th>Cant. inventario</th><th>Cant. disponible</th><th>UM</th><th>Código de barras</th>
-    </tr>${
-    filtrado.map(r => `<tr>
-      <td>${tEsc(r.cedi || '—')}</td>
-      <td>${tEsc(r.producto)}</td>
-      <td>${tEsc(r.ubicacion || '—')}</td>
-      <td>${tEsc(r.lote || '—')}</td>
-      <td>${tEsc(r.paquete || '—')}</td>
-      <td>${r.fecha_caducidad ? new Date(r.fecha_caducidad).toLocaleDateString('es-CO') : '—'}</td>
-      <td>${Number(r.cantidad_inventario).toLocaleString('es-CO')}</td>
-      <td>${Number(r.cantidad_disponible).toLocaleString('es-CO')}</td>
-      <td>${tEsc(r.unidad_medida || '—')}</td>
-      <td>${tEsc(r.codigo_barras_ubicacion || '—')}</td>
-    </tr>`).join('')
-  }</table>`;
+  const zona = document.getElementById('inv-filtro-zona').value;
+  const criticidad = document.getElementById('inv-filtro-criticidad').value;
+  const rango = document.getElementById('inv-filtro-rango').value;
+  const enriched = INVENTARIO_CACHE.map(r => ({r,e:evaluarVidaInventario(r),zona:zonaInventario(r.ubicacion)}));
+  const filtrado = enriched.filter(x => {
+    const r=x.r,e=x.e;
+    const textoOk=!texto || [r.producto,r.referencia,r.lote,r.ubicacion,r.codigo_barras_ubicacion].some(v=>String(v||'').toLowerCase().includes(texto));
+    const zonaOk=!zona || x.zona===zona;
+    const critOk=!criticidad || e.estado===criticidad;
+    const d=e.dias;
+    let rangoOk=true;
+    if(rango==='0') rangoOk=d!=null && d<0;
+    else if(rango==='7') rangoOk=d!=null && d>=0 && d<=7;
+    else if(rango==='15') rangoOk=d!=null && d>=8 && d<=15;
+    else if(rango==='30') rangoOk=d!=null && d>=16 && d<=30;
+    else if(rango==='60') rangoOk=d!=null && d>=31 && d<=60;
+    else if(rango==='plus60') rangoOk=d!=null && d>60;
+    return textoOk&&zonaOk&&critOk&&rangoOk;
+  });
+  renderInventarioKpis(enriched);
+  renderInventarioExcepciones(enriched);
+  const cont=document.getElementById('inv-tabla');
+  document.getElementById('inv-tabla-note').textContent=`${filtrado.length.toLocaleString('es-CO')} registros visibles · ordenados por riesgo y vencimiento`;
+  if(!filtrado.length){cont.innerHTML='<div class="inv-empty">No hay inventario que coincida con los filtros seleccionados.</div>';return;}
+  filtrado.sort((a,b)=>{const rank={vencido:0,critico:1,prioridad:2,atencion:3,normal:4,sinvida:5}; return (rank[a.e.estado]-rank[b.e.estado]) || ((a.e.dias??999999)-(b.e.dias??999999)) || (b.e.valor-a.e.valor);});
+  cont.innerHTML=`<table class="inv-table"><thead><tr><th>Estado</th><th>CEDI</th><th>Producto</th><th>Zona</th><th>Lote</th><th>Caducidad</th><th>Días</th><th>Vida restante</th><th>Disponible</th><th>Costo prom.</th><th>Valor</th></tr></thead><tbody>${filtrado.map(x=>{const r=x.r,e=x.e;const cls='risk-'+e.estado;const zcls=x.zona;return `<tr><td><span class="inv-risk ${cls}">${etiquetaEstadoInventario(e.estado)}</span></td><td>${tEsc(r.cedi||'—')}</td><td class="inv-product">${tEsc(r.producto||'—')}</td><td><span class="inv-zone ${zcls}">${zcls==='picking'?'PICKING /1/':zcls==='altura'?'ALTURA /2/':'OTRAS'}</span></td><td>${tEsc(r.lote||'—')}</td><td>${r.fecha_caducidad?new Date(r.fecha_caducidad).toLocaleDateString('es-CO'):'—'}</td><td style="font-weight:800;color:${e.dias!=null&&e.dias<=30?'#dc2626':'inherit'}">${e.dias??'—'}</td><td class="inv-pct">${e.pct!=null?e.pct.toFixed(1)+'%':'—'}</td><td>${Number(r.cantidad_disponible||0).toLocaleString('es-CO')}</td><td>${e.costo?formatoCOP(e.costo):'—'}</td><td class="inv-money">${e.valor?formatoCOP(e.valor):'—'}</td></tr>`}).join('')}</tbody></table>`;
+}
+function renderInventarioKpis(items){
+  const total=items.reduce((a,x)=>a+(Number(x.r.cantidad_disponible)||0),0), valor=items.reduce((a,x)=>a+x.e.valor,0);
+  const grupos=['vencido','critico','prioridad','atencion','normal']; const cards=grupos.map(g=>{const u=items.filter(x=>x.e.estado===g).reduce((a,x)=>a+(Number(x.r.cantidad_disponible)||0),0);const v=items.filter(x=>x.e.estado===g).reduce((a,x)=>a+x.e.valor,0);return {g,u,v}});
+  const k=(label,value,meta,cls,g)=>`<div class="inv-kpi ${cls}" data-kpi="${g}"><div class="inv-kpi-label">${label}</div><div class="inv-kpi-value">${value}</div><div class="inv-kpi-meta">${meta}</div></div>`;
+  document.getElementById('inv-kpis').innerHTML=k('Disponible',total.toLocaleString('es-CO'),'unidades', 'info','')+k('Valor inventario',formatoCOP(valor),'costo promedio','info','')+k('Vencido',cards[0].u.toLocaleString('es-CO'),formatoCOP(cards[0].v),'danger','vencido')+k('Crítico',cards[1].u.toLocaleString('es-CO'),formatoCOP(cards[1].v),'danger','critico')+k('Prioridad',cards[2].u.toLocaleString('es-CO'),formatoCOP(cards[2].v),'warn','prioridad')+k('Atención',cards[3].u.toLocaleString('es-CO'),formatoCOP(cards[3].v),'','atencion');
+  document.querySelectorAll('[data-kpi]').forEach(el=>el.addEventListener('click',()=>{const g=el.dataset.kpi;if(g){document.getElementById('inv-filtro-criticidad').value=g;renderInventario();}}));
+}
+function renderInventarioExcepciones(items){
+  const riesgo=items.filter(x=>['vencido','critico','prioridad'].includes(x.e.estado)); const valor=riesgo.reduce((a,x)=>a+x.e.valor,0); const total=items.reduce((a,x)=>a+x.e.valor,0); const pct=total?Math.min(100,valor/total*100):0;
+  document.getElementById('inv-valor-riesgo').textContent=formatoCOP(valor); document.getElementById('inv-riesgo-progress').style.width=pct.toFixed(1)+'%'; document.getElementById('inv-riesgo-meta').textContent=`${pct.toFixed(1)}% del valor disponible · ${riesgo.length.toLocaleString('es-CO')} registros de riesgo`;
+  const top=riesgo.sort((a,b)=>{const rank={vencido:0,critico:1,prioridad:2};return rank[a.e.estado]-rank[b.e.estado] || (a.e.dias??999999)-(b.e.dias??999999) || b.e.valor-a.e.valor;}).slice(0,5);
+  document.getElementById('inv-excepciones').innerHTML=top.length?top.map(x=>`<div class="inv-alert-row"><div><strong>${tEsc(x.r.producto||'Sin producto')}</strong><div style="font-size:9px;color:#94a3b8;">${x.zona==='picking'?'Picking /1/':x.zona==='altura'?'Altura /2/':'Otras'} · ${tEsc(x.r.lote||'sin lote')}</div></div><span class="inv-risk risk-${x.e.estado}">${etiquetaEstadoInventario(x.e.estado)}</span><strong>${formatoCOP(x.e.valor)}</strong></div>`).join(''):'<div class="inv-empty">No hay excepciones críticas con los datos cargados.</div>';
 }
 
 // ============================================================
-// MÓDULO DE CONTROL DE VENCIMIENTOS
+// MÓDULO DE CONTROL DE VENCIMIENTOS — filtros de excepción
 // ============================================================
 let VENCIMIENTOS_CACHE = [];
 let FEFO_CACHE = [];
+const COLORES_CATEGORIA_VENC = {'Vencido':'var(--crit-dot)','Crítico':'#be123c','Prioridad':'#c2410c','Atención':'#a16207','Normal':'#15803d','Sin vida útil':'#64748b','Crítico (0-15 días)':'#be123c','Alta prioridad (16-30 días)':'#c2410c','Seguimiento (31-60 días)':'#a16207','Sin riesgo (>60 días)':'#15803d','Sin fecha':'#64748b'};
+const COLORES_FEFO = {'Rotación urgente':'var(--crit-dot)','Rotación recomendada':'#f59e0b','Revisar':'#eab308','FEFO correcto':'#16a34a'};
 
-const COLORES_CATEGORIA_VENC = {
-  'Vencido': 'var(--crit-dot)', 'Crítico (0-15 días)': '#ea580c', 'Alta prioridad (16-30 días)': '#f59e0b',
-  'Seguimiento (31-60 días)': '#eab308', 'Sin riesgo (>60 días)': '#16a34a', 'Sin fecha': '#9ca3af',
-};
-const COLORES_FEFO = {
-  'Rotación urgente': 'var(--crit-dot)', 'Rotación recomendada': '#f59e0b', 'Revisar': '#eab308', 'FEFO correcto': '#16a34a',
-};
-
-async function cargarModuloVencimientos() {
-  ['venc-filtro-cedi', 'fefo-filtro-cedi', 'dest-nuevo-cedi'].forEach(id => {
-    const sel = document.getElementById(id);
-    if (sel.options.length <= (id === 'dest-nuevo-cedi' ? 0 : 1)) {
-      CEDIS_VALIDOS.forEach(c => sel.insertAdjacentHTML('beforeend', `<option value="${c}">${c}</option>`));
-    }
-  });
-  cambiarTabVencimientos('tabla');
-  await consultarVencimientos();
-}
-
-document.getElementById('tab-venc-tabla').addEventListener('click', () => cambiarTabVencimientos('tabla'));
-document.getElementById('tab-venc-fefo').addEventListener('click', () => { cambiarTabVencimientos('fefo'); if (!FEFO_CACHE.length) consultarFefo(); });
-document.getElementById('tab-venc-destinatarios').addEventListener('click', () => { cambiarTabVencimientos('destinatarios'); cargarDestinatarios(); });
-
-function cambiarTabVencimientos(cual) {
-  document.getElementById('panel-venc-tabla').classList.toggle('hidden', cual !== 'tabla');
-  document.getElementById('panel-venc-fefo').classList.toggle('hidden', cual !== 'fefo');
-  document.getElementById('panel-venc-destinatarios').classList.toggle('hidden', cual !== 'destinatarios');
-  document.querySelectorAll('#view-vencimientos .admin-tab').forEach(b => b.classList.remove('active'));
-  document.getElementById('tab-venc-' + cual).classList.add('active');
-}
-
-// ---------- Pestaña: Tabla de vencimientos ----------
-document.getElementById('btn-venc-consultar').addEventListener('click', consultarVencimientos);
-document.getElementById('venc-filtro-texto').addEventListener('input', renderVencimientos);
-
-async function consultarVencimientos() {
-  const estado = document.getElementById('venc-status');
-  const cedi = document.getElementById('venc-filtro-cedi').value || null;
-  const desde = document.getElementById('venc-filtro-desde').value || null;
-  const hasta = document.getElementById('venc-filtro-hasta').value || null;
-
-  estado.textContent = 'Consultando...';
-  const { data, error } = await sb.rpc('analisis_vencimientos', { p_cedi: cedi, p_desde: desde, p_hasta: hasta });
-  if (error) { estado.textContent = 'Error: ' + error.message; return; }
-
-  VENCIMIENTOS_CACHE = data || [];
-  renderVencimientos();
-}
-
-function renderVencimientos() {
-  const texto = document.getElementById('venc-filtro-texto').value.trim().toLowerCase();
-  const filtrado = texto
-    ? VENCIMIENTOS_CACHE.filter(r => (r.producto || '').toLowerCase().includes(texto) || (r.lote || '').toLowerCase().includes(texto))
-    : VENCIMIENTOS_CACHE;
-
-  document.getElementById('venc-status').textContent = `${filtrado.length.toLocaleString('es-CO')} registro(s) de ${VENCIMIENTOS_CACHE.length.toLocaleString('es-CO')}.`;
-
-  const conteos = {};
-  let unidadesEnRiesgo = 0;
-  VENCIMIENTOS_CACHE.forEach(r => {
-    conteos[r.categoria] = (conteos[r.categoria] || 0) + 1;
-    if (r.dias_para_vencer != null && r.dias_para_vencer <= 30) unidadesEnRiesgo += Number(r.cantidad_disponible) || 0;
-  });
-
-  document.getElementById('venc-kpis').innerHTML = Object.entries(conteos).map(([cat, n]) => `
-    <div class="kpi-card" style="border-left:4px solid ${COLORES_CATEGORIA_VENC[cat] || '#999'};">
-      <div class="kpi-label">${tEsc(cat)}</div><div class="kpi-value">${n}</div>
-    </div>`).join('') + `
-    <div class="kpi-card" style="border-left:4px solid var(--jdh-blue);">
-      <div class="kpi-label">Unidades en riesgo (≤30 días)</div><div class="kpi-value">${unidadesEnRiesgo.toLocaleString('es-CO')}</div>
-    </div>`;
-
-  const cont = document.getElementById('venc-tabla');
-  if (!filtrado.length) { cont.innerHTML = '<div class="empty-state">Sin resultados con este filtro.</div>'; return; }
-
-  cont.innerHTML = `<table class="hist-table open"><tr>
-      <th></th><th>CEDI</th><th>Producto</th><th>Lote</th><th>Vencimiento</th><th>Días</th>
-      <th>Inventario</th><th>Disponible</th><th>Ubicación</th>
-    </tr>${filtrado.map(r => `<tr>
-      <td><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${COLORES_CATEGORIA_VENC[r.categoria] || '#999'};" title="${tEsc(r.categoria)}"></span></td>
-      <td>${tEsc(r.cedi || '—')}</td>
-      <td>${tEsc(r.producto)}</td>
-      <td>${tEsc(r.lote || '—')}</td>
-      <td>${r.fecha_caducidad ? new Date(r.fecha_caducidad).toLocaleDateString('es-CO') : '—'}</td>
-      <td style="font-weight:700;color:${r.dias_para_vencer != null && r.dias_para_vencer < 0 ? 'var(--crit-dot)' : 'inherit'}">${r.dias_para_vencer ?? '—'}</td>
-      <td>${Number(r.cantidad_inventario).toLocaleString('es-CO')}</td>
-      <td>${Number(r.cantidad_disponible).toLocaleString('es-CO')}</td>
-      <td>${tEsc(r.ubicacion || '—')}</td>
-    </tr>`).join('')}</table>`;
-}
-
-document.getElementById('btn-venc-exportar').addEventListener('click', () => {
-  if (!VENCIMIENTOS_CACHE.length) { mostrarToast('No hay datos para exportar -- consulta primero.'); return; }
-  const filas = VENCIMIENTOS_CACHE.map(r => ({
-    'CEDI': r.cedi, 'Producto': r.producto, 'Lote': r.lote, 'Categoría': r.categoria,
-    'Vencimiento': r.fecha_caducidad, 'Días': r.dias_para_vencer,
-    'Cant. inventario': r.cantidad_inventario, 'Cant. disponible': r.cantidad_disponible, 'Ubicación': r.ubicacion,
-  }));
-  const hoja = XLSX.utils.json_to_sheet(filas);
-  const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, hoja, 'Vencimientos');
-  XLSX.writeFile(wb, `Vencimientos_${fechaColombiaHoy()}.xlsx`);
-});
-
-document.getElementById('btn-venc-enviar-correo').addEventListener('click', async () => {
-  const cedi = document.getElementById('venc-filtro-cedi').value;
-  const desde = document.getElementById('venc-filtro-desde').value || null;
-  const hasta = document.getElementById('venc-filtro-hasta').value || null;
-  const estado = document.getElementById('venc-status');
-
-  if (!cedi) {
-    mostrarToast('Elige un CEDI específico antes de enviar el correo (no se envía sin CEDI, para no mezclar destinatarios).');
-    return;
-  }
-
-  estado.textContent = 'Enviando correo...';
-  const { data, error } = await sb.functions.invoke('enviar-informe-vencimientos', { body: { cedi, desde, hasta } });
-
-  if (error || (data && data.error)) {
-    estado.textContent = 'Error al enviar: ' + (data?.error || error.message);
-    return;
-  }
-  estado.textContent = `Correo enviado a: ${data.enviado_a.join(', ')} (${data.filas} registros incluidos).`;
-  mostrarToast('Informe enviado correctamente.');
-});
+async function cargarModuloVencimientos(){['venc-filtro-cedi','fefo-filtro-cedi','dest-nuevo-cedi'].forEach(id=>{const sel=document.getElementById(id);if(sel.options.length<=(id==='dest-nuevo-cedi'?0:1))CEDIS_VALIDOS.forEach(c=>sel.insertAdjacentHTML('beforeend',`<option value="${c}">${c}</option>`));});cambiarTabVencimientos('tabla');await consultarVencimientos();}
+document.getElementById('tab-venc-tabla').addEventListener('click',()=>cambiarTabVencimientos('tabla'));document.getElementById('tab-venc-fefo').addEventListener('click',()=>{cambiarTabVencimientos('fefo');if(!FEFO_CACHE.length)consultarFefo();});document.getElementById('tab-venc-destinatarios').addEventListener('click',()=>{cambiarTabVencimientos('destinatarios');cargarDestinatarios();});
+function cambiarTabVencimientos(cual){document.getElementById('panel-venc-tabla').classList.toggle('hidden',cual!=='tabla');document.getElementById('panel-venc-fefo').classList.toggle('hidden',cual!=='fefo');document.getElementById('panel-venc-destinatarios').classList.toggle('hidden',cual!=='destinatarios');document.querySelectorAll('#view-vencimientos .admin-tab').forEach(b=>b.classList.remove('active'));document.getElementById('tab-venc-'+cual).classList.add('active');}
+document.getElementById('btn-venc-consultar').addEventListener('click',consultarVencimientos);document.getElementById('venc-filtro-texto').addEventListener('input',renderVencimientos);['venc-filtro-criticidad','venc-filtro-zona'].forEach(id=>document.getElementById(id).addEventListener('change',renderVencimientos));
+document.querySelectorAll('[data-venc-chip]').forEach(b=>b.addEventListener('click',()=>{const v=b.dataset.vencChip;if(['vencido','critico','prioridad'].includes(v)){document.getElementById('venc-filtro-criticidad').value=v;document.getElementById('venc-filtro-zona').value='';}else{document.getElementById('venc-filtro-zona').value=v;document.getElementById('venc-filtro-criticidad').value='';}document.querySelectorAll('[data-venc-chip]').forEach(x=>x.classList.remove('active'));b.classList.add('active');renderVencimientos();}));
+async function consultarVencimientos(){const estado=document.getElementById('venc-status');const cedi=document.getElementById('venc-filtro-cedi').value||null;const desde=document.getElementById('venc-filtro-desde').value||null;const hasta=document.getElementById('venc-filtro-hasta').value||null;estado.textContent='Consultando...';const {data,error}=await sb.rpc('analisis_vencimientos',{p_cedi:cedi,p_desde:desde,p_hasta:hasta});if(error){estado.textContent='Error: '+error.message;return;}VENCIMIENTOS_CACHE=data||[];if(!MAESTRA_INVENTARIO_MAP.size)await cargarMaestraVidaUtil();renderVencimientos();}
+function enriquecerVenc(r){const m=metaMaestraInventario(r);const dias=Number.isFinite(Number(r.dias_para_vencer))?Number(r.dias_para_vencer):diasRestantesInventario(r.fecha_caducidad);const vida=Number(m?.vida_util_dias);const costo=Number(m?.costo_promedio_unitario)||0;const valor=(Number(r.cantidad_disponible)||0)*costo;if(dias==null)return {m,dias,vida:null,pct:null,estado:'sinvida',costo,valor};if(dias<=0)return {m,dias,vida:vida>0?vida:null,pct:vida>0?dias/vida*100:null,estado:'vencido',costo,valor};if(!(vida>0))return {m,dias,vida:null,pct:null,estado:'sinvida',costo,valor};const pct=Math.min(100,Math.max(0,dias/vida*100));const estado=pct<=15?'critico':pct<=30?'prioridad':pct<=50?'atencion':'normal';return {m,dias,vida,pct,estado,costo,valor};}
+function renderVencimientos(){const texto=document.getElementById('venc-filtro-texto').value.trim().toLowerCase(),crit=document.getElementById('venc-filtro-criticidad').value,zona=document.getElementById('venc-filtro-zona').value;const all=VENCIMIENTOS_CACHE.map(r=>({r,e:enriquecerVenc(r),zona:zonaInventario(r.ubicacion)}));const filtrado=all.filter(x=>{const r=x.r,e=x.e;const txt=!texto||[r.producto,r.lote,r.ubicacion,r.referencia].some(v=>String(v||'').toLowerCase().includes(texto));return txt&&(!crit||e.estado===crit)&&(!zona||x.zona===zona);});document.getElementById('venc-status').textContent=`${filtrado.length.toLocaleString('es-CO')} registros visibles de ${all.length.toLocaleString('es-CO')}.`;const stats={vencido:0,critico:0,prioridad:0,atencion:0,normal:0};let unidades=0,valor=0;all.forEach(x=>{stats[x.e.estado]=(stats[x.e.estado]||0)+1;if(['vencido','critico','prioridad'].includes(x.e.estado)){unidades+=Number(x.r.cantidad_disponible)||0;valor+=x.e.valor;}});document.getElementById('venc-kpis').innerHTML=Object.entries(stats).map(([g,n])=>`<div class="inv-kpi ${g==='vencido'||g==='critico'?'danger':g==='prioridad'?'warn':''}" style="cursor:default"><div class="inv-kpi-label">${etiquetaEstadoInventario(g)}</div><div class="inv-kpi-value">${n.toLocaleString('es-CO')}</div><div class="inv-kpi-meta">registros</div></div>`).join('')+`<div class="inv-kpi danger" style="cursor:default"><div class="inv-kpi-label">Valor en riesgo</div><div class="inv-kpi-value">${formatoCOP(valor)}</div><div class="inv-kpi-meta">${unidades.toLocaleString('es-CO')} unidades</div></div>`;const cont=document.getElementById('venc-tabla');if(!filtrado.length){cont.innerHTML='<div class="inv-empty">Sin resultados con estos segmentadores.</div>';return;}filtrado.sort((a,b)=>(a.e.dias??999999)-(b.e.dias??999999));cont.innerHTML=`<table class="inv-table"><thead><tr><th>Estado</th><th>CEDI</th><th>Producto</th><th>Lote</th><th>Zona</th><th>Vencimiento</th><th>Días</th><th>Vida restante</th><th>Disponible</th><th>Valor</th></tr></thead><tbody>${filtrado.map(x=>`<tr><td><span class="inv-risk risk-${x.e.estado}">${etiquetaEstadoInventario(x.e.estado)}</span></td><td>${tEsc(x.r.cedi||'—')}</td><td class="inv-product">${tEsc(x.r.producto||'—')}</td><td>${tEsc(x.r.lote||'—')}</td><td><span class="inv-zone ${x.zona}">${x.zona==='picking'?'PICKING /1/':x.zona==='altura'?'ALTURA /2/':'OTRAS'}</span></td><td>${x.r.fecha_caducidad?new Date(x.r.fecha_caducidad).toLocaleDateString('es-CO'):'—'}</td><td style="font-weight:800">${x.e.dias??'—'}</td><td class="inv-pct">${x.e.pct!=null?x.e.pct.toFixed(1)+'%':'—'}</td><td>${Number(x.r.cantidad_disponible||0).toLocaleString('es-CO')}</td><td class="inv-money">${x.e.valor?formatoCOP(x.e.valor):'—'}</td></tr>`).join('')}</tbody></table>`;}
 
 // ---------- Pestaña: Rotación FEFO ----------
 document.getElementById('btn-fefo-consultar').addEventListener('click', consultarFefo);
@@ -4302,7 +4312,7 @@ async function consultarFefo() {
   if (error) { estado.textContent = 'Error: ' + error.message; return; }
 
   FEFO_CACHE = data || [];
-  estado.textContent = `${FEFO_CACHE.length.toLocaleString('es-CO')} pareja(s) producto+lote comparadas entre Picking y Packing.`;
+  estado.textContent = `${FEFO_CACHE.length.toLocaleString('es-CO')} pareja(s) producto+lote comparadas entre Picking y Altura.`;
   renderFefo();
 }
 
@@ -4316,11 +4326,11 @@ function renderFefo() {
     </div>`).join('');
 
   const cont = document.getElementById('fefo-tabla');
-  if (!FEFO_CACHE.length) { cont.innerHTML = '<div class="empty-state">No hay parejas Picking/Packing del mismo producto y lote para comparar.</div>'; return; }
+  if (!FEFO_CACHE.length) { cont.innerHTML = '<div class="empty-state">No hay parejas Picking/Altura del mismo producto y lote para comparar.</div>'; return; }
 
   cont.innerHTML = `<table class="hist-table open"><tr>
-      <th></th><th>CEDI</th><th>Producto</th><th>Lote</th><th>Vence Picking</th><th>Vence Packing</th>
-      <th>Diferencia</th><th>Cant. Picking</th><th>Cant. Packing</th><th>Acción sugerida</th>
+      <th></th><th>CEDI</th><th>Producto</th><th>Lote</th><th>Vence Picking</th><th>Vence Altura</th>
+      <th>Diferencia</th><th>Cant. Picking</th><th>Cant. Altura</th><th>Acción sugerida</th>
     </tr>${FEFO_CACHE.map(r => `<tr ${r.clasificacion === 'Rotación urgente' ? 'style="background:var(--crit-bg)"' : ''}>
       <td><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${COLORES_FEFO[r.clasificacion] || '#999'};" title="${tEsc(r.clasificacion)}"></span></td>
       <td>${tEsc(r.cedi || '—')}</td>
@@ -4339,8 +4349,8 @@ document.getElementById('btn-fefo-exportar').addEventListener('click', () => {
   if (!FEFO_CACHE.length) { mostrarToast('No hay datos para exportar -- consulta primero.'); return; }
   const filas = FEFO_CACHE.map(r => ({
     'CEDI': r.cedi, 'Producto': r.producto, 'Lote': r.lote, 'Clasificación': r.clasificacion,
-    'Vence Picking': r.fecha_picking, 'Vence Packing': r.fecha_packing, 'Diferencia (días)': r.diferencia_dias,
-    'Cant. Picking': r.cantidad_picking, 'Cant. Packing': r.cantidad_packing, 'Acción sugerida': r.accion_sugerida,
+    'Vence Picking': r.fecha_picking, 'Vence Altura': r.fecha_packing, 'Diferencia (días)': r.diferencia_dias,
+    'Cant. Picking': r.cantidad_picking, 'Cant. Altura': r.cantidad_packing, 'Acción sugerida': r.accion_sugerida,
   }));
   const hoja = XLSX.utils.json_to_sheet(filas);
   const wb = XLSX.utils.book_new();
@@ -4391,6 +4401,133 @@ async function cargarDestinatarios() {
     });
   });
 }
+
+// ============================================================
+// MÓDULO DE IMPORTACIÓN DE MAESTROS
+// ============================================================
+// Cada "tipo" de importación define: a qué tabla va, cuál columna del
+// archivo identifica que es el MISMO registro entre una carga y la
+// siguiente (para actualizar en vez de duplicar), y el mapa de columnas
+// del archivo -> columnas de la base de datos. Agregar un tipo nuevo más
+// adelante es agregar una entrada aquí, sin tocar el resto del módulo.
+const TIPOS_IMPORTACION = {
+  maestra_articulos_siesa: {
+    tabla: 'maestra_articulos_siesa',
+    conflicto: 'referencia',
+    columnas: {
+      referencia: { alias: ['Referencia'], tipo: 'texto', requerido: true },
+      proveedor: { alias: ['PROVEEDOR'], tipo: 'texto' },
+      descripcion: { alias: ['Desc. item'], tipo: 'texto' },
+      costo_promedio_unitario: { alias: ['Costo prom. uni.'], tipo: 'numero' },
+      peso_um_inventario: { alias: ['Peso U.M. Inv.'], tipo: 'numero' },
+      volumen_um_empaque: { alias: ['Vol UM. Emp.'], tipo: 'numero' },
+      volumen_um_inventario: { alias: ['Vol U.M. Inv.'], tipo: 'numero' },
+      factor_um_empaque: { alias: ['Factor UM. Emp.'], tipo: 'numero' },
+      vida_util_dias: { alias: ['Vida útil'], tipo: 'numero' },
+      categoria: { alias: ['CATEGORIA'], tipo: 'texto' },
+      linea: { alias: ['LINEA'], tipo: 'texto' },
+      grupo: { alias: ['GRUPO'], tipo: 'texto' },
+    },
+  },
+};
+
+let IMPORTACION_FILAS_PROCESADAS = [];
+
+function cargarModuloImportacionMaestros() {
+  document.getElementById('imp-preview').innerHTML = '';
+  document.getElementById('btn-imp-confirmar').classList.add('hidden');
+  document.getElementById('imp-status').textContent = '';
+  IMPORTACION_FILAS_PROCESADAS = [];
+}
+
+function valorPorColumna(fila, aliasList) {
+  for (const nombreCol of aliasList) {
+    const v = fila[nombreCol];
+    if (v !== undefined && v !== null && String(v).trim() !== '') return v;
+  }
+  const clavesFila = Object.keys(fila);
+  for (const nombreCol of aliasList) {
+    const objetivo = nombreCol.trim().toLowerCase();
+    const clave = clavesFila.find(k => k.trim().toLowerCase() === objetivo);
+    if (clave) {
+      const v = fila[clave];
+      if (v !== undefined && v !== null && String(v).trim() !== '') return v;
+    }
+  }
+  return null;
+}
+
+document.getElementById('btn-imp-procesar').addEventListener('click', async () => {
+  const tipoId = document.getElementById('imp-tipo').value;
+  const config = TIPOS_IMPORTACION[tipoId];
+  const archivo = document.getElementById('imp-archivo').files[0];
+  const estado = document.getElementById('imp-status');
+
+  if (!archivo) { estado.textContent = 'Selecciona un archivo primero.'; return; }
+
+  estado.textContent = 'Leyendo archivo...';
+  const buffer = await archivo.arrayBuffer();
+  const wb = XLSX.read(buffer, { type: 'array' });
+  const filasArchivo = hojaConMasFilas(wb);
+
+  if (!filasArchivo.length) { estado.textContent = 'El archivo está vacío o no se pudo leer.'; return; }
+
+  const filasProcesadas = [];
+  const erroresFilas = [];
+  filasArchivo.forEach((fila, i) => {
+    const registro = {};
+    let faltaRequerido = false;
+    for (const [campoDb, def] of Object.entries(config.columnas)) {
+      let v = valorPorColumna(fila, def.alias);
+      if (def.tipo === 'numero' && v !== null) v = parsearMoneda(String(v)) || Number(v) || null;
+      if (def.requerido && (v === null || v === '')) faltaRequerido = true;
+      registro[campoDb] = v;
+    }
+    if (faltaRequerido) erroresFilas.push(i + 2); // +2: fila 1 es encabezado, y es 1-indexado
+    else filasProcesadas.push(registro);
+  });
+
+  IMPORTACION_FILAS_PROCESADAS = filasProcesadas;
+
+  estado.textContent = `${filasProcesadas.length} registro(s) listos para importar` +
+    (erroresFilas.length ? `. ${erroresFilas.length} fila(s) se ignoraron por no traer "${Object.entries(config.columnas).find(([,d]) => d.requerido)[1].alias[0]}" (filas: ${erroresFilas.slice(0, 15).join(', ')}${erroresFilas.length > 15 ? '...' : ''}).` : '.');
+
+  const columnasVista = Object.keys(config.columnas);
+  document.getElementById('imp-preview').innerHTML = `
+    <p style="font-size:12px;color:var(--text-secondary);">Vista previa (primeras 10 filas):</p>
+    <table class="hist-table open"><tr>${columnasVista.map(c => `<th>${tEsc(c)}</th>`).join('')}</tr>${
+      filasProcesadas.slice(0, 10).map(r => `<tr>${columnasVista.map(c => `<td>${tEsc(r[c] ?? '—')}</td>`).join('')}</tr>`).join('')
+    }</table>`;
+
+  document.getElementById('btn-imp-confirmar').classList.toggle('hidden', filasProcesadas.length === 0);
+});
+
+document.getElementById('btn-imp-confirmar').addEventListener('click', async () => {
+  const tipoId = document.getElementById('imp-tipo').value;
+  const config = TIPOS_IMPORTACION[tipoId];
+  const estado = document.getElementById('imp-status');
+  const boton = document.getElementById('btn-imp-confirmar');
+
+  if (!IMPORTACION_FILAS_PROCESADAS.length) return;
+
+  boton.disabled = true;
+  estado.textContent = 'Importando...';
+
+  const TAM_LOTE = 500;
+  let importados = 0;
+  for (let i = 0; i < IMPORTACION_FILAS_PROCESADAS.length; i += TAM_LOTE) {
+    const lote = IMPORTACION_FILAS_PROCESADAS.slice(i, i + TAM_LOTE).map(r => ({ ...r, actualizado_en: new Date().toISOString(), actualizado_por: SESION.id }));
+    const { error } = await sb.from(config.tabla).upsert(lote, { onConflict: config.conflicto });
+    if (error) { estado.textContent = `Error en el lote ${i}-${i + TAM_LOTE}: ${error.message}`; boton.disabled = false; return; }
+    importados += lote.length;
+    estado.textContent = `Importando... ${importados}/${IMPORTACION_FILAS_PROCESADAS.length}`;
+  }
+
+  boton.disabled = false;
+  estado.textContent = `Listo -- ${importados} registro(s) importados/actualizados en "${config.tabla}".`;
+  mostrarToast('Importación completada.');
+  document.getElementById('btn-imp-confirmar').classList.add('hidden');
+});
 
 // ============================================================
 // MÓDULO DE COMPENSATORIOS
@@ -5465,7 +5602,7 @@ function renderControlSemanaFiltrado() {
   const groups={
     inventario:{
       id:'grupo-inventario', title:'Inventario', icon:'ti-package',
-      items:[['inventario-wms','Inventario WMS','ti-package'],['vencimientos','Vencimientos','ti-calendar-exclamation']]
+      items:[['inventario-wms','Inventario WMS','ti-package'],['vencimientos','Vencimientos','ti-calendar-exclamation'],['importacion-maestros','Importación de Maestros','ti-file-upload']]
     },
     recepcion:{
       id:'grupo-recepcion', title:'Recepción y despacho', icon:'ti-truck-delivery',
@@ -5527,7 +5664,7 @@ function renderControlSemanaFiltrado() {
     rail.querySelectorAll('.nav-parent-active').forEach(x=>x.classList.remove('nav-parent-active'));
     if(String(modulo).startsWith('recepcion-')) rail.querySelector('#grupo-recepcion')?.classList.add('nav-parent-active');
     if(String(modulo).startsWith('rrhh-')) rail.querySelector('#grupo-rrhh')?.classList.add('nav-parent-active');
-    if(String(modulo).startsWith('inventario-') || modulo === 'vencimientos') rail.querySelector('#grupo-inventario')?.classList.add('nav-parent-active');
+    if(String(modulo).startsWith('inventario-') || modulo === 'vencimientos' || modulo === 'importacion-maestros') rail.querySelector('#grupo-inventario')?.classList.add('nav-parent-active');
   };
 
   /* Reaplica después de cada cambio de módulo sin tocar la función original. */
