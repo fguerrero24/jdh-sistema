@@ -925,9 +925,16 @@ input:focus,select:focus,textarea:focus{outline:none!important;border-color:#176
 
   .sidebar-sub{
     border-radius:8px;
+    display:none!important;
+  }
+  .sidebar:hover .sidebar-sub:not(.hidden){
+    display:flex!important;
   }
   .sidebar-sub .sidebar-label{font-size:11.5px;}
   .sidebar-sub2 .sidebar-label{font-size:11px;}
+
+  .sidebar-item i:first-child{font-size:19px;opacity:.92;}
+  .sidebar-item.active i:first-child, .sidebar-item:hover i:first-child{opacity:1;}
 
   .main-content{
     width:100%;
@@ -1083,9 +1090,9 @@ input:focus,select:focus,textarea:focus{outline:none!important;border-color:#176
   <div class="inv-filterbar">
     <div class="inv-filter-row">
       <div class="inv-filter"><label>CEDI</label><select id="inv-filtro-cedi"><option value="">Todos</option></select></div>
-      <div class="inv-filter"><label>Zona</label><select id="inv-filtro-zona"><option value="">Todas</option><option value="picking">Picking /1/</option><option value="altura">Altura /2/</option><option value="other">Otras</option></select></div>
+      <select id="inv-filtro-zona" style="display:none;"><option value="">Todas</option><option value="picking">Picking /1/</option><option value="altura">Altura /2/</option><option value="other">Otras</option></select>
       <div class="inv-filter"><label>Criticidad</label><select id="inv-filtro-criticidad"><option value="">Todas</option><option value="vencido">Vencidos</option><option value="critico">Crítico</option><option value="prioridad">Prioridad</option><option value="atencion">Atención</option><option value="normal">Normal</option><option value="sinvida">Sin vida útil</option></select></div>
-      <div class="inv-filter"><label>Vencimiento</label><select id="inv-filtro-rango"><option value="">Todos</option><option value="0">Vencidos</option><option value="7">0–7 días</option><option value="15">8–15 días</option><option value="30">16–30 días</option><option value="60">31–60 días</option><option value="plus60">+60 días</option></select></div>
+      <div class="inv-filter"><label>Rango de vencimiento</label><select id="inv-filtro-rango"><option value="">Todos</option><option value="0">Vencidos</option><option value="7">0–7 días</option><option value="15">8–15 días</option><option value="30">16–30 días</option><option value="60">31–60 días</option><option value="plus60">+60 días</option></select></div>
       <div class="inv-filter"><label>Producto / lote</label><input type="text" id="inv-filtro-producto" placeholder="Buscar referencia, producto, lote o ubicación..."></div>
       <div class="inv-filter-actions"><button class="btn ghost" id="btn-inv-limpiar"><i class="ti ti-filter-off"></i> Limpiar</button></div>
     </div>
@@ -4261,8 +4268,17 @@ async function cargarMaestraVidaUtil() {
 }
 
 function normalizarClaveInventario(v) { return String(v ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/\s+/g,' ').trim().toUpperCase(); }
+// El nombre del producto que trae el WMS (Odoo) viene con el código de SIESA
+// entre corchetes al inicio, ej. "[24538] Zumo De Limon Lemon Fresh x500ml"
+// -- ese código dentro del PRIMER [] es la Referencia real con la que hay
+// que cruzar contra la Maestra de Artículos, no el nombre completo.
+function extraerReferenciaWms(nombreProducto) {
+  const m = String(nombreProducto || '').match(/\[([^\]]+)\]/);
+  return m ? m[1].trim() : null;
+}
 function metaMaestraInventario(r) {
-  const claves = [r.referencia,r.codigo_producto,r.codigo,r.producto,r.descripcion].map(normalizarClaveInventario).filter(Boolean);
+  const refExtraida = extraerReferenciaWms(r.producto);
+  const claves = [refExtraida, r.referencia, r.codigo_producto, r.codigo].map(normalizarClaveInventario).filter(Boolean);
   for (const k of claves) { const m = MAESTRA_INVENTARIO_MAP.get(k); if (m) return m; }
   return null;
 }
@@ -4350,7 +4366,7 @@ function renderInventario() {
   document.getElementById('inv-tabla-note').textContent=`${filtrado.length.toLocaleString('es-CO')} registros visibles · ordenados por riesgo y vencimiento`;
   if(!filtrado.length){cont.innerHTML='<div class="inv-empty">No hay inventario que coincida con los filtros seleccionados.</div>';return;}
   filtrado.sort((a,b)=>{const rank={vencido:0,critico:1,prioridad:2,atencion:3,normal:4,sinvida:5}; return (rank[a.e.estado]-rank[b.e.estado]) || ((a.e.dias??999999)-(b.e.dias??999999)) || (b.e.valor-a.e.valor);});
-  cont.innerHTML=`<table class="inv-table"><thead><tr><th>Estado</th><th>CEDI</th><th>Producto</th><th>Zona</th><th>Lote</th><th>Caducidad</th><th>Días</th><th>Vida restante</th><th>Disponible</th><th>Costo prom.</th><th>Valor</th></tr></thead><tbody>${filtrado.map(x=>{const r=x.r,e=x.e;const cls='risk-'+e.estado;const zcls=x.zona;return `<tr><td><span class="inv-risk ${cls}">${etiquetaEstadoInventario(e.estado)}</span></td><td>${tEsc(r.cedi||'—')}</td><td class="inv-product">${tEsc(r.producto||'—')}</td><td><span class="inv-zone ${zcls}">${zcls==='picking'?'PICKING /1/':zcls==='altura'?'ALTURA /2/':'OTRAS'}</span></td><td>${tEsc(r.lote||'—')}</td><td>${r.fecha_caducidad?new Date(r.fecha_caducidad).toLocaleDateString('es-CO'):'—'}</td><td style="font-weight:800;color:${e.dias!=null&&e.dias<=30?'#dc2626':'inherit'}">${e.dias??'—'}</td><td class="inv-pct">${e.pct!=null?e.pct.toFixed(1)+'%':'—'}</td><td>${Number(r.cantidad_disponible||0).toLocaleString('es-CO')}</td><td>${e.costo?formatoCOP(e.costo):'—'}</td><td class="inv-money">${e.valor?formatoCOP(e.valor):'—'}</td></tr>`}).join('')}</tbody></table>`;
+  cont.innerHTML=`<table class="inv-table"><thead><tr><th>Estado</th><th>CEDI</th><th>Producto</th><th>Ubicación</th><th>Lote</th><th>Caducidad</th><th>Días</th><th>Vida restante</th><th>Valor</th></tr></thead><tbody>${filtrado.map(x=>{const r=x.r,e=x.e;const cls='risk-'+e.estado;const zcls=x.zona;return `<tr><td><span class="inv-risk ${cls}">${etiquetaEstadoInventario(e.estado)}</span></td><td>${tEsc(r.cedi||'—')}</td><td class="inv-product">${tEsc(r.producto||'—')}</td><td style="font-size:10.5px;">${tEsc(r.ubicacion||'—')}</td><td>${tEsc(r.lote||'—')}</td><td>${r.fecha_caducidad?new Date(r.fecha_caducidad).toLocaleDateString('es-CO'):'—'}</td><td style="font-weight:800;color:${e.dias!=null&&e.dias<=30?'#dc2626':'inherit'}">${e.dias??'—'}</td><td class="inv-pct">${e.pct!=null?e.pct.toFixed(1)+'%':'—'}</td><td class="inv-money">${e.valor?formatoCOP(e.valor):'—'}</td></tr>`}).join('')}</tbody></table>`;
 }
 function renderInventarioKpis(items){
   const total=items.reduce((a,x)=>a+(Number(x.r.cantidad_disponible)||0),0), valor=items.reduce((a,x)=>a+x.e.valor,0);
