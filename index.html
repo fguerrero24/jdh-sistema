@@ -5649,6 +5649,39 @@ function renderControlSemanaFiltrado() {
 
 </style>
 
+<style id="jdh-nav-polish-2026">
+@media (min-width:901px){
+  #app-view .sidebar{width:72px!important;padding:14px 9px!important;overflow:hidden!important;background:linear-gradient(180deg,#0d1b2d 0%,#101f34 100%)!important;}
+  #app-view .sidebar > .sidebar-item{width:52px!important;height:52px!important;min-height:52px!important;margin:5px auto!important;position:relative!important;overflow:visible!important;}
+  #app-view .sidebar > .sidebar-item i:first-child{display:grid!important;place-items:center!important;width:34px!important;height:34px!important;border-radius:11px!important;font-size:20px!important;line-height:1!important;}
+  #app-view .sidebar > .sidebar-item:hover i:first-child{background:rgba(255,255,255,.09)!important;}
+  #app-view .sidebar > .sidebar-item.active i:first-child,#app-view .sidebar > .sidebar-item.nav-parent-active i:first-child{background:rgba(255,255,255,.13)!important;}
+  #app-view .sidebar > .sidebar-item::after{left:-9px!important;}
+  #app-view .sidebar > .sidebar-item[data-modulo="reportes"]{margin-top:18px!important;}
+  #app-view .sidebar > .sidebar-item[data-modulo="admin"]{left:10px!important;bottom:16px!important;}
+  #app-view .sidebar{scrollbar-width:none!important;}
+  #app-view .sidebar::-webkit-scrollbar{width:0!important;height:0!important;}
+
+  #jdh-nav-flyout{left:84px!important;top:82px!important;width:318px!important;max-height:calc(100vh - 100px)!important;padding:14px!important;border-radius:20px!important;z-index:5000!important;box-sizing:border-box!important;}
+  #jdh-nav-flyout .flyout-head{padding:4px 4px 13px!important;margin-bottom:8px!important;}
+  #jdh-nav-flyout .flyout-title{display:flex!important;align-items:center!important;gap:10px!important;font-size:17px!important;line-height:1.2!important;}
+  #jdh-nav-flyout .flyout-title-icon{width:36px;height:36px;border-radius:11px;background:#edf4ff;color:#1769e0;display:grid;place-items:center;flex:0 0 36px;font-size:18px;}
+  #jdh-nav-flyout .flyout-close{margin-left:auto;width:32px;height:32px;border:0;background:#f4f6f9;color:#667085;border-radius:9px;display:grid;place-items:center;cursor:pointer;font-size:15px;}
+  #jdh-nav-flyout .flyout-close:hover{background:#e9eef5;color:#172033;}
+  #jdh-nav-flyout .flyout-item{border:1px solid transparent!important;background:transparent!important;min-height:56px!important;padding:8px!important;margin:3px 0!important;border-radius:13px!important;text-align:left!important;box-sizing:border-box!important;}
+  #jdh-nav-flyout .flyout-item:hover{background:#f3f7ff!important;border-color:#e1ebfb!important;transform:none!important;}
+  #jdh-nav-flyout .flyout-item.active{background:#eaf3ff!important;border-color:#d7e7ff!important;}
+  #jdh-nav-flyout .flyout-icon{width:36px;height:36px;border-radius:10px;background:#f3f6fa;color:#4a5b70;display:grid;place-items:center;flex:0 0 36px;font-size:17px;}
+  #jdh-nav-flyout .flyout-item:hover .flyout-icon,#jdh-nav-flyout .flyout-item.active .flyout-icon{background:#dcecff;color:#0f5ed0;}
+  #jdh-nav-flyout .flyout-copy{min-width:0;display:flex;flex-direction:column;gap:2px;line-height:1.2;}
+  #jdh-nav-flyout .flyout-copy strong{font-size:12.5px;color:#1c2b3f;font-weight:750;}
+  #jdh-nav-flyout .flyout-copy small{font-size:10px;color:#8a98aa;white-space:normal;}
+  #jdh-nav-flyout .flyout-section{margin:10px 4px 4px!important;padding:8px 6px 4px!important;border-top:1px solid #edf1f6!important;}
+  #jdh-nav-flyout .flyout-note{display:flex!important;align-items:center!important;gap:8px!important;margin:10px 2px 1px!important;padding:9px 10px!important;border:1px solid #edf1f6!important;background:#f8fafc!important;}
+  #jdh-nav-flyout .flyout-note i{font-size:15px;color:#7b8ba1;flex:0 0 auto;}
+}
+@media(max-width:900px){#jdh-nav-flyout{display:none!important;}}
+</style>
 <script id="jdh-vanguardia-nav">
 (function jdhVanguardiaNav(){
   const rail = document.querySelector('#app-view .sidebar');
@@ -5665,31 +5698,34 @@ function renderControlSemanaFiltrado() {
 
   const fly=document.createElement('div');
   fly.id='jdh-nav-flyout';
+  fly.setAttribute('role','dialog');
+  fly.setAttribute('aria-hidden','true');
   document.body.appendChild(fly);
 
   const groups={
-    inventario:{
-      id:'grupo-inventario', title:'Inventario', icon:'ti-package',
-      items:[['inventario-wms','Inventario WMS','ti-package'],['vencimientos','Vencimientos','ti-calendar-exclamation'],['importacion-maestros','Importación de Maestros','ti-file-upload']]
-    },
-    recepcion:{
-      id:'grupo-recepcion', title:'Recepción y despacho', icon:'ti-truck-delivery',
-      items:[['recepcion-importar','Importar cargue','ti-file-import'],['recepcion-rutas','Rutas del día','ti-route'],['recepcion-ranking','Ranking de auditores','ti-trophy']]
-    },
-    rrhh:{
-      id:'grupo-rrhh', title:'Recursos Humanos', icon:'ti-users',
-      items:[['rrhh-empleados','Empleados y asistencia','ti-users'],['rrhh-registros','Registros','ti-clock'],
-        ['__nomina__','Nómina','ti-calculator'],
-        ['rrhh-nomina','Liquidador de Nómina','ti-report-money'],['rrhh-control-semana','Control Semana','ti-calendar-week'],
-        ['rrhh-liquidador','Liquidador individual','ti-user-dollar'],['rrhh-cedi','Liquidación por CEDI','ti-building-warehouse'],
-        ['rrhh-compensatorios','Compensatorios','ti-calendar-plus'],['rrhh-historico','Histórico','ti-history']]
-    }
+    inventario:{id:'grupo-inventario',title:'Inventario',icon:'ti-package',items:[
+      ['inventario-wms','Inventario WMS','ti-package'],['vencimientos','Vencimientos','ti-calendar-exclamation'],['importacion-maestros','Importación de Maestros','ti-file-upload']]},
+    recepcion:{id:'grupo-recepcion',title:'Recepción y despacho',icon:'ti-truck-delivery',items:[
+      ['recepcion-importar','Importar cargue','ti-file-import'],['recepcion-rutas','Rutas del día','ti-route'],['recepcion-ranking','Ranking de auditores','ti-trophy']]},
+    rrhh:{id:'grupo-rrhh',title:'Recursos Humanos',icon:'ti-users',items:[
+      ['rrhh-empleados','Empleados y asistencia','ti-users'],['rrhh-registros','Registros','ti-clock'],['__nomina__','Nómina','ti-calculator'],
+      ['rrhh-nomina','Liquidador de Nómina','ti-report-money'],['rrhh-control-semana','Control Semana','ti-calendar-week'],['rrhh-liquidador','Liquidador individual','ti-user-dollar'],
+      ['rrhh-cedi','Liquidación por CEDI','ti-building-warehouse'],['rrhh-compensatorios','Compensatorios','ti-calendar-plus'],['rrhh-historico','Histórico','ti-history']]}
   };
 
-  let hideTimer=null, currentGroup=null;
+  let currentGroup=null;
   function visible(mod){
     const el=rail.querySelector('.sidebar-item[data-modulo="'+mod+'"]');
     return !!el && !el.classList.contains('menu-item-sin-permiso') && getComputedStyle(el).display!=='none';
+  }
+  function close(){
+    fly.classList.remove('open');
+    fly.setAttribute('aria-hidden','true');
+    currentGroup=null;
+  }
+  function open(){
+    fly.classList.add('open');
+    fly.setAttribute('aria-hidden','false');
   }
   function clickModule(mod){
     const el=rail.querySelector('.sidebar-item[data-modulo="'+mod+'"]');
@@ -5697,37 +5733,43 @@ function renderControlSemanaFiltrado() {
     close();
   }
   function render(groupKey){
-    const g=groups[groupKey]; currentGroup=groupKey;
+    const g=groups[groupKey]; if(!g) return;
+    currentGroup=groupKey;
     let body='';
     if(groupKey==='recepcion' || groupKey==='inventario'){
-      body=g.items.filter(x=>visible(x[0])).map(x=>'<div class="flyout-item" data-mod="'+x[0]+'"><i class="ti '+x[2]+'"></i><span>'+x[1]+'</span></div>').join('');
+      body=g.items.filter(x=>visible(x[0])).map(x=>'<button type="button" class="flyout-item" data-mod="'+x[0]+'"><span class="flyout-icon"><i class="ti '+x[2]+'"></i></span><span class="flyout-copy"><strong>'+x[1]+'</strong><small>'+({
+        'inventario-wms':'Existencias y disponibilidad','vencimientos':'Control de caducidades','importacion-maestros':'Carga y actualización de maestros',
+        'recepcion-importar':'Gestión de entradas y salidas de mercancía','recepcion-rutas':'Visualiza y sigue las rutas programadas','recepcion-ranking':'Desempeño y posiciones de auditores'
+      }[x[0]]||'Acceso al módulo')+'</small></span></button>').join('');
     } else {
-      const first=g.items.filter(x=>x[0]==='rrhh-empleados'||x[0]==='rrhh-registros').filter(x=>visible(x[0]));
-      body=first.map(x=>'<div class="flyout-item" data-mod="'+x[0]+'"><i class="ti '+x[2]+'"></i><span>'+x[1]+'</span></div>').join('');
-      const nomina=g.items.filter(x=>x[0].startsWith('rrhh-') && x[0]!=='rrhh-empleados' && x[0]!=='rrhh-registros' && x[0]!=='__nomina__' && visible(x[0]));
-      if(nomina.length) body+='<div class="flyout-section">Nómina</div>'+nomina.map(x=>'<div class="flyout-item" data-mod="'+x[0]+'"><i class="ti '+x[2]+'"></i><span>'+x[1]+'</span></div>').join('');
+      const first=g.items.filter(x=>['rrhh-empleados','rrhh-registros'].includes(x[0])&&visible(x[0]));
+      body=first.map(x=>'<button type="button" class="flyout-item" data-mod="'+x[0]+'"><span class="flyout-icon"><i class="ti '+x[2]+'"></i></span><span class="flyout-copy"><strong>'+x[1]+'</strong><small>Gestión de personal y novedades</small></span></button>').join('');
+      const nomina=g.items.filter(x=>x[0].startsWith('rrhh-')&&!['rrhh-empleados','rrhh-registros'].includes(x[0])&&visible(x[0]));
+      if(nomina.length) body+='<div class="flyout-section">Nómina</div>'+nomina.map(x=>'<button type="button" class="flyout-item" data-mod="'+x[0]+'"><span class="flyout-icon"><i class="ti '+x[2]+'"></i></span><span class="flyout-copy"><strong>'+x[1]+'</strong><small>Gestión y control operativo</small></span></button>').join('');
     }
-    fly.innerHTML='<div class="flyout-head"><div class="flyout-kicker">Módulo</div><div class="flyout-title"><i class="ti '+g.icon+'"></i> '+g.title+'</div></div>'+body+'<div class="flyout-note">Pasa el cursor por el menú lateral para navegar rápidamente.</div>';
-    fly.querySelectorAll('.flyout-item').forEach(item=>{
-      item.addEventListener('click',()=>clickModule(item.dataset.mod));
-    });
-    const active=document.querySelector('.sidebar-item.active[data-modulo]');
+    fly.innerHTML='<div class="flyout-head"><div class="flyout-kicker">Módulos</div><div class="flyout-title"><span class="flyout-title-icon"><i class="ti '+g.icon+'"></i></span><span>'+g.title+'</span><button type="button" class="flyout-close" aria-label="Cerrar menú"><i class="ti ti-x"></i></button></div></div>'+body+'<div class="flyout-note"><i class="ti ti-info-circle"></i><span>Selecciona una opción o haz clic fuera para cerrar.</span></div>';
+    fly.querySelectorAll('.flyout-item').forEach(item=>item.addEventListener('click',()=>clickModule(item.dataset.mod)));
+    fly.querySelector('.flyout-close')?.addEventListener('click',close);
+    const active=rail.querySelector('.sidebar-item.active[data-modulo]');
     if(active){const a=fly.querySelector('[data-mod="'+active.dataset.modulo+'"]');if(a)a.classList.add('active');}
     open();
   }
-  function open(){clearTimeout(hideTimer);fly.classList.add('open');}
-  function close(){clearTimeout(hideTimer);hideTimer=setTimeout(()=>fly.classList.remove('open'),120);}
 
   rail.querySelectorAll('.sidebar-item[data-modulo-grupo]').forEach(el=>{
     const key=el.id==='grupo-recepcion'?'recepcion':(el.id==='grupo-inventario'?'inventario':(el.id==='grupo-rrhh'?'rrhh':null));
-    if(!key) return; // grupo-nomina, por ejemplo, es un sub-grupo -- no tiene flyout propio
-    el.addEventListener('mouseenter',()=>render(key));
-    el.addEventListener('mouseleave',()=>close());
+    if(!key) return;
+    el.setAttribute('aria-haspopup','dialog');
+    el.addEventListener('click',(e)=>{ e.stopPropagation(); render(key); });
   });
-  fly.addEventListener('mouseenter',open);
-  fly.addEventListener('mouseleave',close);
 
-  /* Si el usuario está dentro de un submódulo, resalta su grupo padre. */
+  // Cierra el flyout al hacer clic en cualquier zona fuera de él o del rail.
+  document.addEventListener('pointerdown',(e)=>{
+    if(!fly.classList.contains('open')) return;
+    if(!fly.contains(e.target) && !rail.contains(e.target)) close();
+  },true);
+  document.addEventListener('keydown',(e)=>{ if(e.key==='Escape') close(); });
+  window.addEventListener('resize',close);
+
   window.jdhActualizarNavPadre=function(modulo){
     rail.querySelectorAll('.nav-parent-active').forEach(x=>x.classList.remove('nav-parent-active'));
     if(String(modulo).startsWith('recepcion-')) rail.querySelector('#grupo-recepcion')?.classList.add('nav-parent-active');
@@ -5735,11 +5777,11 @@ function renderControlSemanaFiltrado() {
     if(String(modulo).startsWith('inventario-') || modulo === 'vencimientos' || modulo === 'importacion-maestros') rail.querySelector('#grupo-inventario')?.classList.add('nav-parent-active');
   };
 
-  /* Reaplica después de cada cambio de módulo sin tocar la función original. */
   const originalCambiar=window.cambiarModulo;
   if(typeof originalCambiar==='function'){
     window.cambiarModulo=function(modulo){
       const r=originalCambiar.apply(this,arguments);
+      close();
       setTimeout(()=>window.jdhActualizarNavPadre(modulo),0);
       return r;
     };
