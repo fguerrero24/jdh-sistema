@@ -45,6 +45,10 @@
   .op-valor { font-size:19px; font-weight:700; color:#fff; font-variant-numeric:tabular-nums; }
   .op-valor.ok { color:#4ade9e; }
   .op-valor.bad { color:#fbbf5c; }
+  .op-resumen-mini { display:grid; grid-template-columns:repeat(auto-fit,minmax(96px,1fr)); gap:6px; background:#0f2033; border-radius:10px; padding:9px 14px; margin-bottom:14px; }
+  .op-card-mini { }
+  .op-label-mini { color:#6b829a; font-size:8.5px; text-transform:uppercase; margin-bottom:2px; }
+  .op-valor-mini { font-size:13px; font-weight:700; color:#fff; font-variant-numeric:tabular-nums; }
   .alerta-banner { background:#3a1f1a; border:1px solid #6b3226; color:#ff9d7a; border-radius:10px; padding:12px 18px; margin-bottom:14px; font-size:14px; font-weight:700; display:none; }
   .alerta-banner.visible { display:block; }
 </style>
@@ -129,6 +133,7 @@
 <div id="vista-un-cedi">
 
 <div class="op-resumen" id="op-resumen"></div>
+<div class="op-resumen-mini" id="op-resumen-promedios"></div>
 
 <div class="resumen">
   <div class="dona-block">
@@ -519,6 +524,31 @@ function actualizarResumenOperacion() {
     tarjeta('Ruta más rápida', rutaRapida ? `${rutaRapida.ruta} · ${rutaRapida.takt.toFixed(1)}s` : '—', 'ok'),
     tarjeta('Ruta más lenta', rutaLenta ? `${rutaLenta.ruta} · ${rutaLenta.takt.toFixed(1)}s` : '—', 'bad'),
     tarjeta('Auditor más lento', auditorLento ? `${auditorLento.auditor} · ${auditorLento.taktTime != null ? auditorLento.taktTime.toFixed(1) + 's' : '—'}` : '—', 'bad'),
+  ].join('');
+
+  // ---------- Tarjetas pequeñas: promedios por ruta ----------
+  const totalPedidosGeneral = RUTAS.reduce((s, r) => s + (r.pedidos || 0), 0);
+  const totalVisitas = RUTAS.reduce((s, r) => s + (r.visitas || 0), 0);
+  const promedioPedidos = RUTAS.length ? totalPedidosGeneral / RUTAS.length : 0;
+  const promedioLineas = RUTAS.length ? totalLineas / RUTAS.length : 0;
+  const promedioKilos = RUTAS.length ? totalKilos / RUTAS.length : 0;
+  const promedioVisitas = RUTAS.length ? totalVisitas / RUTAS.length : 0;
+
+  const duracionesPacking = RUTAS
+    .map(r => segundosTranscurridos(r.packing_iniciado_en, r.packing_pausado_desde, r.packing_segundos_pausados, r.packing_finalizado_en))
+    .filter(seg => seg != null);
+  const promedioCargueMin = duracionesPacking.length
+    ? (duracionesPacking.reduce((s, seg) => s + seg, 0) / duracionesPacking.length) / 60
+    : null;
+
+  const tarjetaMini = (label, valor) => `<div class="op-card-mini"><div class="op-label-mini">${label}</div><div class="op-valor-mini">${valor}</div></div>`;
+
+  document.getElementById('op-resumen-promedios').innerHTML = [
+    tarjetaMini('Prom. Pedidos/ruta', promedioPedidos.toFixed(1)),
+    tarjetaMini('Prom. Líneas/ruta', promedioLineas.toFixed(1)),
+    tarjetaMini('Prom. Kilos/ruta', promedioKilos.toLocaleString('es-CO', { maximumFractionDigits: 0 }) + ' kg'),
+    tarjetaMini('Prom. Visitas/ruta', promedioVisitas.toFixed(1)),
+    tarjetaMini('Prom. Cargue (Packing)', promedioCargueMin != null ? promedioCargueMin.toFixed(1) + ' min' : '—'),
   ].join('');
 
   // Alerta si ya pasó la hora límite y quedan rutas sin terminar
