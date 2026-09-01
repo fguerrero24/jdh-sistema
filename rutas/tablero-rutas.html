@@ -104,7 +104,7 @@
     <thead>
       <tr>
         <th>CEDI</th><th>Rutas</th><th>Finalizadas</th><th>Fill Rate</th>
-        <th>OTIF Picking</th><th>Picking tarde (&gt;4am)</th><th>OTIF Packing</th><th>Packing tarde (&gt;6am)</th><th>Total Kilos</th><th>Total Líneas</th><th>Duración</th><th>Takt Time</th><th>Proyección de fin</th>
+        <th>OTIF Picking</th><th>Picking tarde (&gt;4am)</th><th>OTIF Packing</th><th>Packing tarde (&gt;6am)</th><th>Total Kilos</th><th>Total Líneas</th><th>Valor Venta</th><th>Duración</th><th>Takt Time</th><th>Proyección de fin</th>
         <th>Prom. Pedidos/ruta</th><th>Prom. Líneas/ruta</th><th>Prom. Kilos/ruta</th><th>Prom. Visitas/ruta</th><th>Prom. Cargue (Packing)</th>
       </tr>
     </thead>
@@ -460,6 +460,7 @@ function actualizarResumenOperacion() {
 
   const totalKilos = RUTAS.reduce((s, r) => s + (Number(r.peso) || 0), 0);
   const totalLineas = RUTAS.reduce((s, r) => s + (r.lineas || 0), 0);
+  const totalValorVenta = RUTAS.reduce((s, r) => s + (Number(r.valor_venta) || 0), 0);
 
   // Fill Rate: solo cuenta rutas con Packing YA finalizado -- una ruta que
   // ni siquiera ha empezado no puede contar como "100% completa" solo
@@ -516,6 +517,7 @@ function actualizarResumenOperacion() {
     tarjeta('Proyección de fin', proyeccion),
     tarjeta('Total kilos', totalKilos.toLocaleString('es-CO', { maximumFractionDigits: 0 }) + ' kg'),
     tarjeta('Total líneas', totalLineas),
+    tarjeta('Valor total ventas', '$ ' + totalValorVenta.toLocaleString('es-CO', { maximumFractionDigits: 0 })),
     tarjeta('Rutas finalizadas', `${rutasFinalizadas}/${RUTAS.length}`),
     tarjeta('Fill Rate', fillRate != null ? fillRate.toFixed(1) + '%' : '—', fillRate != null && fillRate < 95 ? 'bad' : 'ok'),
     tarjeta('OTIF Picking (< 4am)', otifPicking != null ? otifPicking.toFixed(1) + '%' : '—', otifPicking != null && otifPicking < 90 ? 'bad' : 'ok'),
@@ -607,6 +609,7 @@ function renderFilas() {
           <div class="dato-item"><span class="dato-label">Líneas</span><span class="dato-valor">${r.lineas}</span></div>
           <div class="dato-item"><span class="dato-label">Peso</span><span class="dato-valor">${Number(r.peso).toLocaleString('es-CO',{maximumFractionDigits:0})} kg</span></div>
           <div class="dato-item"><span class="dato-label">Visitas</span><span class="dato-valor">${r.visitas}</span></div>
+          <div class="dato-item"><span class="dato-label">Valor venta</span><span class="dato-valor">$ ${Number(r.valor_venta || 0).toLocaleString('es-CO',{maximumFractionDigits:0})}</span></div>
         </div>
       </td>
       <td><span class="badge ${r.estado_picking}">${r.estado_picking.toUpperCase()}</span>${tPicking != null ? `<span class="timer ${claseTimerPicking}" data-timer="picking">${formatoTiempo(tPicking)}</span>` : ''}</td>
@@ -749,12 +752,13 @@ async function cargarComparacionTodosCedis() {
   const todas = data || [];
   TODAS_RUTAS_CACHE = todas;
 
-  let totalRutas = 0, totalFinalizadas = 0, totalKilosGlobal = 0, totalLineasGlobal = 0, pickingTardeGlobal = 0, packingTardeGlobal = 0;
+  let totalRutas = 0, totalFinalizadas = 0, totalKilosGlobal = 0, totalLineasGlobal = 0, pickingTardeGlobal = 0, packingTardeGlobal = 0, totalValorVentaGlobal = 0;
   const filas = CEDIS_LISTA.map(cedi => {
     const rutasCedi = todas.filter(r => r.cedi === cedi);
     const finalizadas = rutasCedi.filter(r => r.estado_picking === 'finalizado' && r.estado_packing === 'finalizado');
     const totalKilos = rutasCedi.reduce((s, r) => s + (Number(r.peso) || 0), 0);
     const totalLineas = rutasCedi.reduce((s, r) => s + (r.lineas || 0), 0);
+    const totalValorVentaCedi = rutasCedi.reduce((s, r) => s + (Number(r.valor_venta) || 0), 0);
 
     // Fill Rate: solo rutas con Packing finalizado (mismo criterio ya corregido)
     const paraFillRate = rutasCedi.filter(r => r.estado_packing === 'finalizado');
@@ -797,6 +801,7 @@ async function cargarComparacionTodosCedis() {
     totalLineasGlobal += totalLineas;
     pickingTardeGlobal += pickingTarde;
     packingTardeGlobal += packingTarde;
+    totalValorVentaGlobal += totalValorVentaCedi;
 
     return `<tr data-cedi-fila="${cedi}">
       <td style="font-weight:700;">${cedi}</td>
@@ -809,6 +814,7 @@ async function cargarComparacionTodosCedis() {
       <td style="color:${packingTarde > 0 ? '#f05b5b' : '#4ade9e'}">${packingTarde}</td>
       <td>${totalKilos.toLocaleString('es-CO', { maximumFractionDigits: 0 })} kg</td>
       <td>${totalLineas}</td>
+      <td>$ ${totalValorVentaCedi.toLocaleString('es-CO', { maximumFractionDigits: 0 })}</td>
       <td data-duracion-cedi="${cedi}">—</td>
       <td>${taktPromedio != null ? taktPromedio.toFixed(1) + 's' : '—'}</td>
       <td>${proyeccionTexto}</td>
@@ -828,6 +834,7 @@ async function cargarComparacionTodosCedis() {
     <div class="op-card"><div class="op-label">Rutas finalizadas</div><div class="op-valor">${totalFinalizadas}/${totalRutas}</div></div>
     <div class="op-card"><div class="op-label">Total kilos (todos los CEDIs)</div><div class="op-valor">${totalKilosGlobal.toLocaleString('es-CO', { maximumFractionDigits: 0 })} kg</div></div>
     <div class="op-card"><div class="op-label">Total líneas (todos los CEDIs)</div><div class="op-valor">${totalLineasGlobal}</div></div>
+    <div class="op-card"><div class="op-label">Valor total ventas (todos los CEDIs)</div><div class="op-valor">$ ${totalValorVentaGlobal.toLocaleString('es-CO', { maximumFractionDigits: 0 })}</div></div>
     <div class="op-card"><div class="op-label">Duración total (global)</div><div class="op-valor" id="duracion-global">—</div></div>
     <div class="op-card"><div class="op-label">Picking tarde (&gt;4am, global)</div><div class="op-valor ${pickingTardeGlobal > 0 ? 'bad' : 'ok'}">${pickingTardeGlobal}</div></div>
     <div class="op-card"><div class="op-label">Packing tarde (&gt;6am, global)</div><div class="op-valor ${packingTardeGlobal > 0 ? 'bad' : 'ok'}">${packingTardeGlobal}</div></div>
