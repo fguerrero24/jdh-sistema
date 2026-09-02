@@ -1083,14 +1083,21 @@ input:focus,select:focus,textarea:focus{outline:none!important;border-color:#176
         </div>
 
         <div id="view-inventario" class="hidden">
-          <div class="section-label" style="margin-top:0;">Inventario WMS (Odoo)</div>
-          <div class="indicator-fields" style="border:none;padding:0;">
-            <button class="btn" id="btn-sync-inventario"><i class="ti ti-refresh"></i> Actualizar inventario desde Odoo</button>
-            <div class="indicator-field"><label>CEDI</label><select id="wms-filtro-cedi"><option value="">Todos</option></select></div>
-            <div class="indicator-field"><label>Buscar producto o código</label><input type="text" id="wms-filtro-producto" placeholder="Escribe para filtrar..."></div>
+          <div class="inv-hero">
+            <div class="inv-hero-top">
+              <div><div class="inv-eyebrow">JDH · Inventory Control Tower</div><div class="inv-title">Inventario WMS</div><div class="inv-subtitle">El stock real de Odoo, tal cual, sin análisis de riesgo -- eso vive en Vencimientos.</div></div>
+              <div class="inv-sync"><button class="btn" id="btn-sync-inventario"><i class="ti ti-refresh"></i> Actualizar inventario desde Odoo</button></div>
+            </div>
           </div>
-          <div id="wms-status" style="font-size:12px;color:var(--text-secondary);margin:8px 0;"></div>
-          <div id="wms-tabla"></div>
+          <div id="wms-kpis" class="inv-kpis"></div>
+          <div class="inv-filterbar">
+            <div class="inv-filter-row">
+              <div class="inv-filter"><label>CEDI</label><select id="wms-filtro-cedi"><option value="">Todos</option></select></div>
+              <div class="inv-filter"><label>Buscar producto o código</label><input type="text" id="wms-filtro-producto" placeholder="Escribe para filtrar..."></div>
+            </div>
+          </div>
+          <div id="wms-status" style="font-size:11px;color:var(--text-secondary);margin:8px 2px;"></div>
+          <div class="inv-section"><div class="inv-section-head"><div><div class="inv-section-title">Existencias</div><div class="inv-section-note" id="wms-tabla-note">Ordenado por producto</div></div><div class="inv-section-note">/1/ Picking · /2/ Altura</div></div><div class="inv-table-wrap" id="wms-tabla"></div></div>
         </div>
 
         <div id="view-vencimientos" class="hidden">
@@ -4308,17 +4315,31 @@ function renderInventarioWmsSimple() {
     ? INVENTARIO_WMS_SIMPLE_CACHE.filter(r => (r.producto || '').toLowerCase().includes(texto) || (r.codigo_barras_ubicacion || '').toLowerCase().includes(texto))
     : INVENTARIO_WMS_SIMPLE_CACHE;
 
-  const cont = document.getElementById('wms-tabla');
-  if (!filtrado.length) { cont.innerHTML = '<div class="empty-state">No hay inventario con ese filtro.</div>'; return; }
+  // ---------- Tarjetas resumen (mismo estilo visual que Vencimientos) ----------
+  const totalDisponible = INVENTARIO_WMS_SIMPLE_CACHE.reduce((s, r) => s + (Number(r.cantidad_disponible) || 0), 0);
+  const productosDistintos = new Set(INVENTARIO_WMS_SIMPLE_CACHE.map(r => r.producto)).size;
+  const cedisDistintos = new Set(INVENTARIO_WMS_SIMPLE_CACHE.map(r => r.cedi).filter(Boolean)).size;
+  const enPicking = INVENTARIO_WMS_SIMPLE_CACHE.filter(r => zonaInventario(r.ubicacion) === 'picking').length;
+  const kpi = (label, value, meta) => `<div class="inv-kpi" style="cursor:default"><div class="inv-kpi-label">${label}</div><div class="inv-kpi-value">${value}</div><div class="inv-kpi-meta">${meta}</div></div>`;
+  document.getElementById('wms-kpis').innerHTML =
+    kpi('Disponible', totalDisponible.toLocaleString('es-CO'), 'unidades') +
+    kpi('Productos', productosDistintos.toLocaleString('es-CO'), 'referencias distintas') +
+    kpi('CEDIs con datos', cedisDistintos, 'centros de distribución') +
+    kpi('En Picking /1/', enPicking.toLocaleString('es-CO'), 'registros de ubicación');
 
-  cont.innerHTML = `<table class="hist-table open"><tr>
-      <th>CEDI</th><th>Producto</th><th>Ubicación</th><th>Lote</th><th>Paquete</th>
-      <th>Fecha caducidad</th><th>Cant. inventario</th><th>Cant. disponible</th><th>UM</th><th>Código de barras</th>
-    </tr>${
-    filtrado.map(r => `<tr>
+  const cont = document.getElementById('wms-tabla');
+  document.getElementById('wms-tabla-note').textContent = `${filtrado.length.toLocaleString('es-CO')} registros visibles`;
+  if (!filtrado.length) { cont.innerHTML = '<div class="inv-empty">No hay inventario con ese filtro.</div>'; return; }
+
+  cont.innerHTML = `<table class="inv-table"><thead><tr>
+      <th>CEDI</th><th>Producto</th><th>Zona</th><th>Ubicación</th><th>Lote</th><th>Paquete</th>
+      <th>Caducidad</th><th>Cant. inventario</th><th>Cant. disponible</th><th>UM</th><th>Código de barras</th>
+    </tr></thead><tbody>${
+    filtrado.map(r => { const zona = zonaInventario(r.ubicacion); return `<tr>
       <td>${tEsc(r.cedi || '—')}</td>
-      <td>${tEsc(r.producto)}</td>
-      <td>${tEsc(r.ubicacion || '—')}</td>
+      <td class="inv-product">${tEsc(r.producto)}</td>
+      <td><span class="inv-zone ${zona}">${zona === 'picking' ? 'PICKING /1/' : zona === 'altura' ? 'ALTURA /2/' : 'OTRAS'}</span></td>
+      <td style="font-size:10.5px;">${tEsc(r.ubicacion || '—')}</td>
       <td>${tEsc(r.lote || '—')}</td>
       <td>${tEsc(r.paquete || '—')}</td>
       <td>${r.fecha_caducidad ? new Date(r.fecha_caducidad).toLocaleDateString('es-CO') : '—'}</td>
@@ -4326,8 +4347,8 @@ function renderInventarioWmsSimple() {
       <td>${Number(r.cantidad_disponible).toLocaleString('es-CO')}</td>
       <td>${tEsc(r.unidad_medida || '—')}</td>
       <td>${tEsc(r.codigo_barras_ubicacion || '—')}</td>
-    </tr>`).join('')
-  }</table>`;
+    </tr>`; }).join('')
+  }</tbody></table>`;
 }
 
 let MAESTRA_INVENTARIO_CACHE = [];
