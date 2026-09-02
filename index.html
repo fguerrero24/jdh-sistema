@@ -896,9 +896,9 @@ input:focus,select:focus,textarea:focus{outline:none!important;border-color:#176
   .sidebar-item{
     position:relative;
     width:58px;
-    min-height:44px;
-    margin:4px 0;
-    padding:10px 0;
+    min-height:40px;
+    margin:0;
+    padding:8px 0;
     justify-content:center;
     gap:10px;
     white-space:nowrap;
@@ -5835,7 +5835,7 @@ function renderControlSemanaFiltrado() {
 
   /* Separación visual entre grupos */
   #app-view .sidebar > .sidebar-item[data-modulo="reportes"]{margin-top:18px!important;}
-  #app-view .sidebar > .sidebar-item[data-modulo="admin"]{position:absolute;left:10px;bottom:18px;}
+  #app-view .sidebar > .sidebar-item[data-modulo="admin"]{margin-top:18px!important;}
 }
 
 @media(max-width:900px){#jdh-nav-flyout{display:none!important;}}
@@ -5885,14 +5885,14 @@ function renderControlSemanaFiltrado() {
 
 <style id="jdh-nav-polish-2026">
 @media (min-width:901px){
-  #app-view .sidebar{width:72px!important;padding:14px 9px!important;overflow:hidden!important;background:linear-gradient(180deg,#0d1b2d 0%,#101f34 100%)!important;}
-  #app-view .sidebar > .sidebar-item{width:52px!important;height:52px!important;min-height:52px!important;margin:5px auto!important;position:relative!important;overflow:visible!important;}
+  #app-view .sidebar{width:72px!important;padding:14px 9px!important;overflow-y:auto!important;overflow-x:hidden!important;background:linear-gradient(180deg,#0d1b2d 0%,#101f34 100%)!important;}
+  #app-view .sidebar > .sidebar-item{width:52px!important;height:52px!important;min-height:52px!important;margin:0 auto!important;position:relative!important;overflow:visible!important;}
   #app-view .sidebar > .sidebar-item i:first-child{display:grid!important;place-items:center!important;width:34px!important;height:34px!important;border-radius:11px!important;font-size:20px!important;line-height:1!important;}
   #app-view .sidebar > .sidebar-item:hover i:first-child{background:rgba(255,255,255,.09)!important;}
   #app-view .sidebar > .sidebar-item.active i:first-child,#app-view .sidebar > .sidebar-item.nav-parent-active i:first-child{background:rgba(255,255,255,.13)!important;}
   #app-view .sidebar > .sidebar-item::after{left:-9px!important;}
   #app-view .sidebar > .sidebar-item[data-modulo="reportes"]{margin-top:18px!important;}
-  #app-view .sidebar > .sidebar-item[data-modulo="admin"]{left:10px!important;bottom:16px!important;}
+  #app-view .sidebar > .sidebar-item[data-modulo="admin"]{margin-top:18px!important;}
   #app-view .sidebar{scrollbar-width:none!important;}
   #app-view .sidebar::-webkit-scrollbar{width:0!important;height:0!important;}
 
