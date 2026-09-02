@@ -2332,10 +2332,11 @@ async function cargarIndicadores() {
     const { data: ultimos } = await q;
     const ultimo = ultimos && ultimos[0];
 
+    const ultimoDiaDelMes = new Date(anioActual, mesActual, 0).getDate(); // día 0 del mes siguiente = último día real del mes actual (28/29/30/31 según corresponda)
     let q2 = sb.from('registros_vigentes').select('campo_a,campo_b,campo_c,campo_d,valor')
       .eq('indicador_id', ind.id)
       .gte('fecha', `${anioActual}-${String(mesActual).padStart(2,'0')}-01`)
-      .lte('fecha', `${anioActual}-${String(mesActual).padStart(2,'0')}-31`);
+      .lte('fecha', `${anioActual}-${String(mesActual).padStart(2,'0')}-${String(ultimoDiaDelMes).padStart(2,'0')}`);
     if (!puedeVerTodosLosCedis()) q2 = q2.eq('cedi', SESION.cedi);
     const { data: delMes } = await q2;
     const acumulado = calcularAcumulado(ind, delMes || []);
@@ -6478,7 +6479,12 @@ function renderControlSemanaFiltrado() {
   let currentGroup=null;
   function visible(mod){
     const el=rail.querySelector('.sidebar-item[data-modulo="'+mod+'"]');
-    return !!el && !el.classList.contains('menu-item-sin-permiso') && getComputedStyle(el).display!=='none';
+    // OJO: no se puede usar getComputedStyle(el).display aquí -- los
+    // sub-módulos SIEMPRE tienen display:none en la barra angosta (solo
+    // viven en este panel flotante), así que ese chequeo daría "no visible"
+    // para todos, tengan permiso o no. La clase "menu-item-sin-permiso" es
+    // la señal confiable de si el usuario tiene o no acceso.
+    return !!el && !el.classList.contains('menu-item-sin-permiso');
   }
   function close(){
     fly.classList.remove('open');
