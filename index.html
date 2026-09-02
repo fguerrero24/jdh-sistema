@@ -1053,14 +1053,12 @@ input:focus,select:focus,textarea:focus{outline:none!important;border-color:#176
         <div id="view-torre">
           <div class="kpi-grid" id="torre-kpis"></div>
 
-          <div id="torre-resumen-ia" style="background:#0f2033;border-radius:12px;padding:14px 18px;margin:14px 0;color:#cbd5e1;font-size:13px;line-height:1.5;">
-            <div style="font-size:10px;color:#6b829a;text-transform:uppercase;margin-bottom:4px;">🤖 Resumen IA</div>
-            <div id="torre-resumen-ia-texto">Generando resumen...</div>
-          </div>
-
-          <div style="display:grid;grid-template-columns:280px 1fr;gap:16px;margin:14px 0;align-items:start;">
-            <div id="torre-chart-cumplimiento" style="background:#0f2033;border-radius:12px;padding:10px;"></div>
-            <div></div>
+          <div style="display:grid;grid-template-columns:280px 1fr;gap:16px;margin:16px 0;align-items:stretch;">
+            <div id="torre-chart-cumplimiento" style="background:var(--modern-panel);border:1px solid var(--modern-border);border-radius:14px;padding:12px;box-shadow:var(--modern-shadow);"></div>
+            <div style="background:var(--modern-panel);border:1px solid var(--modern-border);border-radius:14px;padding:16px 18px;box-shadow:var(--modern-shadow);">
+              <div style="font-size:10px;color:var(--modern-primary);text-transform:uppercase;font-weight:700;letter-spacing:.04em;margin-bottom:6px;">🤖 Resumen IA</div>
+              <div id="torre-resumen-ia-texto" style="color:var(--modern-text);font-size:13px;line-height:1.6;">Generando resumen...</div>
+            </div>
           </div>
 
           <div class="section-label">Alertas activas</div>
@@ -1069,7 +1067,7 @@ input:focus,select:focus,textarea:focus{outline:none!important;border-color:#176
           <div id="torre-comparacion-cedis" class="hidden">
             <div class="section-label" style="margin-top:26px;">Comparación entre CEDIs</div>
             <div class="kpi-grid" id="torre-resumen-cedis"></div>
-            <div id="torre-chart-cedis" style="max-width:600px;background:#0f2033;border-radius:12px;padding:10px;margin:14px 0;"></div>
+            <div id="torre-chart-cedis" style="max-width:600px;background:var(--modern-panel);border:1px solid var(--modern-border);border-radius:14px;padding:12px;margin:14px 0;box-shadow:var(--modern-shadow);"></div>
 
             <div class="section-label" style="margin-top:18px;">Mapa de indicadores por CEDI</div>
             <div id="torre-mapa-calor" style="overflow-x:auto;"></div>
@@ -1094,6 +1092,12 @@ input:focus,select:focus,textarea:focus{outline:none!important;border-color:#176
             <div class="inv-filter-row">
               <div class="inv-filter"><label>CEDI</label><select id="wms-filtro-cedi"><option value="">Todos</option></select></div>
               <div class="inv-filter"><label>Buscar producto o código</label><input type="text" id="wms-filtro-producto" placeholder="Escribe para filtrar..."></div>
+            </div>
+            <div class="inv-chiprow">
+              <button class="inv-chip active" data-wms-chip="">Todas las zonas</button>
+              <button class="inv-chip" data-wms-chip="picking">Picking /1/</button>
+              <button class="inv-chip" data-wms-chip="altura">Altura /2/</button>
+              <button class="inv-chip" data-wms-chip="other">Otras</button>
             </div>
           </div>
           <div id="wms-status" style="font-size:11px;color:var(--text-secondary);margin:8px 2px;"></div>
@@ -2109,14 +2113,14 @@ function renderGraficoCumplimientoTorre(cumple, fuera, sinDatos) {
   const el = document.getElementById('torre-chart-cumplimiento');
   if (!el) return;
   const opciones = {
-    chart: { type: 'donut', height: 230, foreColor: '#cbd5e1' },
+    chart: { type: 'donut', height: 230, foreColor: '#667085' },
     series: [cumple, fuera, sinDatos],
     labels: ['En meta', 'Fuera de meta', 'Sin datos'],
-    colors: ['#4ade9e', '#fb7185', '#6b829a'],
+    colors: ['#16a34a', '#e11d48', '#94a3b8'],
     legend: { position: 'bottom', fontSize: '11px' },
-    dataLabels: { enabled: true, style: { fontSize: '11px' } },
-    stroke: { width: 2, colors: ['#0f2033'] },
-    plotOptions: { pie: { donut: { labels: { show: true, total: { show: true, label: 'Indicadores', color: '#cbd5e1' } } } } },
+    dataLabels: { enabled: true, style: { fontSize: '11px', colors: ['#fff'] } },
+    stroke: { width: 2, colors: ['#ffffff'] },
+    plotOptions: { pie: { donut: { labels: { show: true, total: { show: true, label: 'Indicadores', color: '#172033' } } } } },
   };
   if (CHART_CUMPLIMIENTO_TORRE) { CHART_CUMPLIMIENTO_TORRE.updateOptions(opciones); return; }
   CHART_CUMPLIMIENTO_TORRE = new ApexCharts(el, opciones);
@@ -2202,15 +2206,15 @@ function renderGraficoComparacionCedis(cedis, resumenPorCedi) {
     return (s.cumple + s.fuera) > 0 ? Math.round((s.cumple / (s.cumple + s.fuera)) * 100) : 0;
   });
   const opciones = {
-    chart: { type: 'bar', height: 240, foreColor: '#cbd5e1', toolbar: { show: false } },
+    chart: { type: 'bar', height: 240, foreColor: '#667085', toolbar: { show: false } },
     series: [{ name: '% Cumplimiento', data: pcts }],
     xaxis: { categories: cedis, max: 100 },
     yaxis: { max: 100 },
-    colors: pcts.map(p => p >= 80 ? '#4ade9e' : p >= 60 ? '#f59e0b' : '#ef4444'),
+    colors: pcts.map(p => p >= 80 ? '#16a34a' : p >= 60 ? '#d97706' : '#dc2626'),
     plotOptions: { bar: { distributed: true, borderRadius: 4, columnWidth: '55%' } },
     legend: { show: false },
     dataLabels: { enabled: true, formatter: v => v + '%', style: { colors: ['#fff'] } },
-    grid: { borderColor: '#1e3350' },
+    grid: { borderColor: '#e5e9f0' },
   };
   if (CHART_COMPARACION_CEDIS) { CHART_COMPARACION_CEDIS.updateOptions(opciones); return; }
   CHART_COMPARACION_CEDIS = new ApexCharts(el, opciones);
@@ -4308,24 +4312,33 @@ async function traerInventarioWmsSimple() {
 
 document.getElementById('wms-filtro-cedi').addEventListener('change', traerInventarioWmsSimple);
 document.getElementById('wms-filtro-producto').addEventListener('input', renderInventarioWmsSimple);
+document.querySelectorAll('[data-wms-chip]').forEach(btn => btn.addEventListener('click', () => {
+  WMS_ZONA_ACTIVA = btn.dataset.wmsChip;
+  document.querySelectorAll('[data-wms-chip]').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderInventarioWmsSimple();
+}));
+
+let WMS_ZONA_ACTIVA = '';
 
 function renderInventarioWmsSimple() {
   const texto = document.getElementById('wms-filtro-producto').value.trim().toLowerCase();
-  const filtrado = texto
+  let filtrado = texto
     ? INVENTARIO_WMS_SIMPLE_CACHE.filter(r => (r.producto || '').toLowerCase().includes(texto) || (r.codigo_barras_ubicacion || '').toLowerCase().includes(texto))
     : INVENTARIO_WMS_SIMPLE_CACHE;
+  if (WMS_ZONA_ACTIVA) filtrado = filtrado.filter(r => zonaInventario(r.ubicacion) === WMS_ZONA_ACTIVA);
 
   // ---------- Tarjetas resumen (mismo estilo visual que Vencimientos) ----------
   const totalDisponible = INVENTARIO_WMS_SIMPLE_CACHE.reduce((s, r) => s + (Number(r.cantidad_disponible) || 0), 0);
   const productosDistintos = new Set(INVENTARIO_WMS_SIMPLE_CACHE.map(r => r.producto)).size;
-  const cedisDistintos = new Set(INVENTARIO_WMS_SIMPLE_CACHE.map(r => r.cedi).filter(Boolean)).size;
   const enPicking = INVENTARIO_WMS_SIMPLE_CACHE.filter(r => zonaInventario(r.ubicacion) === 'picking').length;
+  const enAltura = INVENTARIO_WMS_SIMPLE_CACHE.filter(r => zonaInventario(r.ubicacion) === 'altura').length;
   const kpi = (label, value, meta) => `<div class="inv-kpi" style="cursor:default"><div class="inv-kpi-label">${label}</div><div class="inv-kpi-value">${value}</div><div class="inv-kpi-meta">${meta}</div></div>`;
   document.getElementById('wms-kpis').innerHTML =
     kpi('Disponible', totalDisponible.toLocaleString('es-CO'), 'unidades') +
     kpi('Productos', productosDistintos.toLocaleString('es-CO'), 'referencias distintas') +
-    kpi('CEDIs con datos', cedisDistintos, 'centros de distribución') +
-    kpi('En Picking /1/', enPicking.toLocaleString('es-CO'), 'registros de ubicación');
+    kpi('En Picking /1/', enPicking.toLocaleString('es-CO'), 'listo para surtir pedidos') +
+    kpi('En Altura /2/', enAltura.toLocaleString('es-CO'), 'pendiente de bajar a Picking');
 
   const cont = document.getElementById('wms-tabla');
   document.getElementById('wms-tabla-note').textContent = `${filtrado.length.toLocaleString('es-CO')} registros visibles`;
