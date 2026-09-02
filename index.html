@@ -6279,6 +6279,16 @@ function renderControlSemanaFiltrado() {
     border-color:rgba(255,255,255,.10)!important;
     box-shadow:0 8px 20px rgba(15,94,208,.24)!important;
   }
+  /* Un sub-módulo (ej. "Importación de Maestros") también puede quedar
+     "activo" cuando es la página actual -- eso NO debe hacer que vuelva a
+     aparecer en la barra angosta (los submenús solo viven en el flyout).
+     Esta regla es más específica que la de ".active" de arriba, así que
+     siempre gana y lo mantiene oculto pase lo que pase. */
+  #app-view .sidebar > .sidebar-item.sidebar-sub.active,
+  #app-view .sidebar > .sidebar-item.sidebar-sub.nav-parent-active,
+  #app-view .sidebar > .sidebar-item.sidebar-sub{
+    display:none!important;
+  }
   #app-view .sidebar > .sidebar-item.locked{opacity:.48;cursor:default;}
   #app-view .sidebar > .sidebar-item i:first-child{font-size:21px!important;flex:0 0 auto!important;}
   #app-view .sidebar > .sidebar-item .sidebar-label,
