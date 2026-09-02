@@ -1022,6 +1022,7 @@ input:focus,select:focus,textarea:focus{outline:none!important;border-color:#176
       <div class="sidebar-item sidebar-sub hidden" data-modulo="inventario-wms" style="padding-left:38px;font-size:11.5px;">Inventario WMS</div>
       <div class="sidebar-item sidebar-sub hidden" data-modulo="vencimientos" style="padding-left:38px;font-size:11.5px;">Vencimientos</div>
       <div class="sidebar-item sidebar-sub hidden" data-modulo="importacion-maestros" style="padding-left:38px;font-size:11.5px;">Importación de Maestros</div>
+      <div class="sidebar-item sidebar-sub hidden" data-modulo="siesa-vs-wms" style="padding-left:38px;font-size:11.5px;">SIESA vs WMS</div>
       <div class="sidebar-item" data-modulo-grupo="recepcion" id="grupo-recepcion"><i class="ti ti-truck-delivery"></i>Recepción y despacho<i class="ti ti-chevron-down" style="margin-left:auto;font-size:13px;"></i></div>
       <div class="sidebar-item sidebar-sub hidden" data-modulo="recepcion-importar" style="padding-left:38px;font-size:11.5px;">Importar cargue</div>
       <div class="sidebar-item sidebar-sub hidden" data-modulo="recepcion-rutas" style="padding-left:38px;font-size:11.5px;">Rutas del día</div>
@@ -1172,6 +1173,7 @@ input:focus,select:focus,textarea:focus{outline:none!important;border-color:#176
             <div class="indicator-field"><label>Tipo de importación</label>
               <select id="imp-tipo">
                 <option value="maestra_articulos_siesa">Maestra de Artículos (SIESA)</option>
+                <option value="inventario_siesa">Inventario SIESA (existencias por CEDI)</option>
               </select>
             </div>
             <div class="indicator-field"><label>Archivo (.xlsx o .csv)</label><input type="file" id="imp-archivo" accept=".xlsx,.xls,.csv"></div>
@@ -1180,6 +1182,69 @@ input:focus,select:focus,textarea:focus{outline:none!important;border-color:#176
           <div id="imp-status" style="font-size:12px;color:var(--text-secondary);margin:8px 0;"></div>
           <div id="imp-preview"></div>
           <button class="btn hidden" id="btn-imp-confirmar" style="margin-top:10px;">Confirmar e importar a la base de datos</button>
+        </div>
+
+        <div id="view-siesa-vs-wms" class="hidden">
+          <div class="inv-hero">
+            <div class="inv-hero-top">
+              <div><div class="inv-eyebrow">JDH · Inventory Control Tower</div><div class="inv-title">SIESA vs WMS</div><div class="inv-subtitle">Conciliación de inventario -- información, excepción, decisión, acción.</div></div>
+              <div class="inv-sync" style="display:flex;gap:8px;">
+                <button class="btn ghost" id="btn-svw-actualizar-wms"><i class="ti ti-refresh"></i> Actualizar WMS</button>
+                <button class="btn ghost" id="btn-svw-exportar">Exportar</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="inv-filterbar">
+            <div class="inv-filter-row">
+              <div class="inv-filter"><label>CEDI</label><select id="svw-filtro-cedi"><option value="">Todos</option></select></div>
+              <div class="inv-filter"><label>Estado</label><select id="svw-filtro-estado"><option value="">Todos</option><option value="Igual">Igual</option><option value="Diferencia">Diferencia</option><option value="Solo SIESA">Solo SIESA</option><option value="Solo WMS">Solo WMS</option></select></div>
+              <div class="inv-filter"><label>Proveedor</label><select id="svw-filtro-proveedor"><option value="">Todos</option></select></div>
+              <div class="inv-filter"><label>Categoría</label><select id="svw-filtro-categoria"><option value="">Todas</option></select></div>
+              <div class="inv-filter"><label>Referencia / producto</label><input type="text" id="svw-filtro-texto" placeholder="Buscar..."></div>
+              <button class="btn" id="btn-svw-consultar">Consultar</button>
+            </div>
+          </div>
+
+          <div style="display:flex;gap:8px;margin:12px 0;">
+            <button class="btn ghost admin-tab active" id="tab-svw-resumen">Resumen</button>
+            <button class="btn ghost admin-tab" id="tab-svw-conciliacion">Conciliación</button>
+            <button class="btn ghost admin-tab" id="tab-svw-diferencias">Diferencias</button>
+            <button class="btn ghost admin-tab" id="tab-svw-historico">Histórico</button>
+          </div>
+
+          <div id="svw-status" style="font-size:11px;color:var(--text-secondary);margin-bottom:8px;"></div>
+
+          <div id="panel-svw-resumen">
+            <div id="svw-kpis" class="inv-kpis"></div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:14px 0;">
+              <div id="svw-chart-estado" style="background:var(--modern-panel);border:1px solid var(--modern-border);border-radius:14px;padding:12px;box-shadow:var(--modern-shadow);"></div>
+              <div id="svw-chart-cedi" style="background:var(--modern-panel);border:1px solid var(--modern-border);border-radius:14px;padding:12px;box-shadow:var(--modern-shadow);"></div>
+              <div id="svw-chart-proveedor" style="background:var(--modern-panel);border:1px solid var(--modern-border);border-radius:14px;padding:12px;box-shadow:var(--modern-shadow);"></div>
+              <div id="svw-chart-magnitud" style="background:var(--modern-panel);border:1px solid var(--modern-border);border-radius:14px;padding:12px;box-shadow:var(--modern-shadow);"></div>
+            </div>
+            <div class="inv-section"><div class="inv-section-head"><div class="inv-section-title">Excepciones prioritarias</div></div><div id="svw-excepciones" style="padding:10px;"></div></div>
+          </div>
+
+          <div id="panel-svw-conciliacion" class="hidden">
+            <div class="inv-section"><div class="inv-table-wrap" id="svw-tabla-conciliacion"></div></div>
+          </div>
+
+          <div id="panel-svw-diferencias" class="hidden">
+            <div class="inv-section"><div class="inv-table-wrap" id="svw-tabla-diferencias"></div></div>
+          </div>
+
+          <div id="panel-svw-historico" class="hidden">
+            <div class="inv-section" style="padding:14px;">
+              <div id="svw-historico-info" style="font-size:13px;color:var(--modern-text);line-height:1.8;"></div>
+            </div>
+          </div>
+
+          <div id="svw-drawer-backdrop" class="hidden" style="position:fixed;inset:0;background:rgba(15,23,42,.4);z-index:9500;" onclick="document.getElementById('svw-drawer-backdrop').classList.add('hidden');document.getElementById('svw-drawer').classList.add('hidden');">
+            <div id="svw-drawer" class="hidden" style="position:fixed;right:0;top:0;bottom:0;width:380px;background:var(--modern-panel);box-shadow:-8px 0 24px rgba(0,0,0,.15);padding:20px;overflow-y:auto;" onclick="event.stopPropagation()">
+              <div id="svw-drawer-contenido"></div>
+            </div>
+          </div>
         </div>
 
         <div id="view-locked" class="hidden">
@@ -1833,7 +1898,7 @@ async function cargarSesionYArrancar() {
 // módulo de permisos (ej. "Empleados y Asistencia" cubre 2 módulos).
 const MAPA_MENU_A_PERMISO = {
   'torre': ['torre'], 'indicadores': ['indicadores'], 'inventario-wms': ['inventario'], 'vencimientos': ['vencimientos'],
-  'importacion-maestros': ['importacion-maestros'],
+  'importacion-maestros': ['importacion-maestros'], 'siesa-vs-wms': ['siesa-vs-wms'],
   'recepcion-importar': ['importar-cargue'], 'recepcion-rutas': ['rutas-del-dia'], 'recepcion-ranking': ['ranking-auditores'],
   'reportes': ['reportes'],
   'rrhh-empleados': ['empleados', 'asistencia'], 'rrhh-registros': ['registros'], 'rrhh-nomina': ['liquidador-nomina'],
@@ -1844,7 +1909,7 @@ const MAPA_MENU_A_PERMISO = {
 // Qué ítems de menú pertenecen a cada grupo desplegable (para poder ocultar
 // el grupo COMPLETO si ninguno de sus hijos quedó visible).
 const GRUPOS_MENU = {
-  'grupo-inventario': ['inventario-wms', 'vencimientos', 'importacion-maestros'],
+  'grupo-inventario': ['inventario-wms', 'vencimientos', 'importacion-maestros', 'siesa-vs-wms'],
   'grupo-recepcion': ['recepcion-importar', 'recepcion-rutas', 'recepcion-ranking'],
   'grupo-rrhh': ['rrhh-empleados', 'rrhh-registros', 'rrhh-nomina', 'rrhh-control-semana', 'rrhh-liquidador', 'rrhh-cedi', 'rrhh-compensatorios', 'rrhh-historico'],
   'grupo-nomina': ['rrhh-nomina', 'rrhh-control-semana', 'rrhh-liquidador', 'rrhh-cedi', 'rrhh-compensatorios', 'rrhh-historico'],
@@ -1903,7 +1968,7 @@ function mostrarLogin(mensaje) {
 // NAVEGACIÓN ENTRE MÓDULOS
 // ============================================================
 const NOMBRES_MODULO = {
-  torre: 'Torre de control', indicadores: 'Indicadores', 'inventario-wms': 'Inventario · Inventario WMS', vencimientos: 'Inventario · Vencimientos', 'importacion-maestros': 'Inventario · Importación de Maestros',
+  torre: 'Torre de control', indicadores: 'Indicadores', 'inventario-wms': 'Inventario · Inventario WMS', vencimientos: 'Inventario · Vencimientos', 'importacion-maestros': 'Inventario · Importación de Maestros', 'siesa-vs-wms': 'Inventario · SIESA vs WMS',
   'recepcion-importar': 'Recepción y despacho · Importar cargue',
   'recepcion-rutas': 'Recepción y despacho · Rutas del día',
   'recepcion-ranking': 'Recepción y despacho · Ranking de auditores',
@@ -1923,7 +1988,7 @@ document.querySelectorAll('.sidebar-item[data-modulo]').forEach(el => {
 });
 
 document.getElementById('grupo-inventario').addEventListener('click', () => {
-  document.querySelectorAll('.sidebar-sub[data-modulo="inventario-wms"], .sidebar-sub[data-modulo="vencimientos"], .sidebar-sub[data-modulo="importacion-maestros"]').forEach(el => el.classList.toggle('hidden'));
+  document.querySelectorAll('.sidebar-sub[data-modulo="inventario-wms"], .sidebar-sub[data-modulo="vencimientos"], .sidebar-sub[data-modulo="importacion-maestros"], .sidebar-sub[data-modulo="siesa-vs-wms"]').forEach(el => el.classList.toggle('hidden'));
 });
 document.getElementById('grupo-recepcion').addEventListener('click', () => {
   document.querySelectorAll('#grupo-recepcion ~ .sidebar-sub[data-modulo^="recepcion-"]').forEach(el => el.classList.toggle('hidden'));
@@ -1970,6 +2035,7 @@ function cambiarModulo(modulo) {
   document.getElementById('view-inventario').classList.toggle('hidden', modulo !== 'inventario-wms' || bloqueado);
   document.getElementById('view-vencimientos').classList.toggle('hidden', modulo !== 'vencimientos' || bloqueado);
   document.getElementById('view-importacion-maestros').classList.toggle('hidden', modulo !== 'importacion-maestros' || bloqueado);
+  document.getElementById('view-siesa-vs-wms').classList.toggle('hidden', modulo !== 'siesa-vs-wms' || bloqueado);
   document.getElementById('view-locked').classList.toggle('hidden', !bloqueado);
 
   if (bloqueado) {
@@ -1996,6 +2062,7 @@ function cambiarModulo(modulo) {
   if (modulo === 'inventario-wms') cargarInventarioWmsSimple();
   if (modulo === 'vencimientos') cargarModuloVencimientos();
   if (modulo === 'importacion-maestros') cargarModuloImportacionMaestros();
+  if (modulo === 'siesa-vs-wms') cargarModuloSiesaVsWms();
 }
 
 // Orden lógico según el proceso físico de la bodega (no alfabético).
@@ -4717,6 +4784,8 @@ async function cargarDestinatarios() {
 // siguiente (para actualizar en vez de duplicar), y el mapa de columnas
 // del archivo -> columnas de la base de datos. Agregar un tipo nuevo más
 // adelante es agregar una entrada aquí, sin tocar el resto del módulo.
+const MAPA_CO_BODEGA_CEDI = { '001': 'COP', '002': 'PER', '003': 'BOG', '004': 'CTG', '005': 'BGA', '009': 'BAQ' };
+
 const TIPOS_IMPORTACION = {
   maestra_articulos_siesa: {
     tabla: 'maestra_articulos_siesa',
@@ -4734,6 +4803,21 @@ const TIPOS_IMPORTACION = {
       categoria: { alias: ['CATEGORIA'], tipo: 'texto' },
       linea: { alias: ['LINEA'], tipo: 'texto' },
       grupo: { alias: ['GRUPO'], tipo: 'texto' },
+    },
+  },
+  // Inventario SIESA -- foto de existencias por Referencia + CEDI. Es un caso
+  // especial: NO se deduplica por Referencia (la misma referencia aparece en
+  // varias bodegas del mismo CEDI, y hay que sumarlas, no quedarse con una
+  // sola), y cada importación reemplaza TODO el contenido anterior (es una
+  // foto, no un historial). Por eso "Procesar"/"Confirmar" lo manejan aparte
+  // -- ver más abajo.
+  inventario_siesa: {
+    tabla: 'inventario_siesa',
+    conflicto: null, // sin deduplicar -- se maneja distinto, ver el branch especial
+    columnas: {
+      referencia: { alias: ['Referencia'], tipo: 'texto', requerido: true },
+      cedi: { alias: ['C.O. bodega'], tipo: 'texto', requerido: true }, // se traduce con MAPA_CO_BODEGA_CEDI
+      cantidad: { alias: ['Cant. disponible'], tipo: 'numero' },
     },
   },
 };
@@ -4771,6 +4855,44 @@ document.getElementById('btn-imp-procesar').addEventListener('click', async () =
   const estado = document.getElementById('imp-status');
 
   if (!archivo) { estado.textContent = 'Selecciona un archivo primero.'; return; }
+
+  // ---------- Caso especial: Inventario SIESA (no se deduplica por
+  // referencia -- la misma referencia puede aparecer en varias bodegas del
+  // mismo CEDI, y hay que conservarlas todas para poder sumarlas). ----------
+  if (tipoId === 'inventario_siesa') {
+    estado.textContent = 'Leyendo archivo...';
+    const buffer = await archivo.arrayBuffer();
+    const wb = XLSX.read(buffer, { type: 'array' });
+    const filasArchivo = hojaConMasFilas(wb);
+    if (!filasArchivo.length) { estado.textContent = 'El archivo está vacío o no se pudo leer.'; return; }
+
+    const filasProcesadas = [];
+    let sinReferencia = 0, coDesconocido = 0;
+    const codigosDesconocidos = new Set();
+    filasArchivo.forEach(fila => {
+      const referencia = String(valorPorColumna(fila, ['Referencia']) ?? '').trim();
+      const codigoCo = String(valorPorColumna(fila, ['C.O. bodega']) ?? '').trim();
+      const cedi = MAPA_CO_BODEGA_CEDI[codigoCo];
+      const cantidad = parsearMoneda(String(valorPorColumna(fila, ['Cant. disponible']) ?? '')) || 0;
+      if (!referencia) { sinReferencia++; return; }
+      if (!cedi) { coDesconocido++; codigosDesconocidos.add(codigoCo); return; }
+      filasProcesadas.push({ referencia, cedi, cantidad });
+    });
+
+    IMPORTACION_FILAS_PROCESADAS = filasProcesadas;
+    estado.textContent = `${filasProcesadas.length.toLocaleString('es-CO')} fila(s) listas para importar.` +
+      (coDesconocido ? ` ${coDesconocido} fila(s) con un código de C.O. bodega no mapeado a ningún CEDI (${[...codigosDesconocidos].join(', ')}) se excluyeron.` : '') +
+      (sinReferencia ? ` ${sinReferencia} fila(s) sin Referencia se ignoraron.` : '');
+
+    document.getElementById('imp-preview').innerHTML = `
+      <p style="font-size:12px;color:var(--text-secondary);">Vista previa (primeras 10 filas). Esta importación reemplaza TODO el inventario SIESA anterior, no lo acumula.</p>
+      <table class="hist-table open"><tr><th>Referencia</th><th>CEDI</th><th>Cantidad</th></tr>${
+        filasProcesadas.slice(0, 10).map(r => `<tr><td>${tEsc(r.referencia)}</td><td>${tEsc(r.cedi)}</td><td>${r.cantidad}</td></tr>`).join('')
+      }</table>`;
+    document.getElementById('btn-imp-confirmar').classList.toggle('hidden', filasProcesadas.length === 0);
+    return;
+  }
+
 
   estado.textContent = 'Leyendo archivo...';
   const buffer = await archivo.arrayBuffer();
@@ -4864,6 +4986,34 @@ document.getElementById('btn-imp-confirmar').addEventListener('click', async () 
 
   if (!IMPORTACION_FILAS_PROCESADAS.length) return;
 
+  // ---------- Caso especial: Inventario SIESA -- es una foto completa, así
+  // que primero se borra TODO lo anterior, y luego se inserta sin upsert
+  // (no hay clave única -- puede haber varias filas por referencia+CEDI). ----------
+  if (tipoId === 'inventario_siesa') {
+    boton.disabled = true;
+    estado.textContent = 'Borrando inventario SIESA anterior...';
+    const { error: errorBorrar } = await sb.from('inventario_siesa').delete().neq('id', 0);
+    if (errorBorrar) { estado.textContent = 'Error al borrar lo anterior: ' + errorBorrar.message; boton.disabled = false; return; }
+
+    const TAM_LOTE = 1000;
+    let importados = 0;
+    const total = IMPORTACION_FILAS_PROCESADAS.length;
+    for (let i = 0; i < total; i += TAM_LOTE) {
+      const lote = IMPORTACION_FILAS_PROCESADAS.slice(i, i + TAM_LOTE).map(r => ({
+        ...r, actualizado_en: new Date().toISOString(), actualizado_por: SESION.id
+      }));
+      const { error } = await sb.from('inventario_siesa').insert(lote);
+      if (error) { estado.textContent = `Error en el lote ${i}-${i + TAM_LOTE}: ${error.message}`; boton.disabled = false; return; }
+      importados += lote.length;
+      estado.textContent = `Importando... ${importados}/${total}`;
+    }
+    boton.disabled = false;
+    estado.textContent = `Listo -- ${importados} fila(s) de inventario SIESA importadas (reemplazó todo lo anterior).`;
+    mostrarToast('Importación completada.');
+    document.getElementById('btn-imp-confirmar').classList.add('hidden');
+    return;
+  }
+
   boton.disabled = true;
   estado.textContent = 'Importando...';
 
@@ -4903,6 +5053,267 @@ document.getElementById('btn-imp-confirmar').addEventListener('click', async () 
   mostrarToast('Importación completada.');
   document.getElementById('btn-imp-confirmar').classList.add('hidden');
 });
+
+// ============================================================
+// MÓDULO SIESA vs WMS (conciliación de inventario)
+// ============================================================
+let SVW_CACHE = [];
+let SVW_SELECCIONADOS = new Set();
+
+const COLORES_ESTADO_SVW = { 'Igual': '#16a34a', 'Diferencia': '#d97706', 'Solo SIESA': '#2563eb', 'Solo WMS': '#dc2626' };
+
+async function cargarModuloSiesaVsWms() {
+  const selCedi = document.getElementById('svw-filtro-cedi');
+  if (selCedi.options.length <= 1) CEDIS_VALIDOS.forEach(c => selCedi.insertAdjacentHTML('beforeend', `<option value="${c}">${c}</option>`));
+  cambiarTabSvw('resumen');
+  await consultarSiesaVsWms();
+}
+
+document.getElementById('tab-svw-resumen').addEventListener('click', () => cambiarTabSvw('resumen'));
+document.getElementById('tab-svw-conciliacion').addEventListener('click', () => cambiarTabSvw('conciliacion'));
+document.getElementById('tab-svw-diferencias').addEventListener('click', () => cambiarTabSvw('diferencias'));
+document.getElementById('tab-svw-historico').addEventListener('click', () => { cambiarTabSvw('historico'); renderSvwHistorico(); });
+
+function cambiarTabSvw(cual) {
+  ['resumen', 'conciliacion', 'diferencias', 'historico'].forEach(t => document.getElementById('panel-svw-' + t).classList.toggle('hidden', t !== cual));
+  document.querySelectorAll('#view-siesa-vs-wms .admin-tab').forEach(b => b.classList.remove('active'));
+  document.getElementById('tab-svw-' + cual).classList.add('active');
+}
+
+document.getElementById('btn-svw-consultar').addEventListener('click', consultarSiesaVsWms);
+document.getElementById('svw-filtro-texto').addEventListener('input', renderSvwTodo);
+document.getElementById('svw-filtro-estado').addEventListener('change', renderSvwTodo);
+document.getElementById('svw-filtro-proveedor').addEventListener('change', renderSvwTodo);
+document.getElementById('svw-filtro-categoria').addEventListener('change', renderSvwTodo);
+
+document.getElementById('btn-svw-actualizar-wms').addEventListener('click', async () => {
+  const estado = document.getElementById('svw-status');
+  const boton = document.getElementById('btn-svw-actualizar-wms');
+  boton.disabled = true;
+  estado.textContent = 'Conectando con Odoo...';
+  const { data, error } = await sb.functions.invoke('sync-inventario-odoo');
+  boton.disabled = false;
+  if (error || (data && data.error)) { estado.textContent = 'Error al sincronizar: ' + (data?.error || error.message); return; }
+  estado.textContent = `WMS actualizado (${data.filas} filas). Volviendo a consultar la conciliación...`;
+  await consultarSiesaVsWms();
+});
+
+async function consultarSiesaVsWms() {
+  const estado = document.getElementById('svw-status');
+  const cedi = document.getElementById('svw-filtro-cedi').value || null;
+  estado.textContent = 'Consultando...';
+
+  const { data, error } = await sb.rpc('analisis_siesa_vs_wms', { p_cedi: cedi });
+  if (error) { estado.textContent = 'Error: ' + error.message; return; }
+
+  SVW_CACHE = data || [];
+  SVW_SELECCIONADOS.clear();
+
+  // Llena los selectores de Proveedor/Categoría con lo que realmente aparece en los datos.
+  const selProv = document.getElementById('svw-filtro-proveedor');
+  const selCat = document.getElementById('svw-filtro-categoria');
+  const proveedores = [...new Set(SVW_CACHE.map(r => r.proveedor).filter(Boolean))].sort();
+  const categorias = [...new Set(SVW_CACHE.map(r => r.categoria).filter(Boolean))].sort();
+  selProv.innerHTML = '<option value="">Todos</option>' + proveedores.map(p => `<option value="${tEsc(p)}">${tEsc(p)}</option>`).join('');
+  selCat.innerHTML = '<option value="">Todas</option>' + categorias.map(c => `<option value="${tEsc(c)}">${tEsc(c)}</option>`).join('');
+
+  renderSvwTodo();
+}
+
+function filasSvwFiltradas() {
+  const texto = document.getElementById('svw-filtro-texto').value.trim().toLowerCase();
+  const estadoF = document.getElementById('svw-filtro-estado').value;
+  const proveedorF = document.getElementById('svw-filtro-proveedor').value;
+  const categoriaF = document.getElementById('svw-filtro-categoria').value;
+  return SVW_CACHE.filter(r => {
+    const txtOk = !texto || (r.referencia || '').toLowerCase().includes(texto) || (r.producto || '').toLowerCase().includes(texto);
+    const estOk = !estadoF || r.estado === estadoF;
+    const provOk = !proveedorF || r.proveedor === proveedorF;
+    const catOk = !categoriaF || r.categoria === categoriaF;
+    return txtOk && estOk && provOk && catOk;
+  });
+}
+
+function renderSvwTodo() {
+  const filas = filasSvwFiltradas();
+  document.getElementById('svw-status').textContent = `${filas.length.toLocaleString('es-CO')} referencia(s) de ${SVW_CACHE.length.toLocaleString('es-CO')} en el universo consolidado.`;
+  renderSvwKpis(filas);
+  renderSvwCharts(filas);
+  renderSvwExcepciones(filas);
+  renderSvwTabla('svw-tabla-conciliacion', filas);
+  renderSvwTabla('svw-tabla-diferencias', filas.filter(r => r.estado !== 'Igual'));
+}
+
+function renderSvwKpis(filas) {
+  const conDiferencia = filas.filter(r => r.estado === 'Diferencia').length;
+  const soloSiesa = filas.filter(r => r.estado === 'Solo SIESA').length;
+  const soloWms = filas.filter(r => r.estado === 'Solo WMS').length;
+  const iguales = filas.filter(r => r.estado === 'Igual').length;
+  const comparables = conDiferencia + iguales;
+  const pctConciliacion = comparables > 0 ? Math.round((iguales / comparables) * 100) : 0;
+  const diferenciaUnidades = filas.reduce((s, r) => s + (Number(r.diferencia) || 0), 0);
+  const valorTotalInventario = filas.reduce((s, r) => s + Math.max(Number(r.valor_siesa) || 0, Number(r.valor_wms) || 0), 0);
+  const valorDiferenciaTotal = filas.reduce((s, r) => s + Math.abs(Number(r.valor_diferencia) || 0), 0);
+  const pctValorDiferencia = valorTotalInventario > 0 ? ((valorDiferenciaTotal / valorTotalInventario) * 100).toFixed(1) : '0.0';
+
+  const kpi = (label, value, meta, colorMeta) => `<div class="inv-kpi" style="cursor:default"><div class="inv-kpi-label">${label}</div><div class="inv-kpi-value">${value}</div><div class="inv-kpi-meta"${colorMeta ? ` style="color:${colorMeta}"` : ''}>${meta}</div></div>`;
+  document.getElementById('svw-kpis').innerHTML =
+    kpi('Referencias conciliadas', filas.length.toLocaleString('es-CO'), 'universo consolidado') +
+    kpi('% Conciliación', pctConciliacion + '%', `${iguales} iguales de ${comparables} comparables`) +
+    kpi('Con diferencia', conDiferencia.toLocaleString('es-CO'), 'cantidades no coinciden', '#d97706') +
+    kpi('Solo SIESA', soloSiesa.toLocaleString('es-CO'), 'ausentes en WMS', '#2563eb') +
+    kpi('Solo WMS', soloWms.toLocaleString('es-CO'), 'ausentes en SIESA', '#dc2626') +
+    kpi('Diferencia unidades', diferenciaUnidades.toLocaleString('es-CO'), 'SIESA − WMS') +
+    kpi('Valor total en diferencias', formatoCOP(valorDiferenciaTotal), `${pctValorDiferencia}% del valor total del inventario`, '#dc2626');
+}
+
+let SVW_CHARTS = {};
+function renderSvwCharts(filas) {
+  const conteoEstado = {};
+  filas.forEach(r => { conteoEstado[r.estado] = (conteoEstado[r.estado] || 0) + 1; });
+  dibujarChart('svw-chart-estado', {
+    chart: { type: 'donut', height: 240, foreColor: '#667085', events: { dataPointSelection: (e, ch, cfg) => { document.getElementById('svw-filtro-estado').value = Object.keys(conteoEstado)[cfg.dataPointIndex]; renderSvwTodo(); } } },
+    series: Object.values(conteoEstado), labels: Object.keys(conteoEstado),
+    colors: Object.keys(conteoEstado).map(k => COLORES_ESTADO_SVW[k] || '#94a3b8'),
+    legend: { position: 'bottom', fontSize: '11px' }, dataLabels: { enabled: true, style: { colors: ['#fff'] } },
+    title: { text: 'Estado de conciliación', style: { fontSize: '12px' } },
+  }, 'estado');
+
+  const porCedi = {};
+  filas.forEach(r => { if (r.estado !== 'Igual') porCedi[r.cedi || '—'] = (porCedi[r.cedi || '—'] || 0) + Math.abs(Number(r.diferencia) || 0); });
+  const cedisOrdenados = Object.entries(porCedi).sort((a, b) => b[1] - a[1]);
+  dibujarChart('svw-chart-cedi', {
+    chart: { type: 'bar', height: 240, foreColor: '#667085', toolbar: { show: false }, events: { dataPointSelection: (e, ch, cfg) => { document.getElementById('svw-filtro-cedi').value = cedisOrdenados[cfg.dataPointIndex][0]; consultarSiesaVsWms(); } } },
+    series: [{ name: 'Diferencia (unidades abs.)', data: cedisOrdenados.map(x => Math.round(x[1])) }],
+    xaxis: { categories: cedisOrdenados.map(x => x[0]) },
+    colors: ['#2563eb'], plotOptions: { bar: { borderRadius: 4, columnWidth: '55%' } },
+    title: { text: 'Diferencia por CEDI', style: { fontSize: '12px' } },
+  }, 'cedi');
+
+  const porProveedor = {};
+  filas.forEach(r => { if (r.estado !== 'Igual' && r.proveedor) porProveedor[r.proveedor] = (porProveedor[r.proveedor] || 0) + 1; });
+  const provOrdenados = Object.entries(porProveedor).sort((a, b) => b[1] - a[1]).slice(0, 10);
+  dibujarChart('svw-chart-proveedor', {
+    chart: { type: 'bar', height: 240, foreColor: '#667085', toolbar: { show: false }, events: { dataPointSelection: (e, ch, cfg) => { document.getElementById('svw-filtro-proveedor').value = provOrdenados[cfg.dataPointIndex][0]; renderSvwTodo(); } } },
+    series: [{ name: 'Referencias con diferencia', data: provOrdenados.map(x => x[1]) }],
+    xaxis: { categories: provOrdenados.map(x => (x[0] || '').slice(0, 22)) },
+    colors: ['#d97706'], plotOptions: { bar: { borderRadius: 4, horizontal: true } },
+    title: { text: 'Diferencias por proveedor (top 10)', style: { fontSize: '12px' } },
+  }, 'proveedor');
+
+  const mayor = filas.filter(r => Number(r.diferencia) > 0).length;
+  const menor = filas.filter(r => Number(r.diferencia) < 0).length;
+  const igual = filas.filter(r => Number(r.diferencia) === 0 && r.estado === 'Igual').length;
+  dibujarChart('svw-chart-magnitud', {
+    chart: { type: 'bar', height: 240, foreColor: '#667085', toolbar: { show: false } },
+    series: [{ name: 'Referencias', data: [mayor, menor, igual] }],
+    xaxis: { categories: ['SIESA > WMS', 'SIESA < WMS', 'Iguales'] },
+    colors: ['#2563eb', '#dc2626', '#16a34a'], plotOptions: { bar: { distributed: true, borderRadius: 4, columnWidth: '55%' } },
+    legend: { show: false }, title: { text: 'Magnitud de diferencias', style: { fontSize: '12px' } },
+  }, 'magnitud');
+}
+
+function dibujarChart(elId, opciones, clave) {
+  const el = document.getElementById(elId);
+  if (!el) return;
+  opciones.dataLabels = opciones.dataLabels || { enabled: true };
+  if (SVW_CHARTS[clave]) { SVW_CHARTS[clave].updateOptions(opciones); return; }
+  SVW_CHARTS[clave] = new ApexCharts(el, opciones);
+  SVW_CHARTS[clave].render();
+}
+
+function renderSvwExcepciones(filas) {
+  const top = filas.filter(r => r.estado !== 'Igual')
+    .sort((a, b) => Math.abs(Number(b.valor_diferencia) || 0) - Math.abs(Number(a.valor_diferencia) || 0))
+    .slice(0, 15);
+  const cont = document.getElementById('svw-excepciones');
+  if (!top.length) { cont.innerHTML = '<div class="inv-empty">No hay excepciones con los filtros actuales.</div>'; return; }
+  cont.innerHTML = top.map(r => `
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 4px;border-bottom:1px solid var(--modern-border);cursor:pointer;" onclick='abrirDrawerSvw(${JSON.stringify(r).replace(/'/g, "&apos;")})'>
+      <div>
+        <span class="inv-risk" style="background:${COLORES_ESTADO_SVW[r.estado]}1a;color:${COLORES_ESTADO_SVW[r.estado]};">${tEsc(r.estado)}</span>
+        <span style="margin-left:8px;font-size:12.5px;">${tEsc(r.producto || r.referencia)}</span>
+        <span style="margin-left:6px;font-size:10.5px;color:var(--modern-muted);">${tEsc(r.cedi || '—')}</span>
+      </div>
+      <div style="font-size:12px;font-weight:700;">${formatoCOP(Math.abs(Number(r.valor_diferencia) || 0))}</div>
+    </div>`).join('');
+}
+
+function renderSvwTabla(contId, filas) {
+  const cont = document.getElementById(contId);
+  if (!filas.length) { cont.innerHTML = '<div class="inv-empty">Sin resultados con este filtro.</div>'; return; }
+  cont.innerHTML = `<table class="inv-table"><thead><tr>
+      <th></th><th>CEDI</th><th>Referencia</th><th>Producto</th><th>SIESA</th><th>WMS</th><th>Diferencia</th><th>Valor diferencia</th><th>Estado</th><th>Ubicación</th>
+    </tr></thead><tbody>${
+    filas.slice(0, 500).map(r => `<tr style="cursor:pointer;" onclick='abrirDrawerSvw(${JSON.stringify(r).replace(/'/g, "&apos;")})'>
+      <td onclick="event.stopPropagation()"><input type="checkbox" data-svw-check="${tEsc(r.referencia)}|${tEsc(r.cedi)}"></td>
+      <td>${tEsc(r.cedi || '—')}</td>
+      <td>${tEsc(r.referencia)}</td>
+      <td class="inv-product">${tEsc(r.producto || '—')}</td>
+      <td>${Number(r.siesa).toLocaleString('es-CO')}</td>
+      <td>${Number(r.wms).toLocaleString('es-CO')}</td>
+      <td style="font-weight:700;color:${Number(r.diferencia) !== 0 ? '#dc2626' : 'inherit'}">${Number(r.diferencia).toLocaleString('es-CO')}</td>
+      <td>${formatoCOP(r.valor_diferencia || 0)}</td>
+      <td><span class="inv-risk" style="background:${COLORES_ESTADO_SVW[r.estado]}1a;color:${COLORES_ESTADO_SVW[r.estado]};">${tEsc(r.estado)}</span></td>
+      <td style="font-size:10.5px;">${tEsc(r.ubicacion || '—')}</td>
+    </tr>`).join('')
+  }</tbody></table>${filas.length > 500 ? `<p style="font-size:11px;color:var(--modern-muted);padding:8px;">Mostrando las primeras 500 de ${filas.length.toLocaleString('es-CO')} filas -- usa los filtros o exporta para ver el resto.</p>` : ''}`;
+}
+
+function abrirDrawerSvw(r) {
+  document.getElementById('svw-drawer-contenido').innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:14px;">
+      <div><div style="font-size:10px;color:var(--modern-muted);text-transform:uppercase;">${tEsc(r.referencia)}</div><div style="font-size:15px;font-weight:700;">${tEsc(r.producto || '—')}</div></div>
+      <span class="inv-risk" style="background:${COLORES_ESTADO_SVW[r.estado]}1a;color:${COLORES_ESTADO_SVW[r.estado]};">${tEsc(r.estado)}</span>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;font-size:12.5px;">
+      <div><div style="color:var(--modern-muted);font-size:10px;">CEDI</div>${tEsc(r.cedi || '—')}</div>
+      <div><div style="color:var(--modern-muted);font-size:10px;">Ubicación</div>${tEsc(r.ubicacion || '—')}</div>
+      <div><div style="color:var(--modern-muted);font-size:10px;">Proveedor</div>${tEsc(r.proveedor || '—')}</div>
+      <div><div style="color:var(--modern-muted);font-size:10px;">Categoría</div>${tEsc(r.categoria || '—')}</div>
+      <div><div style="color:var(--modern-muted);font-size:10px;">Cant. SIESA</div>${Number(r.siesa).toLocaleString('es-CO')}</div>
+      <div><div style="color:var(--modern-muted);font-size:10px;">Cant. WMS</div>${Number(r.wms).toLocaleString('es-CO')}</div>
+      <div><div style="color:var(--modern-muted);font-size:10px;">Diferencia</div><strong>${Number(r.diferencia).toLocaleString('es-CO')}</strong></div>
+      <div><div style="color:var(--modern-muted);font-size:10px;">Costo unitario</div>${r.costo_unitario ? formatoCOP(r.costo_unitario) : '—'}</div>
+      <div><div style="color:var(--modern-muted);font-size:10px;">Valor SIESA</div>${formatoCOP(r.valor_siesa || 0)}</div>
+      <div><div style="color:var(--modern-muted);font-size:10px;">Valor WMS</div>${formatoCOP(r.valor_wms || 0)}</div>
+      <div style="grid-column:1/-1;"><div style="color:var(--modern-muted);font-size:10px;">Valor diferencia</div><strong style="color:#dc2626;">${formatoCOP(r.valor_diferencia || 0)}</strong></div>
+    </div>
+    <p style="font-size:11px;color:var(--modern-muted);margin-top:16px;">El envío de solicitud de conteo a Odoo todavía no está conectado -- queda pendiente.</p>
+  `;
+  document.getElementById('svw-drawer-backdrop').classList.remove('hidden');
+  document.getElementById('svw-drawer').classList.remove('hidden');
+}
+
+document.getElementById('btn-svw-exportar').addEventListener('click', () => {
+  const filas = filasSvwFiltradas();
+  if (!filas.length) { mostrarToast('No hay datos para exportar con este filtro.'); return; }
+  const filasExcel = filas.map(r => ({
+    'CEDI': r.cedi, 'Referencia': r.referencia, 'Producto': r.producto, 'Proveedor': r.proveedor, 'Categoría': r.categoria,
+    'SIESA': r.siesa, 'WMS': r.wms, 'Diferencia': r.diferencia, 'Estado': r.estado, 'Ubicación': r.ubicacion,
+    'Costo unitario': r.costo_unitario, 'Valor SIESA': r.valor_siesa, 'Valor WMS': r.valor_wms, 'Valor diferencia': r.valor_diferencia,
+  }));
+  const hoja = XLSX.utils.json_to_sheet(filasExcel);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, hoja, 'SIESA vs WMS');
+  XLSX.writeFile(wb, `SIESA_vs_WMS_${fechaColombiaHoy()}.xlsx`);
+});
+
+async function renderSvwHistorico() {
+  const cont = document.getElementById('svw-historico-info');
+  cont.innerHTML = 'Consultando...';
+  const [{ data: siesa }, { data: wms }, { data: maestra }] = await Promise.all([
+    sb.from('inventario_siesa').select('actualizado_en').order('actualizado_en', { ascending: false }).limit(1),
+    sb.from('inventario_wms').select('actualizado_en').order('actualizado_en', { ascending: false }).limit(1),
+    sb.from('maestra_articulos_siesa').select('actualizado_en').order('actualizado_en', { ascending: false }).limit(1),
+  ]);
+  const fmt = arr => arr && arr[0] ? new Date(arr[0].actualizado_en).toLocaleString('es-CO') : 'Sin datos importados todavía';
+  cont.innerHTML = `
+    <div><strong>Inventario SIESA:</strong> última importación ${fmt(siesa)}</div>
+    <div><strong>Inventario WMS (Odoo):</strong> última sincronización ${fmt(wms)}</div>
+    <div><strong>Maestra de Artículos:</strong> última importación ${fmt(maestra)}</div>
+  `;
+}
 
 // ============================================================
 // MÓDULO DE COMPENSATORIOS
@@ -6027,7 +6438,7 @@ function renderControlSemanaFiltrado() {
 
   const groups={
     inventario:{id:'grupo-inventario',title:'Inventario',icon:'ti-package',items:[
-      ['inventario-wms','Inventario WMS','ti-package'],['vencimientos','Vencimientos','ti-calendar-exclamation'],['importacion-maestros','Importación de Maestros','ti-file-upload']]},
+      ['inventario-wms','Inventario WMS','ti-package'],['vencimientos','Vencimientos','ti-calendar-exclamation'],['importacion-maestros','Importación de Maestros','ti-file-upload'],['siesa-vs-wms','SIESA vs WMS','ti-arrows-exchange']]},
     recepcion:{id:'grupo-recepcion',title:'Recepción y despacho',icon:'ti-truck-delivery',items:[
       ['recepcion-importar','Importar cargue','ti-file-import'],['recepcion-rutas','Rutas del día','ti-route'],['recepcion-ranking','Ranking de auditores','ti-trophy']]},
     rrhh:{id:'grupo-rrhh',title:'Recursos Humanos',icon:'ti-users',items:[
@@ -6061,7 +6472,7 @@ function renderControlSemanaFiltrado() {
     let body='';
     if(groupKey==='recepcion' || groupKey==='inventario'){
       body=g.items.filter(x=>visible(x[0])).map(x=>'<button type="button" class="flyout-item" data-mod="'+x[0]+'"><span class="flyout-icon"><i class="ti '+x[2]+'"></i></span><span class="flyout-copy"><strong>'+x[1]+'</strong><small>'+({
-        'inventario-wms':'Existencias y disponibilidad','vencimientos':'Control de caducidades','importacion-maestros':'Carga y actualización de maestros',
+        'inventario-wms':'Existencias y disponibilidad','vencimientos':'Control de caducidades','importacion-maestros':'Carga y actualización de maestros','siesa-vs-wms':'Conciliación SIESA vs WMS',
         'recepcion-importar':'Gestión de entradas y salidas de mercancía','recepcion-rutas':'Visualiza y sigue las rutas programadas','recepcion-ranking':'Desempeño y posiciones de auditores'
       }[x[0]]||'Acceso al módulo')+'</small></span></button>').join('');
     } else {
@@ -6097,7 +6508,7 @@ function renderControlSemanaFiltrado() {
     rail.querySelectorAll('.nav-parent-active').forEach(x=>x.classList.remove('nav-parent-active'));
     if(String(modulo).startsWith('recepcion-')) rail.querySelector('#grupo-recepcion')?.classList.add('nav-parent-active');
     if(String(modulo).startsWith('rrhh-')) rail.querySelector('#grupo-rrhh')?.classList.add('nav-parent-active');
-    if(String(modulo).startsWith('inventario-') || modulo === 'vencimientos' || modulo === 'importacion-maestros') rail.querySelector('#grupo-inventario')?.classList.add('nav-parent-active');
+    if(String(modulo).startsWith('inventario-') || modulo === 'vencimientos' || modulo === 'importacion-maestros' || modulo === 'siesa-vs-wms') rail.querySelector('#grupo-inventario')?.classList.add('nav-parent-active');
   };
 
   const originalCambiar=window.cambiarModulo;
