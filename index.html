@@ -6438,7 +6438,16 @@ function renderControlSemanaFiltrado() {
 <script id="jdh-vanguardia-nav">
 (function jdhVanguardiaNav(){
   const rail = document.querySelector('#app-view .sidebar');
-  if(!rail) return;
+  if(!rail){
+    // El sidebar puede no existir todavía si este script corre antes de que
+    // la app termine de montar #app-view (ej. justo después del login).
+    // En vez de rendirnos, reintentamos un rato en vez de perder el flyout
+    // para toda la sesión.
+    if(!window.__jdhNavIntentos) window.__jdhNavIntentos = 0;
+    window.__jdhNavIntentos++;
+    if(window.__jdhNavIntentos < 100) { setTimeout(jdhVanguardiaNav, 150); }
+    return;
+  }
 
   const labels = {
     torre:'Torre de control', indicadores:'Indicadores', inventario:'Inventario',
