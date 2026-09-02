@@ -1712,6 +1712,29 @@ function parsearMoneda(texto) {
   return Number(limpio);
 }
 
+// Para montos que pueden venir en CUALQUIERA de los dos formatos según el
+// origen del archivo: formato colombiano ("1.403.000,50", coma = decimal) o
+// número plano con punto decimal real ("162330.0000", como lo exporta SIESA
+// en la columna "Total") -- ahí el punto NO es separador de miles.
+// Diferencia los dos casos contando los dígitos después del ÚNICO punto: un
+// grupo de miles siempre tiene exactamente 3 dígitos: "162.330" (miles) vs
+// "162330.0000" (decimal, 4 dígitos) o "162330.5" (decimal, 1 dígito).
+function parsearMonedaFlexible(texto) {
+  if (texto === null || texto === undefined) return NaN;
+  const crudo = String(texto).trim();
+  if (!crudo) return NaN;
+  if (crudo.includes(',')) return parsearMoneda(crudo); // coma presente = formato colombiano, sin ambigüedad
+  const limpio = crudo.replace(/[^\d.]/g, '');
+  const puntos = (limpio.match(/\./g) || []).length;
+  if (puntos === 0) return Number(limpio); // entero plano, sin ambigüedad
+  if (puntos === 1) {
+    const digitosDespues = limpio.split('.')[1]?.length || 0;
+    if (digitosDespues !== 3) return Number(limpio); // no son 3 dígitos -> es un punto decimal real
+  }
+  // Más de un punto, o exactamente 3 dígitos tras un solo punto -> separador(es) de miles.
+  return Number(limpio.replace(/\./g, ''));
+}
+
 // Para HORAS (no dinero): el punto es el separador DECIMAL normal (ej. "2.074"
 // horas = dos horas con 74 milésimas), nunca separador de miles -- son números
 // pequeños, muy distintos a los montos en pesos. Usar SIEMPRE esta función para
@@ -2585,7 +2608,7 @@ async function importarCargue() {
     g.visitasSet.add(String(valorPor(fila, 'visita')));
     g.lineas += 1;
     g.peso += Number(valorPor(fila, 'peso')) || 0;
-    g.valor_venta += parsearMoneda(String(valorPor(fila, 'valor_venta') ?? '')) || 0;
+    g.valor_venta += parsearMonedaFlexible(valorPor(fila, 'valor_venta')) || 0;
   });
 
   if (sinMapeoCo.size) {
@@ -2601,7 +2624,7 @@ async function importarCargue() {
     lineas: g.lineas,
     peso: Math.round(g.peso * 100) / 100,
     visitas: g.visitasSet.size,
-    valor_venta: Math.round(g.valor_venta * 100) / 100,
+    valor_venta: Math.round(g.valor_venta), // pesos enteros, sin decimales
   }));
 
   const cedis = [...new Set(registros.map(r => r.cedi))];
@@ -6061,4 +6084,4 @@ document.getElementById('ia-flotante-input').addEventListener('keydown', (e) => 
 </script>
 
 </body>
-</html>
+</html>F
