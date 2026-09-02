@@ -859,12 +859,15 @@ input:focus,select:focus,textarea:focus{outline:none!important;border-color:#176
     inset:0 auto 0 0;
     width:78px;
     height:100vh;
-    overflow:hidden;
+    overflow-y:auto;
+    overflow-x:hidden;
+    scrollbar-width:none; /* Firefox: permite el scroll pero sin mostrar la barra */
     padding:18px 10px;
     z-index:1000;
     transition:width .22s cubic-bezier(.2,.8,.2,1), box-shadow .22s ease;
     border-right:1px solid rgba(255,255,255,.055);
   }
+  .sidebar::-webkit-scrollbar{display:none;} /* Chrome/Edge/Safari: misma idea */
   .sidebar:hover{
     width:264px;
     overflow-y:auto;
@@ -4782,7 +4785,13 @@ async function cargarDestinatarios() {
 // siguiente (para actualizar en vez de duplicar), y el mapa de columnas
 // del archivo -> columnas de la base de datos. Agregar un tipo nuevo más
 // adelante es agregar una entrada aquí, sin tocar el resto del módulo.
-const MAPA_CO_BODEGA_CEDI = { '001': 'COP', '002': 'PER', '003': 'BOG', '004': 'CTG', '005': 'BGA', '009': 'BAQ' };
+const MAPA_CO_BODEGA_CEDI = { '1': 'COP', '2': 'PER', '3': 'BOG', '4': 'CTG', '5': 'BGA', '9': 'BAQ' };
+// El código puede llegar con ceros a la izquierda ("001") o sin ellos ("1")
+// según el reporte -- esta función normaliza ambos formatos antes de buscar.
+function normalizarCodigoCo(valor) {
+  const limpio = String(valor ?? '').trim().replace(/^0+(?=\d)/, ''); // quita ceros a la izquierda, sin dejarlo vacío
+  return limpio;
+}
 
 const TIPOS_IMPORTACION = {
   maestra_articulos_siesa: {
@@ -4869,7 +4878,7 @@ document.getElementById('btn-imp-procesar').addEventListener('click', async () =
     const codigosDesconocidos = new Set();
     filasArchivo.forEach(fila => {
       const referencia = String(valorPorColumna(fila, ['Referencia']) ?? '').trim();
-      const codigoCo = String(valorPorColumna(fila, ['C.O. bodega']) ?? '').trim();
+      const codigoCo = normalizarCodigoCo(valorPorColumna(fila, ['C.O. bodega', 'C.O. docto.']));
       const cedi = MAPA_CO_BODEGA_CEDI[codigoCo];
       const cantidad = parsearMoneda(String(valorPorColumna(fila, ['Cant. disponible']) ?? '')) || 0;
       if (!referencia) { sinReferencia++; return; }
@@ -6228,12 +6237,14 @@ function renderControlSemanaFiltrado() {
     position:fixed!important;left:0;top:0;bottom:0;
     width:var(--jdh-rail)!important;height:100vh;
     padding:14px 10px!important;
-    overflow:visible!important;
+    overflow-y:auto!important;overflow-x:visible!important;
+    scrollbar-width:none!important;
     z-index:1200;
     border-right:1px solid rgba(15,31,52,.08)!important;
     box-shadow:4px 0 24px rgba(12,28,48,.06)!important;
     transition:none!important;
   }
+  #app-view .sidebar::-webkit-scrollbar{display:none!important;}
   #app-view .sidebar:hover{width:var(--jdh-rail)!important;box-shadow:4px 0 24px rgba(12,28,48,.06)!important;}
   #app-view .sidebar-brand{
     width:52px!important;height:52px!important;margin:0 auto 22px!important;
