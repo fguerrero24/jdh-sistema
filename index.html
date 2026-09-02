@@ -859,15 +859,12 @@ input:focus,select:focus,textarea:focus{outline:none!important;border-color:#176
     inset:0 auto 0 0;
     width:78px;
     height:100vh;
-    overflow-y:auto;
-    overflow-x:hidden;
-    scrollbar-width:none;
+    overflow:hidden;
     padding:18px 10px;
     z-index:1000;
     transition:width .22s cubic-bezier(.2,.8,.2,1), box-shadow .22s ease;
     border-right:1px solid rgba(255,255,255,.055);
   }
-  .sidebar::-webkit-scrollbar{display:none;}
   .sidebar:hover{
     width:264px;
     overflow-y:auto;
@@ -3219,7 +3216,8 @@ document.getElementById('btn-eliminar-rol').addEventListener('click', async () =
 // Agrupa los módulos de la matriz por sección, en el mismo orden en que
 // aparecen en el menú lateral real -- así la matriz se lee igual que el menú.
 const GRUPOS_MATRIZ = {
-  'Operación': ['torre', 'indicadores', 'inventario'],
+  'Operación': ['torre', 'indicadores'],
+  'Inventario': ['inventario', 'vencimientos', 'importacion-maestros', 'siesa-vs-wms'],
   'Recepción y despacho': ['importar-cargue', 'rutas-del-dia', 'ranking-auditores', 'reportes'],
   'Recursos Humanos': ['empleados', 'asistencia', 'registros'],
   'Nómina': ['liquidador-nomina', 'control-semana', 'liquidador-individual', 'liquidacion-cedi', 'compensatorios', 'rrhh-historico'],
