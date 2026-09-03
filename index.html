@@ -5016,7 +5016,13 @@ document.getElementById('btn-imp-confirmar').addEventListener('click', async () 
       estado.textContent = `Importando... ${importados}/${total}`;
     }
     boton.disabled = false;
-    estado.textContent = `Listo -- ${importados} fila(s) de inventario SIESA importadas (reemplazó todo lo anterior).`;
+    estado.textContent = `Listo -- ${importados} fila(s) de inventario SIESA importadas (reemplazó todo lo anterior). Actualizando la conciliación...`;
+    const { error: errorRefrescoSvw } = await sb.rpc('refrescar_siesa_vs_wms');
+    if (errorRefrescoSvw) {
+      estado.textContent += ` (Nota: la conciliación no se pudo refrescar automáticamente -- entra a SIESA vs WMS y dale a "Consultar" para intentarlo de nuevo.)`;
+    } else {
+      estado.textContent = estado.textContent.replace('Actualizando la conciliación...', 'Conciliación actualizada.');
+    }
     mostrarToast('Importación completada.');
     document.getElementById('btn-imp-confirmar').classList.add('hidden');
     return;
