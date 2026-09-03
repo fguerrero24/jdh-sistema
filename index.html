@@ -1216,6 +1216,7 @@ input:focus,select:focus,textarea:focus{outline:none!important;border-color:#176
                 <label>Estado</label>
                 <button type="button" class="svw-multiselect-btn" id="svw-btn-estado">Todos</button>
                 <div class="svw-multiselect-panel hidden" id="svw-panel-estado">
+                  <label style="font-weight:700;border-bottom:1px solid #e5e9f0;margin-bottom:4px;"><input type="checkbox" data-svw-estado-todos> Seleccionar todos</label>
                   <label><input type="checkbox" data-svw-estado="Igual"> Igual</label>
                   <label><input type="checkbox" data-svw-estado="Sobra en WMS"> Sobra en WMS</label>
                   <label><input type="checkbox" data-svw-estado="Sobra en SIESA"> Sobra en SIESA</label>
@@ -1225,6 +1226,7 @@ input:focus,select:focus,textarea:focus{outline:none!important;border-color:#176
                 <label>Clasificación de ubicación</label>
                 <button type="button" class="svw-multiselect-btn" id="svw-btn-ubicacion">Todas</button>
                 <div class="svw-multiselect-panel hidden" id="svw-panel-ubicacion">
+                  <label style="font-weight:700;border-bottom:1px solid #e5e9f0;margin-bottom:4px;"><input type="checkbox" data-svw-ubic-todos> Seleccionar todos</label>
                   <label><input type="checkbox" data-svw-ubic="Solo Picking"> Solo Picking</label>
                   <label><input type="checkbox" data-svw-ubic="Solo Altura"> Solo Altura</label>
                   <label><input type="checkbox" data-svw-ubic="Mixta (Picking + Altura)"> Mixta (Picking + Altura)</label>
@@ -4859,6 +4861,7 @@ const TIPOS_IMPORTACION = {
       referencia: { alias: ['Referencia'], tipo: 'texto', requerido: true },
       cedi: { alias: ['C.O. bodega'], tipo: 'texto', requerido: true }, // se traduce con MAPA_CO_BODEGA_CEDI
       cantidad: { alias: ['Cant. disponible'], tipo: 'numero' },
+      proveedor: { alias: ['PROVEEDOR'], tipo: 'texto' }, // más fresco que el catálogo de Maestra
     },
   },
 };
@@ -4915,9 +4918,10 @@ document.getElementById('btn-imp-procesar').addEventListener('click', async () =
       const codigoCo = normalizarCodigoCo(valorPorColumna(fila, ['C.O. bodega', 'C.O. docto.']));
       const cedi = MAPA_CO_BODEGA_CEDI[codigoCo];
       const cantidad = parsearMonedaFlexible(String(valorPorColumna(fila, ['Cant. disponible']) ?? '')) || 0;
+      const proveedor = String(valorPorColumna(fila, ['PROVEEDOR']) ?? '').trim() || null;
       if (!referencia) { sinReferencia++; return; }
       if (!cedi) { coDesconocido++; codigosDesconocidos.add(codigoCo); return; }
-      filasProcesadas.push({ referencia, cedi, cantidad });
+      filasProcesadas.push({ referencia, cedi, cantidad, proveedor });
     });
 
     IMPORTACION_FILAS_PROCESADAS = filasProcesadas;
@@ -4927,8 +4931,8 @@ document.getElementById('btn-imp-procesar').addEventListener('click', async () =
 
     document.getElementById('imp-preview').innerHTML = `
       <p style="font-size:12px;color:var(--text-secondary);">Vista previa (primeras 10 filas). Esta importación reemplaza TODO el inventario SIESA anterior, no lo acumula.</p>
-      <table class="hist-table open"><tr><th>Referencia</th><th>CEDI</th><th>Cantidad</th></tr>${
-        filasProcesadas.slice(0, 10).map(r => `<tr><td>${tEsc(r.referencia)}</td><td>${tEsc(r.cedi)}</td><td>${r.cantidad}</td></tr>`).join('')
+      <table class="hist-table open"><tr><th>Referencia</th><th>CEDI</th><th>Cantidad</th><th>Proveedor</th></tr>${
+        filasProcesadas.slice(0, 10).map(r => `<tr><td>${tEsc(r.referencia)}</td><td>${tEsc(r.cedi)}</td><td>${r.cantidad}</td><td>${tEsc(r.proveedor || '—')}</td></tr>`).join('')
       }</table>`;
     document.getElementById('btn-imp-confirmar').classList.toggle('hidden', filasProcesadas.length === 0);
     return;
@@ -5231,6 +5235,9 @@ document.addEventListener('click', (e) => {
 function inicializarMultiselectSvw(idBoton, idPanel, atributo, setActivos, etiquetaTodos) {
   const boton = document.getElementById(idBoton);
   const panel = document.getElementById(idPanel);
+  const checkTodos = panel.querySelector(`[${atributo}-todos]`);
+  const checksIndividuales = () => Array.from(panel.querySelectorAll(`[${atributo}]`));
+
   boton.addEventListener('click', (e) => {
     e.stopPropagation();
     const yaAbierto = !panel.classList.contains('hidden');
@@ -5238,12 +5245,28 @@ function inicializarMultiselectSvw(idBoton, idPanel, atributo, setActivos, etiqu
     document.querySelectorAll('.svw-multiselect-btn').forEach(b => b.classList.remove('activo'));
     if (!yaAbierto) { panel.classList.remove('hidden'); boton.classList.add('activo'); }
   });
-  panel.querySelectorAll(`[${atributo}]`).forEach(chk => chk.addEventListener('change', () => {
+
+  function actualizarBoton() {
+    boton.textContent = setActivos.size === 0 ? etiquetaTodos : `${setActivos.size} seleccionado(s)`;
+  }
+
+  checksIndividuales().forEach(chk => chk.addEventListener('change', () => {
     const val = chk.getAttribute(atributo);
     if (chk.checked) setActivos.add(val); else setActivos.delete(val);
-    boton.textContent = setActivos.size === 0 ? etiquetaTodos : `${setActivos.size} seleccionado(s)`;
+    checkTodos.checked = checksIndividuales().every(c => c.checked);
+    actualizarBoton();
     renderSvwTodo();
   }));
+
+  checkTodos.addEventListener('change', () => {
+    checksIndividuales().forEach(chk => {
+      chk.checked = checkTodos.checked;
+      const val = chk.getAttribute(atributo);
+      if (checkTodos.checked) setActivos.add(val); else setActivos.delete(val);
+    });
+    actualizarBoton();
+    renderSvwTodo();
+  });
 }
 inicializarMultiselectSvw('svw-btn-estado', 'svw-panel-estado', 'data-svw-estado', SVW_ESTADOS_ACTIVOS, 'Todos');
 inicializarMultiselectSvw('svw-btn-ubicacion', 'svw-panel-ubicacion', 'data-svw-ubic', SVW_UBICACIONES_ACTIVAS, 'Todas');
@@ -5259,6 +5282,8 @@ function marcarSvwCheckbox(atributo, setActivos, idBoton, etiquetaTodos, valor) 
   setActivos.clear();
   setActivos.add(valor);
   document.querySelectorAll(`[${atributo}]`).forEach(chk => { chk.checked = chk.getAttribute(atributo) === valor; });
+  const checkTodos = document.querySelector(`[${atributo}-todos]`);
+  if (checkTodos) checkTodos.checked = false;
   document.getElementById(idBoton).textContent = `1 seleccionado(s)`;
   renderSvwTodo();
 }
