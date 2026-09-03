@@ -1817,7 +1817,14 @@ function parsearHoras(texto) {
 function hojaConMasFilas(wb) {
   let mejorHoja = null, mejorFilas = -1, mejorNombre = '';
   wb.SheetNames.forEach(nombre => {
-    const filas = XLSX.utils.sheet_to_json(wb.Sheets[nombre], { defval: '' });
+    // raw:false -- IMPORTANTE: sin esto, SheetJS intenta adivinar qué celdas
+    // son números y las convierte él solo, usando la convención en inglés
+    // (coma = separador de miles). Eso corrompe valores como "7,00" (formato
+    // colombiano, coma = decimal) convirtiéndolos en 700. Con raw:false,
+    // siempre llega el texto tal cual está escrito en el archivo, y nuestras
+    // propias funciones (parsearMoneda / parsearMonedaFlexible) son las que
+    // deciden cómo interpretarlo.
+    const filas = XLSX.utils.sheet_to_json(wb.Sheets[nombre], { defval: '', raw: false });
     if (filas.length > mejorFilas) { mejorFilas = filas.length; mejorHoja = filas; mejorNombre = nombre; }
   });
   return mejorHoja || [];
