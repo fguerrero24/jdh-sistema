@@ -5150,7 +5150,9 @@ async function consultarSiesaVsWms() {
   estado.textContent = 'Consultando...';
 
   const [{ data, error }, { data: resumenCedi, error: errorResumen }] = await Promise.all([
-    sb.rpc('analisis_siesa_vs_wms', { p_cedi: cedi }),
+    // .range() es necesario -- sin esto, Supabase corta el resultado en 1.000
+    // filas por defecto (un límite de PostgREST, no algo que haya puesto yo).
+    sb.rpc('analisis_siesa_vs_wms', { p_cedi: cedi }).range(0, 49999),
     sb.rpc('resumen_siesa_vs_wms_por_cedi'),
   ]);
   if (error) { estado.textContent = 'Error: ' + error.message; return; }
