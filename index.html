@@ -980,6 +980,14 @@ input:focus,select:focus,textarea:focus{outline:none!important;border-color:#176
 .svw-autocomplete-item:last-child{border-bottom:none}
 .svw-autocomplete-item:hover,.svw-autocomplete-item.activa{background:#eff6ff}
 .svw-autocomplete-item small{display:block;color:#64748b;font-size:10px;margin-top:1px}
+.svw-multiselect-wrap{position:relative}
+.svw-multiselect-btn{width:100%;height:36px;border:1px solid #dbe2ea;border-radius:9px;padding:0 10px;background:#f8fafc;color:#0f172a;font-size:12px;text-align:left;cursor:pointer;display:flex;align-items:center;justify-content:space-between}
+.svw-multiselect-btn::after{content:'▾';color:#94a3b8;font-size:10px;margin-left:6px}
+.svw-multiselect-btn:hover,.svw-multiselect-btn.activo{border-color:#60a5fa;background:#fff}
+.svw-multiselect-panel{position:absolute;top:calc(100% + 4px);left:0;right:0;background:#fff;border:1px solid #dbe2ea;border-radius:10px;box-shadow:0 12px 28px rgba(15,23,42,.12);padding:8px;z-index:60;max-height:260px;overflow-y:auto}
+.svw-multiselect-panel label{display:flex;align-items:center;gap:8px;font-size:12px;color:#0f172a;padding:7px 6px;border-radius:6px;cursor:pointer}
+.svw-multiselect-panel label:hover{background:#eff6ff}
+.svw-multiselect-panel input[type="checkbox"]{width:14px;height:14px;flex-shrink:0}
 .inv-section{border:1px solid #e5e7eb;border-radius:16px;background:#fff;overflow:hidden;box-shadow:0 4px 16px rgba(15,23,42,.04)}.inv-section-head{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:13px 15px;border-bottom:1px solid #edf1f5}.inv-section-title{font-weight:800;font-size:13px;color:#0f172a}.inv-section-note{font-size:10px;color:#94a3b8}.inv-table-wrap{overflow:auto;max-height:62vh}.inv-table{width:100%;border-collapse:separate;border-spacing:0;font-size:11px}.inv-table th{position:sticky;top:0;z-index:2;background:#f8fafc;color:#64748b;text-transform:uppercase;letter-spacing:.04em;font-size:9px;font-weight:800;padding:10px;border-bottom:1px solid #e2e8f0;text-align:left;white-space:nowrap}.inv-table td{padding:9px 10px;border-bottom:1px solid #f1f5f9;color:#334155;white-space:nowrap}.inv-table tr:hover td{background:#f8fbff}.inv-product{font-weight:750;color:#0f172a;max-width:260px;white-space:normal}.inv-zone{display:inline-flex;align-items:center;border-radius:999px;padding:4px 7px;font-size:9px;font-weight:800}.inv-zone.picking{background:#eff6ff;color:#1d4ed8}.inv-zone.altura{background:#f5f3ff;color:#6d28d9}.inv-zone.other{background:#f1f5f9;color:#64748b}.inv-risk{display:inline-flex;align-items:center;gap:5px;border-radius:999px;padding:4px 8px;font-size:9px;font-weight:800}.inv-risk:before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor}.risk-vencido{background:#fef2f2;color:#b91c1c}.risk-critico{background:#fff1f2;color:#be123c}.risk-prioridad{background:#fff7ed;color:#c2410c}.risk-atencion{background:#fefce8;color:#a16207}.risk-normal{background:#f0fdf4;color:#15803d}.risk-sinvida{background:#f1f5f9;color:#64748b}.inv-money{font-weight:800;color:#0f172a}.inv-pct{font-variant-numeric:tabular-nums;font-weight:800}.inv-empty{padding:32px;text-align:center;color:#64748b;font-size:12px}
 .inv-exception-grid{display:grid;grid-template-columns:1.4fr .8fr;gap:12px;margin-bottom:12px}.inv-alert{border:1px solid #fee2e2;background:linear-gradient(135deg,#fff,#fff7f7);border-radius:16px;padding:14px}.inv-alert h4{margin:0 0 8px;font-size:12px}.inv-alert-row{display:grid;grid-template-columns:1fr auto auto;gap:10px;align-items:center;padding:8px 0;border-bottom:1px solid #f1f5f9;font-size:11px}.inv-alert-row:last-child{border-bottom:0}.inv-mini-card{border:1px solid #e5e7eb;border-radius:16px;padding:14px;background:#fff}.inv-mini-value{font-size:24px;font-weight:850;color:#0f172a}.inv-mini-label{font-size:10px;color:#64748b;text-transform:uppercase;font-weight:800}.inv-progress{height:7px;border-radius:99px;background:#eef2f7;overflow:hidden;margin-top:9px}.inv-progress>span{display:block;height:100%;border-radius:99px;background:linear-gradient(90deg,#2563eb,#60a5fa)}
 .fefo-hero{border:1px solid #dbeafe;background:linear-gradient(135deg,#eff6ff,#fff);border-radius:16px;padding:14px 16px;margin-bottom:12px}.fefo-hero-title{font-weight:850;color:#0f172a;font-size:14px}.fefo-hero-copy{font-size:11px;color:#64748b;margin-top:3px}.fefo-kpis-modern{display:grid;grid-template-columns:repeat(4,1fr);gap:9px;margin:12px 0}.fefo-kpi{border:1px solid #e5e7eb;border-radius:13px;padding:11px;background:#fff}.fefo-kpi-label{font-size:9px;color:#64748b;font-weight:800;text-transform:uppercase}.fefo-kpi-value{font-size:19px;font-weight:850;margin-top:3px}.fefo-table .hist-table{font-size:11px}
@@ -1202,32 +1210,36 @@ input:focus,select:focus,textarea:focus{outline:none!important;border-color:#176
           </div>
 
           <div class="inv-filterbar">
-            <div class="inv-filter-row" style="grid-template-columns:1fr 1.3fr 1.1fr 1.6fr auto;">
+            <div class="inv-filter-row" style="grid-template-columns:1fr 1.4fr 1.4fr auto;">
               <div class="inv-filter"><label>CEDI</label><select id="svw-filtro-cedi"><option value="">Todos</option></select></div>
+              <div class="inv-filter svw-multiselect-wrap">
+                <label>Estado</label>
+                <button type="button" class="svw-multiselect-btn" id="svw-btn-estado">Todos</button>
+                <div class="svw-multiselect-panel hidden" id="svw-panel-estado">
+                  <label><input type="checkbox" data-svw-estado="Igual"> Igual</label>
+                  <label><input type="checkbox" data-svw-estado="Sobra en WMS"> Sobra en WMS</label>
+                  <label><input type="checkbox" data-svw-estado="Sobra en SIESA"> Sobra en SIESA</label>
+                </div>
+              </div>
+              <div class="inv-filter svw-multiselect-wrap">
+                <label>Clasificación de ubicación</label>
+                <button type="button" class="svw-multiselect-btn" id="svw-btn-ubicacion">Todas</button>
+                <div class="svw-multiselect-panel hidden" id="svw-panel-ubicacion">
+                  <label><input type="checkbox" data-svw-ubic="Solo Picking"> Solo Picking</label>
+                  <label><input type="checkbox" data-svw-ubic="Solo Altura"> Solo Altura</label>
+                  <label><input type="checkbox" data-svw-ubic="Mixta (Picking + Altura)"> Mixta (Picking + Altura)</label>
+                  <label><input type="checkbox" data-svw-ubic="Mixta (Altura + Otra)"> Mixta (Altura + Otra)</label>
+                  <label><input type="checkbox" data-svw-ubic="Mixta (Picking + Otra)"> Mixta (Picking + Otra)</label>
+                  <label><input type="checkbox" data-svw-ubic="Sin ubicación WMS"> Sin ubicación WMS</label>
+                  <label><input type="checkbox" data-svw-ubic="Sin clasificar"> Sin clasificar</label>
+                </div>
+              </div>
+              <button class="btn" id="btn-svw-consultar">Consultar</button>
+            </div>
+            <div class="inv-filter-row" style="grid-template-columns:1.2fr 1fr 1.6fr;margin-top:10px;">
               <div class="inv-filter svw-autocomplete-wrap"><label>Proveedor</label><input type="text" id="svw-filtro-proveedor-texto" placeholder="Escribe para buscar..." autocomplete="off"><input type="hidden" id="svw-filtro-proveedor"><div class="svw-autocomplete-lista hidden" id="svw-proveedor-lista"></div></div>
               <div class="inv-filter"><label>Categoría</label><select id="svw-filtro-categoria"><option value="">Todas</option></select></div>
               <div class="inv-filter svw-autocomplete-wrap"><label>Referencia / producto</label><input type="text" id="svw-filtro-texto" placeholder="Escribe la referencia o el nombre..." autocomplete="off"><div class="svw-autocomplete-lista hidden" id="svw-referencia-lista"></div></div>
-              <button class="btn" id="btn-svw-consultar">Consultar</button>
-            </div>
-            <div class="inv-filter" style="margin-top:10px;">
-              <label>Estado (elige uno o varios)</label>
-              <div class="inv-chiprow" id="svw-chips-estado">
-                <button class="inv-chip" data-svw-estado="Igual">Igual</button>
-                <button class="inv-chip" data-svw-estado="Sobra en WMS">Sobra en WMS</button>
-                <button class="inv-chip" data-svw-estado="Sobra en SIESA">Sobra en SIESA</button>
-              </div>
-            </div>
-            <div class="inv-filter" style="margin-top:10px;">
-              <label>Clasificación de ubicación en WMS (elige una o varias)</label>
-              <div class="inv-chiprow" id="svw-chips-ubicacion">
-                <button class="inv-chip" data-svw-ubic="Solo Picking">Solo Picking</button>
-                <button class="inv-chip" data-svw-ubic="Solo Altura">Solo Altura</button>
-                <button class="inv-chip" data-svw-ubic="Mixta (Picking + Altura)">Mixta (Picking + Altura)</button>
-                <button class="inv-chip" data-svw-ubic="Mixta (Altura + Otra)">Mixta (Altura + Otra)</button>
-                <button class="inv-chip" data-svw-ubic="Mixta (Picking + Otra)">Mixta (Picking + Otra)</button>
-                <button class="inv-chip" data-svw-ubic="Sin ubicación WMS">Sin ubicación WMS</button>
-                <button class="inv-chip" data-svw-ubic="Sin clasificar">Sin clasificar</button>
-              </div>
             </div>
           </div>
 
@@ -5203,21 +5215,41 @@ document.addEventListener('click', (e) => {
   }
 });
 
-// ---------- Chips de Estado (selección múltiple) ----------
-document.querySelectorAll('[data-svw-estado]').forEach(btn => btn.addEventListener('click', () => {
-  const val = btn.dataset.svwEstado;
-  if (SVW_ESTADOS_ACTIVOS.has(val)) { SVW_ESTADOS_ACTIVOS.delete(val); btn.classList.remove('active'); }
-  else { SVW_ESTADOS_ACTIVOS.add(val); btn.classList.add('active'); }
+// ---------- Desplegable de Estado (selección múltiple) ----------
+function inicializarMultiselectSvw(idBoton, idPanel, atributo, setActivos, etiquetaTodos) {
+  const boton = document.getElementById(idBoton);
+  const panel = document.getElementById(idPanel);
+  boton.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const yaAbierto = !panel.classList.contains('hidden');
+    document.querySelectorAll('.svw-multiselect-panel').forEach(p => p.classList.add('hidden'));
+    document.querySelectorAll('.svw-multiselect-btn').forEach(b => b.classList.remove('activo'));
+    if (!yaAbierto) { panel.classList.remove('hidden'); boton.classList.add('activo'); }
+  });
+  panel.querySelectorAll(`[${atributo}]`).forEach(chk => chk.addEventListener('change', () => {
+    const val = chk.getAttribute(atributo);
+    if (chk.checked) setActivos.add(val); else setActivos.delete(val);
+    boton.textContent = setActivos.size === 0 ? etiquetaTodos : `${setActivos.size} seleccionado(s)`;
+    renderSvwTodo();
+  }));
+}
+inicializarMultiselectSvw('svw-btn-estado', 'svw-panel-estado', 'data-svw-estado', SVW_ESTADOS_ACTIVOS, 'Todos');
+inicializarMultiselectSvw('svw-btn-ubicacion', 'svw-panel-ubicacion', 'data-svw-ubic', SVW_UBICACIONES_ACTIVAS, 'Todas');
+document.addEventListener('click', (e) => {
+  if (!e.target.closest('.svw-multiselect-wrap')) {
+    document.querySelectorAll('.svw-multiselect-panel').forEach(p => p.classList.add('hidden'));
+    document.querySelectorAll('.svw-multiselect-btn').forEach(b => b.classList.remove('activo'));
+  }
+});
+// Los gráficos permiten hacer clic para filtrar por un estado o ubicación
+// específica -- esta función marca la casilla correspondiente y refresca.
+function marcarSvwCheckbox(atributo, setActivos, idBoton, etiquetaTodos, valor) {
+  setActivos.clear();
+  setActivos.add(valor);
+  document.querySelectorAll(`[${atributo}]`).forEach(chk => { chk.checked = chk.getAttribute(atributo) === valor; });
+  document.getElementById(idBoton).textContent = `1 seleccionado(s)`;
   renderSvwTodo();
-}));
-
-// ---------- Chips de Clasificación de ubicación (selección múltiple) ----------
-document.querySelectorAll('[data-svw-ubic]').forEach(btn => btn.addEventListener('click', () => {
-  const val = btn.dataset.svwUbic;
-  if (SVW_UBICACIONES_ACTIVAS.has(val)) { SVW_UBICACIONES_ACTIVAS.delete(val); btn.classList.remove('active'); }
-  else { SVW_UBICACIONES_ACTIVAS.add(val); btn.classList.add('active'); }
-  renderSvwTodo();
-}));
+}
 
 function filasSvwFiltradas() {
   const texto = document.getElementById('svw-filtro-texto').value.trim().toLowerCase();
@@ -5277,7 +5309,7 @@ function renderSvwCharts(filas) {
   const conteoEstado = {};
   filas.forEach(r => { conteoEstado[r.estado] = (conteoEstado[r.estado] || 0) + 1; });
   dibujarChart('svw-chart-estado', {
-    chart: { type: 'donut', height: 240, foreColor: '#667085', events: { dataPointSelection: (e, ch, cfg) => { const val = Object.keys(conteoEstado)[cfg.dataPointIndex]; document.querySelector(`[data-svw-estado="${val}"]`)?.click(); } } },
+    chart: { type: 'donut', height: 240, foreColor: '#667085', events: { dataPointSelection: (e, ch, cfg) => { const val = Object.keys(conteoEstado)[cfg.dataPointIndex]; marcarSvwCheckbox('data-svw-estado', SVW_ESTADOS_ACTIVOS, 'svw-btn-estado', 'Todos', val); } } },
     series: Object.values(conteoEstado), labels: Object.keys(conteoEstado),
     colors: Object.keys(conteoEstado).map(k => COLORES_ESTADO_SVW[k] || '#94a3b8'),
     legend: { position: 'bottom', fontSize: '11px' }, dataLabels: { enabled: true, style: { colors: ['#fff'] } },
@@ -5333,7 +5365,7 @@ function renderSvwTablaUbicacion(filas) {
   const orden = ['Solo Picking', 'Solo Altura', 'Mixta (Picking + Altura)', 'Mixta (Altura + Otra)', 'Mixta (Picking + Otra)', 'Sin clasificar', 'Sin ubicación WMS'];
   const cont = document.getElementById('svw-tabla-ubicacion');
   cont.innerHTML = `<table class="inv-table"><thead><tr><th>Clasificación de ubicación</th><th>SKU</th></tr></thead><tbody>${
-    orden.filter(k => conteo[k]).map(k => `<tr style="cursor:pointer;" onclick='document.querySelector(\`[data-svw-ubic="${k.replace(/"/g,'&quot;')}"]\`).click()'>
+    orden.filter(k => conteo[k]).map(k => `<tr style="cursor:pointer;" onclick='marcarSvwCheckbox("data-svw-ubic", SVW_UBICACIONES_ACTIVAS, "svw-btn-ubicacion", "Todas", ${JSON.stringify(k)})'>
       <td>${tEsc(k)}</td><td>${conteo[k].toLocaleString('es-CO')}</td>
     </tr>`).join('')
   }<tr style="font-weight:800;"><td>Total</td><td>${filas.length.toLocaleString('es-CO')}</td></tr></tbody></table>`;
