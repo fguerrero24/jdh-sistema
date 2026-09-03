@@ -5149,16 +5149,26 @@ async function consultarSiesaVsWms() {
   const cedi = document.getElementById('svw-filtro-cedi').value || null;
   estado.textContent = 'Consultando...';
 
-  const [{ data, error }, { data: resumenCedi, error: errorResumen }] = await Promise.all([
-    // .range() es necesario -- sin esto, Supabase corta el resultado en 1.000
-    // filas por defecto (un límite de PostgREST, no algo que haya puesto yo).
-    sb.rpc('analisis_siesa_vs_wms', { p_cedi: cedi }).range(0, 49999),
-    sb.rpc('resumen_siesa_vs_wms_por_cedi'),
-  ]);
-  if (error) { estado.textContent = 'Error: ' + error.message; return; }
+  // Se pide en bloques de 1.000 y se van juntando -- así no importa si
+  // Supabase tiene el tope de "Max Rows" en 1.000 (no todos los planes
+  // dejan subirlo desde el panel), porque cada bloque individual sí cabe
+  // dentro de ese límite.
+  const TAM_BLOQUE = 1000;
+  let datosCompletos = [];
+  let desde = 0;
+  while (true) {
+    const { data: bloque, error: errorBloque } = await sb.rpc('analisis_siesa_vs_wms', { p_cedi: cedi }).range(desde, desde + TAM_BLOQUE - 1);
+    if (errorBloque) { estado.textContent = 'Error: ' + errorBloque.message; return; }
+    datosCompletos = datosCompletos.concat(bloque || []);
+    estado.textContent = `Consultando... ${datosCompletos.length.toLocaleString('es-CO')} filas traídas`;
+    if (!bloque || bloque.length < TAM_BLOQUE) break; // ya no hay más filas
+    desde += TAM_BLOQUE;
+  }
+
+  const { data: resumenCedi, error: errorResumen } = await sb.rpc('resumen_siesa_vs_wms_por_cedi');
   if (errorResumen) console.error('Error trayendo resumen por CEDI:', errorResumen.message);
 
-  SVW_CACHE = data || [];
+  SVW_CACHE = datosCompletos;
   SVW_RESUMEN_CEDI = resumenCedi || [];
 
   const selCat = document.getElementById('svw-filtro-categoria');
