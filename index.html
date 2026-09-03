@@ -1131,28 +1131,63 @@ input:focus,select:focus,textarea:focus{outline:none!important;border-color:#176
           <div id="panel-venc-tabla">
   <div class="inv-hero">
     <div class="inv-hero-top">
-      <div><div class="inv-eyebrow">JDH · Inventory Control Tower</div><div class="inv-title">Análisis de Vencimientos</div><div class="inv-subtitle">Vida útil, valor económico y excepciones, cruzado con la Maestra de Artículos. La operación se prioriza por riesgo, no por volumen de filas.</div></div>
+      <div><div class="inv-eyebrow">JDH · Inventory Control Tower</div><div class="inv-title">Análisis de Vencimientos</div><div class="inv-subtitle">Vida útil, valor económico y excepciones -- de la alerta a la acción, no solo un reporte.</div></div>
+      <div class="inv-sync" style="display:flex;gap:8px;">
+        <button class="btn ghost" id="btn-venc-exportar">Exportar a Excel</button>
+        <button class="btn ghost" id="btn-venc-enviar-correo">📧 Enviar correo (CEDI filtrado)</button>
+        <button class="btn ghost" id="btn-venc-sugerencias-ia">🤖 Sugerencias IA</button>
+      </div>
     </div>
   </div>
   <div id="inv-kpis" class="inv-kpis"></div>
+
   <div class="inv-filterbar">
-    <div class="inv-filter-row">
+    <div class="inv-filter-row" style="grid-template-columns:1fr 1.3fr 1.3fr auto;">
       <div class="inv-filter"><label>CEDI</label><select id="inv-filtro-cedi"><option value="">Todos</option></select></div>
-      <select id="inv-filtro-zona" style="display:none;"><option value="">Todas</option><option value="picking">Picking /1/</option><option value="altura">Altura /2/</option><option value="other">Otras</option></select>
-      <div class="inv-filter"><label>Criticidad</label><select id="inv-filtro-criticidad"><option value="">Todas</option><option value="vencido">Vencidos</option><option value="critico">Crítico</option><option value="prioridad">Prioridad</option><option value="atencion">Atención</option><option value="normal">Normal</option><option value="sinvida">Sin vida útil</option></select></div>
-      <div class="inv-filter"><label>Rango de vencimiento</label><select id="inv-filtro-rango"><option value="">Todos</option><option value="0">Vencidos</option><option value="7">0–7 días</option><option value="15">8–15 días</option><option value="30">16–30 días</option><option value="60">31–60 días</option><option value="plus60">+60 días</option></select></div>
-      <div class="inv-filter"><label>Producto / lote</label><input type="text" id="inv-filtro-producto" placeholder="Buscar referencia, producto, lote o ubicación..."></div>
-      <div class="inv-filter-actions"><button class="btn ghost" id="btn-inv-limpiar"><i class="ti ti-filter-off"></i> Limpiar</button><button class="btn ghost" id="btn-venc-exportar">Exportar a Excel</button><button class="btn ghost" id="btn-venc-enviar-correo">📧 Enviar correo (CEDI filtrado)</button><button class="btn ghost" id="btn-venc-sugerencias-ia">🤖 Sugerencias IA</button></div>
-            <div id="venc-sugerencias-ia" class="hidden" style="background:#0f2033;border-radius:12px;padding:14px 18px;margin:12px 0;color:#cbd5e1;font-size:13px;line-height:1.5;"><div style="font-size:10px;color:#6b829a;text-transform:uppercase;margin-bottom:4px;">🤖 Sugerencias IA</div><div id="venc-sugerencias-ia-texto"></div></div>
+      <div class="inv-filter svw-multiselect-wrap">
+        <label>Estado / criticidad</label>
+        <button type="button" class="svw-multiselect-btn" id="venc-btn-estado">Todos</button>
+        <div class="svw-multiselect-panel hidden" id="venc-panel-estado">
+          <label style="font-weight:700;border-bottom:1px solid #e5e9f0;margin-bottom:4px;"><input type="checkbox" data-venc-estado-todos> Seleccionar todos</label>
+          <label><input type="checkbox" data-venc-estado="vencido"> Vencido</label>
+          <label><input type="checkbox" data-venc-estado="critico"> Crítico</label>
+          <label><input type="checkbox" data-venc-estado="prioridad"> Prioridad</label>
+          <label><input type="checkbox" data-venc-estado="atencion"> Atención</label>
+          <label><input type="checkbox" data-venc-estado="normal"> Normal</label>
+          <label><input type="checkbox" data-venc-estado="sinvida"> Sin vida útil</label>
+        </div>
+      </div>
+      <div class="inv-filter svw-multiselect-wrap">
+        <label>Zona</label>
+        <button type="button" class="svw-multiselect-btn" id="venc-btn-zona">Todas</button>
+        <div class="svw-multiselect-panel hidden" id="venc-panel-zona">
+          <label style="font-weight:700;border-bottom:1px solid #e5e9f0;margin-bottom:4px;"><input type="checkbox" data-venc-zona-todos> Seleccionar todos</label>
+          <label><input type="checkbox" data-venc-zona="picking"> Picking</label>
+          <label><input type="checkbox" data-venc-zona="altura"> Altura</label>
+          <label><input type="checkbox" data-venc-zona="other"> Otras</label>
+        </div>
+      </div>
+      <button class="btn ghost" id="btn-inv-limpiar"><i class="ti ti-filter-off"></i> Limpiar</button>
     </div>
-    <div class="inv-chiprow"><button class="inv-chip danger" data-inv-chip="vencido">⛔ Vencidos</button><button class="inv-chip danger" data-inv-chip="critico">🔴 Críticos</button><button class="inv-chip warn" data-inv-chip="prioridad">🟠 Prioridad</button><button class="inv-chip" data-inv-chip="picking">Picking /1/</button><button class="inv-chip" data-inv-chip="altura">Altura /2/</button><button class="inv-chip" data-inv-chip="fefo">🔄 Riesgo FEFO</button></div>
+    <div class="inv-filter-row" style="grid-template-columns:1.2fr 1fr 1.6fr;margin-top:10px;">
+      <div class="inv-filter svw-autocomplete-wrap"><label>Proveedor</label><input type="text" id="venc-filtro-proveedor-texto" placeholder="Escribe para buscar..." autocomplete="off"><div class="svw-autocomplete-lista hidden" id="venc-proveedor-lista"></div></div>
+      <div class="inv-filter"><label>Categoría</label><select id="venc-filtro-categoria"><option value="">Todas</option></select></div>
+      <div class="inv-filter"><label>Producto / lote / referencia</label><input type="text" id="inv-filtro-producto" placeholder="Buscar referencia, producto, lote o ubicación..."></div>
+    </div>
+    <div id="venc-sugerencias-ia" class="hidden" style="background:#0f2033;border-radius:12px;padding:14px 18px;margin:12px 0;color:#cbd5e1;font-size:13px;line-height:1.5;"><div style="font-size:10px;color:#6b829a;text-transform:uppercase;margin-bottom:4px;">🤖 Sugerencias IA</div><div id="venc-sugerencias-ia-texto"></div></div>
   </div>
   <div id="inv-status" style="font-size:11px;color:var(--text-secondary);margin:8px 2px;"></div>
   <div class="inv-exception-grid">
-    <div class="inv-alert"><h4>🚨 Excepciones prioritarias</h4><div id="inv-excepciones"><div class="inv-empty">Cargando análisis...</div></div></div>
-    <div class="inv-mini-card"><div class="inv-mini-label">Valor económico en riesgo</div><div class="inv-mini-value" id="inv-valor-riesgo">$0</div><div class="inv-mini-label" style="margin-top:10px;">% del inventario disponible</div><div class="inv-progress"><span id="inv-riesgo-progress" style="width:0%"></span></div><div id="inv-riesgo-meta" style="font-size:10px;color:#94a3b8;margin-top:6px;">Sin datos</div></div>
+    <div class="inv-alert"><h4>🚨 Excepciones prioritarias -- con acción sugerida</h4><div id="inv-excepciones"><div class="inv-empty">Cargando análisis...</div></div></div>
+    <div class="inv-mini-card"><div class="inv-mini-label">Valor económico en riesgo</div><div class="inv-mini-value" id="inv-valor-riesgo">$0</div><div class="inv-mini-label" style="margin-top:10px;">% de Obsolescencia (riesgo / valor total)</div><div class="inv-progress"><span id="inv-riesgo-progress" style="width:0%"></span></div><div id="inv-riesgo-meta" style="font-size:10px;color:#94a3b8;margin-top:6px;">Sin datos</div></div>
   </div>
-  <div class="inv-section"><div class="inv-section-head"><div><div class="inv-section-title">Existencias y vida útil</div><div class="inv-section-note" id="inv-tabla-note">Ordenado por prioridad operativa</div></div><div class="inv-section-note">/1/ Picking · /2/ Altura</div></div><div class="inv-table-wrap" id="inv-tabla"></div></div>
+  <div class="inv-section"><div class="inv-section-head"><div><div class="inv-section-title">Existencias, vida útil y acción sugerida</div><div class="inv-section-note" id="inv-tabla-note">Ordenado por prioridad operativa</div></div></div><div class="inv-table-wrap" id="inv-tabla"></div></div>
+</div>
+
+<div id="venc-drawer-backdrop" class="hidden" style="position:fixed;inset:0;background:rgba(15,23,42,.4);z-index:9500;" onclick="document.getElementById('venc-drawer-backdrop').classList.add('hidden');document.getElementById('venc-drawer').classList.add('hidden');">
+  <div id="venc-drawer" class="hidden" style="position:fixed;right:0;top:0;bottom:0;width:380px;background:var(--modern-panel);box-shadow:-8px 0 24px rgba(0,0,0,.15);padding:20px;overflow-y:auto;" onclick="event.stopPropagation()">
+    <div id="venc-drawer-contenido"></div>
+  </div>
 </div>
 
 
@@ -4470,9 +4505,10 @@ function renderInventarioWmsSimple() {
 
 let MAESTRA_INVENTARIO_CACHE = [];
 let MAESTRA_INVENTARIO_MAP = new Map();
+let SIESA_PROVEEDOR_MAP = new Map();
 async function cargarMaestraVidaUtil() {
   try {
-    const { data, error } = await sb.from('maestra_articulos_siesa').select('referencia,descripcion,costo_promedio_unitario,vida_util_dias,categoria,linea,grupo').limit(50000);
+    const { data, error } = await sb.from('maestra_articulos_siesa').select('referencia,descripcion,costo_promedio_unitario,vida_util_dias,categoria,linea,grupo,proveedor').limit(50000);
     if (error) throw error;
     MAESTRA_INVENTARIO_CACHE = data || [];
     const map = new Map();
@@ -4483,6 +4519,19 @@ async function cargarMaestraVidaUtil() {
   } catch (e) {
     MAESTRA_INVENTARIO_CACHE = []; MAESTRA_INVENTARIO_MAP = new Map();
     console.warn('No fue posible cargar la maestra de artículos:', e);
+  }
+  // El proveedor del archivo de Inventario SIESA es más fresco que el del
+  // catálogo de Maestra (mismo hallazgo que en SIESA vs WMS) -- se usa como
+  // fuente principal, y la Maestra queda de respaldo.
+  try {
+    const { data, error } = await sb.from('inventario_siesa').select('referencia,proveedor').not('proveedor', 'is', null).limit(50000);
+    if (error) throw error;
+    const map = new Map();
+    (data || []).forEach(r => { const n = normalizarClaveInventario(r.referencia); if (n && r.proveedor && !map.has(n)) map.set(n, r.proveedor); });
+    SIESA_PROVEEDOR_MAP = map;
+  } catch (e) {
+    SIESA_PROVEEDOR_MAP = new Map();
+    console.warn('No fue posible cargar el proveedor de inventario SIESA:', e);
   }
 }
 
@@ -4501,6 +4550,14 @@ function metaMaestraInventario(r) {
   for (const k of claves) { const m = MAESTRA_INVENTARIO_MAP.get(k); if (m) return m; }
   return null;
 }
+// El proveedor "real" a mostrar: primero el de Inventario SIESA (fresco),
+// y si no hay, el de la Maestra de Artículos (respaldo).
+function proveedorInventario(r, m) {
+  const refExtraida = extraerReferenciaWms(r.producto);
+  const claves = [refExtraida, r.referencia].map(normalizarClaveInventario).filter(Boolean);
+  for (const k of claves) { const p = SIESA_PROVEEDOR_MAP.get(k); if (p) return p; }
+  return m?.proveedor || null;
+}
 function zonaInventario(ubicacion) {
   const u = String(ubicacion || '').toUpperCase();
   if (/\/1\//.test(u)) return 'picking';
@@ -4517,20 +4574,39 @@ function diasRestantesInventario(fecha) {
 }
 function evaluarVidaInventario(r) {
   const m = metaMaestraInventario(r);
+  const proveedor = proveedorInventario(r, m);
   const dias = diasRestantesInventario(r.fecha_caducidad);
   const vida = Number(m?.vida_util_dias);
   const costo = Number(m?.costo_promedio_unitario) || 0;
   const disponible = Number(r.cantidad_disponible) || 0;
   const valor = disponible * costo;
-  if (dias == null) return { maestra:m, dias, vida:vida>0?vida:null, pct:null, estado:'sinvida', valor, costo };
-  if (dias <= 0) return { maestra:m, dias, vida:vida>0?vida:null, pct:vida>0 ? (dias/vida)*100 : null, estado:'vencido', valor, costo };
-  if (!(vida > 0)) return { maestra:m, dias, vida:null, pct:null, estado:'sinvida', valor, costo };
+  if (dias == null) return { maestra:m, proveedor, dias, vida:vida>0?vida:null, pct:null, estado:'sinvida', valor, costo };
+  if (dias <= 0) return { maestra:m, proveedor, dias, vida:vida>0?vida:null, pct:vida>0 ? (dias/vida)*100 : null, estado:'vencido', valor, costo };
+  if (!(vida > 0)) return { maestra:m, proveedor, dias, vida:null, pct:null, estado:'sinvida', valor, costo };
   const pct = Math.min(100, Math.max(0, dias/vida*100));
   let estado='normal'; if (pct <= 15) estado='critico'; else if (pct <= 30) estado='prioridad'; else if (pct <= 50) estado='atencion';
-  return { maestra:m, dias, vida, pct, estado, valor, costo };
+  return { maestra:m, proveedor, dias, vida, pct, estado, valor, costo };
 }
 function etiquetaEstadoInventario(e){ return ({vencido:'Vencido',critico:'Crítico',prioridad:'Prioridad',atencion:'Atención',normal:'Normal',sinvida:'Sin vida útil'})[e] || e; }
 function formatoCOP(v){ return '$' + Math.round(Number(v)||0).toLocaleString('es-CO'); }
+// El cambio central de la reestructuración: no basta con alertar qué está
+// por vencer -- hay que sugerir qué hacer. Reglas simples, basadas en
+// estado + zona + proveedor, siguiendo la práctica de la industria de pasar
+// de "alerta pasiva" a "acción sugerida".
+function accionSugeridaVencimiento(r, e, zona) {
+  if (e.estado === 'vencido') return { texto: 'Dar de baja / retirar del inventario disponible', prioridad: 1 };
+  if (e.estado === 'critico' && zona === 'altura') return { texto: 'Bajar a Picking YA -- vence pronto y sigue en Altura', prioridad: 1 };
+  if (e.estado === 'critico') return { texto: 'Promocionar o despachar de inmediato', prioridad: 1 };
+  if (e.estado === 'prioridad' && zona === 'altura') return { texto: 'Programar bajada a Picking esta semana', prioridad: 2 };
+  if (e.estado === 'prioridad') return { texto: e.proveedor ? `Priorizar despacho -- revisar con ${e.proveedor} si aplica devolución` : 'Priorizar despacho en las próximas rutas' , prioridad: 2 };
+  if (e.estado === 'atencion') return { texto: 'Monitorear -- sin acción urgente todavía', prioridad: 3 };
+  if (e.estado === 'sinvida') return { texto: 'Completar vida útil en la Maestra de Artículos para poder evaluarlo', prioridad: 3 };
+  return { texto: 'Sin acción requerida', prioridad: 4 };
+}
+
+let ACCIONES_VENCIMIENTOS_CACHE = [];
+let VENC_ESTADOS_ACTIVOS = new Set();
+let VENC_ZONAS_ACTIVAS = new Set();
 
 async function traerInventario() {
   const estado = document.getElementById('inv-status');
@@ -4549,35 +4625,77 @@ async function traerInventario() {
   }
   INVENTARIO_CACHE = rows;
   if (!MAESTRA_INVENTARIO_MAP.size) await cargarMaestraVidaUtil();
+  const { data: acciones } = await sb.from('acciones_vencimientos').select('*').order('marcado_en', { ascending: false });
+  ACCIONES_VENCIMIENTOS_CACHE = acciones || [];
   estado.textContent = `${INVENTARIO_CACHE.length.toLocaleString('es-CO')} registros cargados. Vida útil: ${MAESTRA_INVENTARIO_MAP.size.toLocaleString('es-CO')} referencias disponibles en maestra.`;
+  poblarCategoriasVencimientos();
   renderInventario();
 }
 
+function poblarCategoriasVencimientos() {
+  const sel = document.getElementById('venc-filtro-categoria');
+  const categorias = [...new Set(INVENTARIO_CACHE.map(r => metaMaestraInventario(r)?.categoria).filter(Boolean))].sort();
+  sel.innerHTML = '<option value="">Todas</option>' + categorias.map(c => `<option value="${tEsc(c)}">${tEsc(c)}</option>`).join('');
+}
+
+function marcadoEnProceso(r) {
+  return ACCIONES_VENCIMIENTOS_CACHE.find(a => a.producto === r.producto && a.lote === r.lote && a.cedi === r.cedi);
+}
+
 document.getElementById('inv-filtro-cedi').addEventListener('change', traerInventario);
-['inv-filtro-producto','inv-filtro-zona','inv-filtro-criticidad','inv-filtro-rango'].forEach(id => document.getElementById(id).addEventListener(id.includes('producto')?'input':'change', renderInventario));
-document.getElementById('btn-inv-limpiar').addEventListener('click', () => { ['inv-filtro-zona','inv-filtro-criticidad','inv-filtro-rango'].forEach(id=>document.getElementById(id).value=''); document.getElementById('inv-filtro-producto').value=''; document.querySelectorAll('[data-inv-chip]').forEach(x=>x.classList.remove('active')); renderInventario(); });
-document.querySelectorAll('[data-inv-chip]').forEach(b=>b.addEventListener('click',()=>{ const v=b.dataset.invChip; if(v==='fefo'){ document.getElementById('tab-venc-fefo')?.click(); return; } const sel=document.getElementById('inv-filtro-criticidad'); const zona=document.getElementById('inv-filtro-zona'); if(['vencido','critico','prioridad'].includes(v)) { sel.value=v; zona.value=''; } else { zona.value=v; sel.value=''; } document.querySelectorAll('[data-inv-chip]').forEach(x=>x.classList.remove('active')); b.classList.add('active'); renderInventario(); }));
+document.getElementById('inv-filtro-producto').addEventListener('input', renderInventario);
+document.getElementById('venc-filtro-categoria').addEventListener('change', renderInventario);
+document.getElementById('btn-inv-limpiar').addEventListener('click', () => {
+  document.getElementById('inv-filtro-producto').value = '';
+  document.getElementById('venc-filtro-categoria').value = '';
+  document.getElementById('venc-filtro-proveedor-texto').value = '';
+  VENC_ESTADOS_ACTIVOS.clear(); VENC_ZONAS_ACTIVAS.clear();
+  document.querySelectorAll('[data-venc-estado]').forEach(c => c.checked = false);
+  document.querySelectorAll('[data-venc-zona]').forEach(c => c.checked = false);
+  document.getElementById('venc-btn-estado').textContent = 'Todos';
+  document.getElementById('venc-btn-zona').textContent = 'Todas';
+  renderInventario();
+});
+
+// ---------- Autocompletado de Proveedor ----------
+document.getElementById('venc-filtro-proveedor-texto').addEventListener('input', (e) => {
+  const texto = e.target.value.trim().toLowerCase();
+  const lista = document.getElementById('venc-proveedor-lista');
+  renderInventario();
+  if (!texto) { lista.classList.add('hidden'); return; }
+  const proveedores = [...new Set(INVENTARIO_CACHE.map(r => evaluarVidaInventario(r).proveedor).filter(Boolean))]
+    .filter(p => p.toLowerCase().includes(texto)).sort().slice(0, 15);
+  if (!proveedores.length) { lista.innerHTML = '<div class="svw-autocomplete-item" style="color:var(--modern-muted);">Sin coincidencias</div>'; lista.classList.remove('hidden'); return; }
+  lista.innerHTML = proveedores.map(p => `<div class="svw-autocomplete-item" data-valor="${tEsc(p)}">${tEsc(p)}</div>`).join('');
+  lista.classList.remove('hidden');
+});
+document.getElementById('venc-proveedor-lista').addEventListener('click', (e) => {
+  const item = e.target.closest('[data-valor]');
+  if (!item) return;
+  document.getElementById('venc-filtro-proveedor-texto').value = item.dataset.valor;
+  document.getElementById('venc-proveedor-lista').classList.add('hidden');
+  renderInventario();
+});
+document.addEventListener('click', (e) => {
+  if (!e.target.closest('.svw-autocomplete-wrap')) document.getElementById('venc-proveedor-lista')?.classList.add('hidden');
+});
+
+inicializarMultiselectSvw('venc-btn-estado', 'venc-panel-estado', 'data-venc-estado', VENC_ESTADOS_ACTIVOS, 'Todos', () => renderInventario());
+inicializarMultiselectSvw('venc-btn-zona', 'venc-panel-zona', 'data-venc-zona', VENC_ZONAS_ACTIVAS, 'Todas', () => renderInventario());
 
 function renderInventario() {
   const texto = document.getElementById('inv-filtro-producto').value.trim().toLowerCase();
-  const zona = document.getElementById('inv-filtro-zona').value;
-  const criticidad = document.getElementById('inv-filtro-criticidad').value;
-  const rango = document.getElementById('inv-filtro-rango').value;
+  const proveedorTexto = document.getElementById('venc-filtro-proveedor-texto').value.trim().toLowerCase();
+  const categoria = document.getElementById('venc-filtro-categoria').value;
   const enriched = INVENTARIO_CACHE.map(r => ({r,e:evaluarVidaInventario(r),zona:zonaInventario(r.ubicacion)}));
   const filtrado = enriched.filter(x => {
     const r=x.r,e=x.e;
     const textoOk=!texto || [r.producto,r.referencia,r.lote,r.ubicacion,r.codigo_barras_ubicacion].some(v=>String(v||'').toLowerCase().includes(texto));
-    const zonaOk=!zona || x.zona===zona;
-    const critOk=!criticidad || e.estado===criticidad;
-    const d=e.dias;
-    let rangoOk=true;
-    if(rango==='0') rangoOk=d!=null && d<0;
-    else if(rango==='7') rangoOk=d!=null && d>=0 && d<=7;
-    else if(rango==='15') rangoOk=d!=null && d>=8 && d<=15;
-    else if(rango==='30') rangoOk=d!=null && d>=16 && d<=30;
-    else if(rango==='60') rangoOk=d!=null && d>=31 && d<=60;
-    else if(rango==='plus60') rangoOk=d!=null && d>60;
-    return textoOk&&zonaOk&&critOk&&rangoOk;
+    const zonaOk = VENC_ZONAS_ACTIVAS.size === 0 || VENC_ZONAS_ACTIVAS.has(x.zona);
+    const critOk = VENC_ESTADOS_ACTIVOS.size === 0 || VENC_ESTADOS_ACTIVOS.has(e.estado);
+    const provOk = !proveedorTexto || (e.proveedor || '').toLowerCase().includes(proveedorTexto);
+    const catOk = !categoria || e.maestra?.categoria === categoria;
+    return textoOk && zonaOk && critOk && provOk && catOk;
   });
   renderInventarioKpis(enriched);
   renderInventarioExcepciones(enriched);
@@ -4585,21 +4703,108 @@ function renderInventario() {
   document.getElementById('inv-tabla-note').textContent=`${filtrado.length.toLocaleString('es-CO')} registros visibles · ordenados por riesgo y vencimiento`;
   if(!filtrado.length){cont.innerHTML='<div class="inv-empty">No hay inventario que coincida con los filtros seleccionados.</div>';return;}
   filtrado.sort((a,b)=>{const rank={vencido:0,critico:1,prioridad:2,atencion:3,normal:4,sinvida:5}; return (rank[a.e.estado]-rank[b.e.estado]) || ((a.e.dias??999999)-(b.e.dias??999999)) || (b.e.valor-a.e.valor);});
-  cont.innerHTML=`<table class="inv-table"><thead><tr><th>Estado</th><th>CEDI</th><th>Producto</th><th>Ubicación</th><th>Lote</th><th>Caducidad</th><th>Días</th><th>Vida restante</th><th>Valor</th></tr></thead><tbody>${filtrado.map(x=>{const r=x.r,e=x.e;const cls='risk-'+e.estado;const zcls=x.zona;return `<tr><td><span class="inv-risk ${cls}">${etiquetaEstadoInventario(e.estado)}</span></td><td>${tEsc(r.cedi||'—')}</td><td class="inv-product">${tEsc(r.producto||'—')}</td><td style="font-size:10.5px;">${tEsc(r.ubicacion||'—')}</td><td>${tEsc(r.lote||'—')}</td><td>${r.fecha_caducidad?new Date(r.fecha_caducidad).toLocaleDateString('es-CO'):'—'}</td><td style="font-weight:800;color:${e.dias!=null&&e.dias<=30?'#dc2626':'inherit'}">${e.dias??'—'}</td><td class="inv-pct">${e.pct!=null?e.pct.toFixed(1)+'%':'—'}</td><td class="inv-money">${e.valor?formatoCOP(e.valor):'—'}</td></tr>`}).join('')}</tbody></table>`;
+  cont.innerHTML=`<table class="inv-table"><thead><tr><th>Estado</th><th>CEDI</th><th>Producto</th><th>Proveedor</th><th>Lote</th><th>Caducidad</th><th>Días</th><th>Vida restante</th><th>Valor</th><th>Acción sugerida</th></tr></thead><tbody>${filtrado.map(x=>{
+    const r=x.r,e=x.e;const cls='risk-'+e.estado;
+    const accion = accionSugeridaVencimiento(r, e, x.zona);
+    const enProceso = marcadoEnProceso(r);
+    return `<tr style="cursor:pointer;" onclick='abrirDrawerVencimiento(${JSON.stringify({producto:r.producto,cedi:r.cedi,lote:r.lote,ubicacion:r.ubicacion,fecha_caducidad:r.fecha_caducidad,cantidad_disponible:r.cantidad_disponible,estado:e.estado,dias:e.dias,pct:e.pct,valor:e.valor,proveedor:e.proveedor,accion:accion.texto,zona:x.zona}).replace(/'/g, "&apos;")})'>
+      <td><span class="inv-risk ${cls}">${etiquetaEstadoInventario(e.estado)}</span></td>
+      <td>${tEsc(r.cedi||'—')}</td>
+      <td class="inv-product">${tEsc(r.producto||'—')}</td>
+      <td style="font-size:10.5px;">${tEsc(e.proveedor||'—')}</td>
+      <td>${tEsc(r.lote||'—')}</td>
+      <td>${r.fecha_caducidad?new Date(r.fecha_caducidad).toLocaleDateString('es-CO'):'—'}</td>
+      <td style="font-weight:800;color:${e.dias!=null&&e.dias<=30?'#dc2626':'inherit'}">${e.dias??'—'}</td>
+      <td class="inv-pct">${e.pct!=null?e.pct.toFixed(1)+'%':'—'}</td>
+      <td class="inv-money">${e.valor?formatoCOP(e.valor):'—'}</td>
+      <td style="font-size:10.5px;max-width:180px;">${enProceso ? '<span style="color:#16a34a;font-weight:700;">✓ En proceso</span>' : tEsc(accion.texto)}</td>
+    </tr>`}).join('')}</tbody></table>`;
 }
 function renderInventarioKpis(items){
   const total=items.reduce((a,x)=>a+(Number(x.r.cantidad_disponible)||0),0), valor=items.reduce((a,x)=>a+x.e.valor,0);
   const grupos=['vencido','critico','prioridad','atencion','normal']; const cards=grupos.map(g=>{const u=items.filter(x=>x.e.estado===g).reduce((a,x)=>a+(Number(x.r.cantidad_disponible)||0),0);const v=items.filter(x=>x.e.estado===g).reduce((a,x)=>a+x.e.valor,0);return {g,u,v}});
+  const riesgo = items.filter(x => ['vencido','critico','prioridad'].includes(x.e.estado));
+  const valorRiesgo = riesgo.reduce((a,x)=>a+x.e.valor,0);
+  const pctObsolescencia = valor ? (valorRiesgo/valor*100) : 0;
+  const conDias = items.filter(x => x.e.dias != null && x.e.valor > 0);
+  const diasPonderado = conDias.length ? conDias.reduce((a,x)=>a+x.e.dias*x.e.valor,0) / conDias.reduce((a,x)=>a+x.e.valor,0) : null;
   const k=(label,value,meta,cls,g)=>`<div class="inv-kpi ${cls}" data-kpi="${g}"><div class="inv-kpi-label">${label}</div><div class="inv-kpi-value">${value}</div><div class="inv-kpi-meta">${meta}</div></div>`;
-  document.getElementById('inv-kpis').innerHTML=k('Disponible',total.toLocaleString('es-CO'),'unidades', 'info','')+k('Valor inventario',formatoCOP(valor),'costo promedio','info','')+k('Vencido',cards[0].u.toLocaleString('es-CO'),formatoCOP(cards[0].v),'danger','vencido')+k('Crítico',cards[1].u.toLocaleString('es-CO'),formatoCOP(cards[1].v),'danger','critico')+k('Prioridad',cards[2].u.toLocaleString('es-CO'),formatoCOP(cards[2].v),'warn','prioridad')+k('Atención',cards[3].u.toLocaleString('es-CO'),formatoCOP(cards[3].v),'','atencion');
-  document.querySelectorAll('[data-kpi]').forEach(el=>el.addEventListener('click',()=>{const g=el.dataset.kpi;if(g){document.getElementById('inv-filtro-criticidad').value=g;renderInventario();}}));
+  document.getElementById('inv-kpis').innerHTML=
+    k('Disponible',total.toLocaleString('es-CO'),'unidades', 'info','')+
+    k('Valor inventario',formatoCOP(valor),'costo promedio','info','')+
+    k('% Obsolescencia', pctObsolescencia.toFixed(1)+'%', 'valor en riesgo / valor total', pctObsolescencia>15?'danger':pctObsolescencia>5?'warn':'', '')+
+    k('Días de vida restante', diasPonderado!=null?Math.round(diasPonderado).toLocaleString('es-CO'):'—', 'promedio ponderado por valor', '', '')+
+    k('Vencido',cards[0].u.toLocaleString('es-CO'),formatoCOP(cards[0].v),'danger','vencido')+
+    k('Crítico',cards[1].u.toLocaleString('es-CO'),formatoCOP(cards[1].v),'danger','critico')+
+    k('Prioridad',cards[2].u.toLocaleString('es-CO'),formatoCOP(cards[2].v),'warn','prioridad')+
+    k('Atención',cards[3].u.toLocaleString('es-CO'),formatoCOP(cards[3].v),'','atencion');
+  document.querySelectorAll('[data-kpi]').forEach(el=>el.addEventListener('click',()=>{
+    const g=el.dataset.kpi; if(!g) return;
+    VENC_ESTADOS_ACTIVOS.clear(); VENC_ESTADOS_ACTIVOS.add(g);
+    document.querySelectorAll('[data-venc-estado]').forEach(c => c.checked = c.getAttribute('data-venc-estado') === g);
+    document.getElementById('venc-btn-estado').textContent = '1 seleccionado(s)';
+    renderInventario();
+  }));
 }
 function renderInventarioExcepciones(items){
   const riesgo=items.filter(x=>['vencido','critico','prioridad'].includes(x.e.estado)); const valor=riesgo.reduce((a,x)=>a+x.e.valor,0); const total=items.reduce((a,x)=>a+x.e.valor,0); const pct=total?Math.min(100,valor/total*100):0;
   document.getElementById('inv-valor-riesgo').textContent=formatoCOP(valor); document.getElementById('inv-riesgo-progress').style.width=pct.toFixed(1)+'%'; document.getElementById('inv-riesgo-meta').textContent=`${pct.toFixed(1)}% del valor disponible · ${riesgo.length.toLocaleString('es-CO')} registros de riesgo`;
-  const top=riesgo.sort((a,b)=>{const rank={vencido:0,critico:1,prioridad:2};return rank[a.e.estado]-rank[b.e.estado] || (a.e.dias??999999)-(b.e.dias??999999) || b.e.valor-a.e.valor;}).slice(0,5);
-  document.getElementById('inv-excepciones').innerHTML=top.length?top.map(x=>`<div class="inv-alert-row"><div><strong>${tEsc(x.r.producto||'Sin producto')}</strong><div style="font-size:9px;color:#94a3b8;">${x.zona==='picking'?'Picking /1/':x.zona==='altura'?'Altura /2/':'Otras'} · ${tEsc(x.r.lote||'sin lote')}</div></div><span class="inv-risk risk-${x.e.estado}">${etiquetaEstadoInventario(x.e.estado)}</span><strong>${formatoCOP(x.e.valor)}</strong></div>`).join(''):'<div class="inv-empty">No hay excepciones críticas con los datos cargados.</div>';
+  const top=riesgo.sort((a,b)=>{const rank={vencido:0,critico:1,prioridad:2};return rank[a.e.estado]-rank[b.e.estado] || (a.e.dias??999999)-(b.e.dias??999999) || b.e.valor-a.e.valor;}).slice(0,6);
+  document.getElementById('inv-excepciones').innerHTML=top.length?top.map(x=>{
+    const accion = accionSugeridaVencimiento(x.r, x.e, x.zona);
+    return `<div class="inv-alert-row" style="flex-wrap:wrap;"><div><strong>${tEsc(x.r.producto||'Sin producto')}</strong><div style="font-size:9px;color:#94a3b8;">${x.zona==='picking'?'Picking':x.zona==='altura'?'Altura':'Otras'} · ${tEsc(x.r.lote||'sin lote')} · ${tEsc(x.e.proveedor||'sin proveedor')}</div><div style="font-size:10px;color:#2563eb;margin-top:2px;">→ ${tEsc(accion.texto)}</div></div><span class="inv-risk risk-${x.e.estado}">${etiquetaEstadoInventario(x.e.estado)}</span><strong>${formatoCOP(x.e.valor)}</strong></div>`;
+  }).join(''):'<div class="inv-empty">No hay excepciones críticas con los datos cargados.</div>';
 }
+
+function abrirDrawerVencimiento(d) {
+  const yaEnProceso = ACCIONES_VENCIMIENTOS_CACHE.find(a => a.producto === d.producto && a.lote === d.lote && a.cedi === d.cedi);
+  document.getElementById('venc-drawer-contenido').innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:14px;">
+      <div><div style="font-size:10px;color:var(--modern-muted);text-transform:uppercase;">${tEsc(d.lote || 'Sin lote')}</div><div style="font-size:15px;font-weight:700;">${tEsc(d.producto || '—')}</div></div>
+      <span class="inv-risk risk-${d.estado}">${etiquetaEstadoInventario(d.estado)}</span>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;font-size:12.5px;">
+      <div><div style="color:var(--modern-muted);font-size:10px;">CEDI</div>${tEsc(d.cedi || '—')}</div>
+      <div><div style="color:var(--modern-muted);font-size:10px;">Zona</div>${d.zona==='picking'?'Picking':d.zona==='altura'?'Altura':'Otras'}</div>
+      <div><div style="color:var(--modern-muted);font-size:10px;">Proveedor</div>${tEsc(d.proveedor || '—')}</div>
+      <div><div style="color:var(--modern-muted);font-size:10px;">Caducidad</div>${d.fecha_caducidad?new Date(d.fecha_caducidad).toLocaleDateString('es-CO'):'—'}</div>
+      <div><div style="color:var(--modern-muted);font-size:10px;">Días restantes</div><strong>${d.dias ?? '—'}</strong></div>
+      <div><div style="color:var(--modern-muted);font-size:10px;">Vida útil consumida</div>${d.pct!=null?(100-d.pct).toFixed(1)+'%':'—'}</div>
+      <div><div style="color:var(--modern-muted);font-size:10px;">Disponible</div>${Number(d.cantidad_disponible).toLocaleString('es-CO')}</div>
+      <div><div style="color:var(--modern-muted);font-size:10px;">Valor en riesgo</div><strong>${formatoCOP(d.valor)}</strong></div>
+      <div style="grid-column:1/-1;"><div style="color:var(--modern-muted);font-size:10px;">Ubicación</div>${tEsc(d.ubicacion || '—')}</div>
+    </div>
+    <div style="background:#eff6ff;border-radius:10px;padding:12px;margin-top:14px;">
+      <div style="font-size:10px;color:#2563eb;text-transform:uppercase;font-weight:700;">Acción sugerida</div>
+      <div style="font-size:13px;margin-top:4px;">${tEsc(d.accion)}</div>
+    </div>
+    ${yaEnProceso
+      ? `<p style="font-size:11px;color:#16a34a;margin-top:14px;">✓ Marcado en proceso el ${new Date(yaEnProceso.marcado_en).toLocaleString('es-CO')}.</p>
+         <button class="btn ghost" id="btn-venc-quitar-proceso" style="margin-top:6px;width:100%;">Quitar marca de "en proceso"</button>`
+      : `<button class="btn" id="btn-venc-marcar-proceso" style="margin-top:14px;width:100%;">Marcar como "en proceso"</button>`}
+  `;
+  const btnMarcar = document.getElementById('btn-venc-marcar-proceso');
+  if (btnMarcar) btnMarcar.addEventListener('click', async () => {
+    const { error } = await sb.from('acciones_vencimientos').insert({ producto: d.producto, lote: d.lote, cedi: d.cedi, ubicacion: d.ubicacion, accion_sugerida: d.accion, marcado_por: SESION.id });
+    if (error) { mostrarToast('Error al marcar: ' + error.message); return; }
+    mostrarToast('Marcado como en proceso.');
+    document.getElementById('venc-drawer-backdrop').classList.add('hidden');
+    document.getElementById('venc-drawer').classList.add('hidden');
+    await traerInventario();
+  });
+  const btnQuitar = document.getElementById('btn-venc-quitar-proceso');
+  if (btnQuitar) btnQuitar.addEventListener('click', async () => {
+    const { error } = await sb.from('acciones_vencimientos').delete().eq('id', yaEnProceso.id);
+    if (error) { mostrarToast('Error al quitar la marca: ' + error.message); return; }
+    mostrarToast('Marca quitada.');
+    document.getElementById('venc-drawer-backdrop').classList.add('hidden');
+    document.getElementById('venc-drawer').classList.add('hidden');
+    await traerInventario();
+  });
+  document.getElementById('venc-drawer-backdrop').classList.remove('hidden');
+  document.getElementById('venc-drawer').classList.remove('hidden');
+}
+
 
 // ============================================================
 // MÓDULO DE CONTROL DE VENCIMIENTOS — filtros de excepción
@@ -4636,23 +4841,16 @@ function cambiarTabVencimientos(cual) {
 // filtrado en pantalla en ese momento.
 function filasVencimientosFiltradasActuales() {
   const texto = document.getElementById('inv-filtro-producto').value.trim().toLowerCase();
-  const zona = document.getElementById('inv-filtro-zona').value;
-  const criticidad = document.getElementById('inv-filtro-criticidad').value;
-  const rango = document.getElementById('inv-filtro-rango').value;
+  const proveedorTexto = document.getElementById('venc-filtro-proveedor-texto').value.trim().toLowerCase();
+  const categoria = document.getElementById('venc-filtro-categoria').value;
   return INVENTARIO_CACHE.map(r => ({ r, e: evaluarVidaInventario(r), zona: zonaInventario(r.ubicacion) })).filter(x => {
     const r = x.r, e = x.e;
     const textoOk = !texto || [r.producto, r.lote, r.ubicacion, r.codigo_barras_ubicacion].some(v => String(v || '').toLowerCase().includes(texto));
-    const zonaOk = !zona || x.zona === zona;
-    const critOk = !criticidad || e.estado === criticidad;
-    const d = e.dias;
-    let rangoOk = true;
-    if (rango === '0') rangoOk = d != null && d < 0;
-    else if (rango === '7') rangoOk = d != null && d >= 0 && d <= 7;
-    else if (rango === '15') rangoOk = d != null && d >= 8 && d <= 15;
-    else if (rango === '30') rangoOk = d != null && d >= 16 && d <= 30;
-    else if (rango === '60') rangoOk = d != null && d >= 31 && d <= 60;
-    else if (rango === 'plus60') rangoOk = d != null && d > 60;
-    return textoOk && zonaOk && critOk && rangoOk;
+    const zonaOk = VENC_ZONAS_ACTIVAS.size === 0 || VENC_ZONAS_ACTIVAS.has(x.zona);
+    const critOk = VENC_ESTADOS_ACTIVOS.size === 0 || VENC_ESTADOS_ACTIVOS.has(e.estado);
+    const provOk = !proveedorTexto || (e.proveedor || '').toLowerCase().includes(proveedorTexto);
+    const catOk = !categoria || e.maestra?.categoria === categoria;
+    return textoOk && zonaOk && critOk && provOk && catOk;
   });
 }
 
@@ -4680,10 +4878,11 @@ document.getElementById('btn-venc-exportar').addEventListener('click', () => {
   if (!filas.length) { mostrarToast('No hay datos para exportar con este filtro.'); return; }
 
   const filasExcel = filas.map(x => ({
-    'Estado': etiquetaEstadoInventario(x.e.estado), 'CEDI': x.r.cedi, 'Producto': x.r.producto,
-    'Lote': x.r.lote, 'Zona': x.zona === 'picking' ? 'Picking /1/' : x.zona === 'altura' ? 'Altura /2/' : 'Otras',
+    'Estado': etiquetaEstadoInventario(x.e.estado), 'CEDI': x.r.cedi, 'Producto': x.r.producto, 'Proveedor': x.e.proveedor,
+    'Lote': x.r.lote, 'Zona': x.zona === 'picking' ? 'Picking' : x.zona === 'altura' ? 'Altura' : 'Otras',
     'Vencimiento': x.r.fecha_caducidad, 'Días': x.e.dias, 'Vida útil restante (%)': x.e.pct != null ? Number(x.e.pct.toFixed(1)) : null,
     'Disponible': x.r.cantidad_disponible, 'Costo unitario': x.e.costo, 'Valor en riesgo': x.e.valor, 'Ubicación': x.r.ubicacion,
+    'Acción sugerida': accionSugeridaVencimiento(x.r, x.e, x.zona).texto,
   }));
   const hoja = XLSX.utils.json_to_sheet(filasExcel);
   const wb = XLSX.utils.book_new();
@@ -5232,7 +5431,7 @@ document.addEventListener('click', (e) => {
 });
 
 // ---------- Desplegable de Estado (selección múltiple) ----------
-function inicializarMultiselectSvw(idBoton, idPanel, atributo, setActivos, etiquetaTodos) {
+function inicializarMultiselectSvw(idBoton, idPanel, atributo, setActivos, etiquetaTodos, alCambiar) {
   const boton = document.getElementById(idBoton);
   const panel = document.getElementById(idPanel);
   const checkTodos = panel.querySelector(`[${atributo}-todos]`);
@@ -5255,7 +5454,7 @@ function inicializarMultiselectSvw(idBoton, idPanel, atributo, setActivos, etiqu
     if (chk.checked) setActivos.add(val); else setActivos.delete(val);
     checkTodos.checked = checksIndividuales().every(c => c.checked);
     actualizarBoton();
-    renderSvwTodo();
+    alCambiar();
   }));
 
   checkTodos.addEventListener('change', () => {
@@ -5265,11 +5464,11 @@ function inicializarMultiselectSvw(idBoton, idPanel, atributo, setActivos, etiqu
       if (checkTodos.checked) setActivos.add(val); else setActivos.delete(val);
     });
     actualizarBoton();
-    renderSvwTodo();
+    alCambiar();
   });
 }
-inicializarMultiselectSvw('svw-btn-estado', 'svw-panel-estado', 'data-svw-estado', SVW_ESTADOS_ACTIVOS, 'Todos');
-inicializarMultiselectSvw('svw-btn-ubicacion', 'svw-panel-ubicacion', 'data-svw-ubic', SVW_UBICACIONES_ACTIVAS, 'Todas');
+inicializarMultiselectSvw('svw-btn-estado', 'svw-panel-estado', 'data-svw-estado', SVW_ESTADOS_ACTIVOS, 'Todos', renderSvwTodo);
+inicializarMultiselectSvw('svw-btn-ubicacion', 'svw-panel-ubicacion', 'data-svw-ubic', SVW_UBICACIONES_ACTIVAS, 'Todas', renderSvwTodo);
 document.addEventListener('click', (e) => {
   if (!e.target.closest('.svw-multiselect-wrap')) {
     document.querySelectorAll('.svw-multiselect-panel').forEach(p => p.classList.add('hidden'));
@@ -6737,6 +6936,12 @@ function obtenerContextoModuloActual() {
       return { pantalla: 'Control Semana', control_semana: (typeof CONTROL_SEMANA_RESULTADO !== 'undefined' ? CONTROL_SEMANA_RESULTADO.slice(0, 80) : []) };
     case 'registros':
       return { pantalla: 'Registros', registros: (typeof REGISTROS_CACHE !== 'undefined' ? REGISTROS_CACHE.slice(0, 80) : []) };
+    case 'siesa-vs-wms':
+      return {
+        pantalla: 'SIESA vs WMS',
+        conciliacion: (typeof SVW_CACHE !== 'undefined' ? SVW_CACHE.slice(0, 80) : []),
+        resumen_por_cedi: (typeof SVW_RESUMEN_CEDI !== 'undefined' ? SVW_RESUMEN_CEDI : []),
+      };
     default:
       return { pantalla: NOMBRES_MODULO[MODULO_ACTUAL] || MODULO_ACTUAL, nota: 'No hay datos específicos cargados de esta pantalla para el asistente -- responde con lo que sepas en general.' };
   }
