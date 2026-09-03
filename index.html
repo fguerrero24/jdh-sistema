@@ -4881,7 +4881,7 @@ document.getElementById('btn-imp-procesar').addEventListener('click', async () =
       const referencia = String(valorPorColumna(fila, ['Referencia']) ?? '').trim();
       const codigoCo = normalizarCodigoCo(valorPorColumna(fila, ['C.O. bodega', 'C.O. docto.']));
       const cedi = MAPA_CO_BODEGA_CEDI[codigoCo];
-      const cantidad = parsearMoneda(String(valorPorColumna(fila, ['Cant. disponible']) ?? '')) || 0;
+      const cantidad = parsearMonedaFlexible(String(valorPorColumna(fila, ['Cant. disponible']) ?? '')) || 0;
       if (!referencia) { sinReferencia++; return; }
       if (!cedi) { coDesconocido++; codigosDesconocidos.add(codigoCo); return; }
       filasProcesadas.push({ referencia, cedi, cantidad });
