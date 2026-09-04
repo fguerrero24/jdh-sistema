@@ -1170,10 +1170,9 @@ input:focus,select:focus,textarea:focus{outline:none!important;border-color:#176
       </div>
       <button class="btn ghost" id="btn-inv-limpiar"><i class="ti ti-filter-off"></i> Limpiar</button>
     </div>
-    <div class="inv-filter-row" style="grid-template-columns:1.2fr 1fr 1.6fr;margin-top:10px;">
+    <div class="inv-filter-row" style="grid-template-columns:1.2fr 1fr;margin-top:10px;">
       <div class="inv-filter svw-autocomplete-wrap"><label>Proveedor</label><input type="text" id="venc-filtro-proveedor-texto" placeholder="Escribe para buscar..." autocomplete="off"><div class="svw-autocomplete-lista hidden" id="venc-proveedor-lista"></div></div>
       <div class="inv-filter"><label>Categoría</label><select id="venc-filtro-categoria"><option value="">Todas</option></select></div>
-      <div class="inv-filter svw-autocomplete-wrap"><label>Producto / referencia / proveedor / lote</label><input type="text" id="inv-filtro-producto" placeholder="Escribe para buscar..." autocomplete="off"><div class="svw-autocomplete-lista hidden" id="inv-producto-lista"></div></div>
     </div>
     <div id="venc-sugerencias-ia" class="hidden" style="background:#0f2033;border-radius:12px;padding:14px 18px;margin:12px 0;color:#cbd5e1;font-size:13px;line-height:1.5;"><div style="font-size:10px;color:#6b829a;text-transform:uppercase;margin-bottom:4px;">🤖 Sugerencias IA</div><div id="venc-sugerencias-ia-texto"></div></div>
   </div>
@@ -1182,6 +1181,7 @@ input:focus,select:focus,textarea:focus{outline:none!important;border-color:#176
     <div class="inv-alert"><h4>🚨 Excepciones prioritarias -- con acción sugerida</h4><div id="inv-excepciones" style="max-height:340px;overflow-y:auto;"><div class="inv-empty">Cargando análisis...</div></div></div>
     <div class="inv-mini-card"><div class="inv-mini-label">Valor económico en riesgo</div><div class="inv-mini-value" id="inv-valor-riesgo">$0</div><div class="inv-mini-label" style="margin-top:10px;">% de Obsolescencia (riesgo / valor total)</div><div class="inv-progress"><span id="inv-riesgo-progress" style="width:0%"></span></div><div id="inv-riesgo-meta" style="font-size:10px;color:#94a3b8;margin-top:6px;">Sin datos</div></div>
   </div>
+  <div class="inv-filter svw-autocomplete-wrap" style="margin-bottom:10px;"><label>Producto / referencia / proveedor / lote</label><input type="text" id="inv-filtro-producto" placeholder="Escribe para buscar..." autocomplete="off"><div class="svw-autocomplete-lista hidden" id="inv-producto-lista"></div></div>
   <div class="inv-section"><div class="inv-section-head"><div><div class="inv-section-title">Existencias, vida útil y acción sugerida</div><div class="inv-section-note" id="inv-tabla-note">Ordenado por prioridad operativa</div></div></div><div class="inv-table-wrap" id="inv-tabla"></div></div>
 </div>
 
