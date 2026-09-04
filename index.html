@@ -4550,22 +4550,30 @@ let MAESTRA_INVENTARIO_MAP = new Map();
 let SIESA_PROVEEDOR_MAP = new Map();
 let SIESA_COSTO_MAP = new Map(); // clave: "REFERENCIA|CEDI" -- el costo sí varía por CEDI, a diferencia del proveedor
 async function traerTodasLasFilas(tabla, columnas) {
-  // Supabase corta cada respuesta en 1.000 filas por defecto (límite de la
-  // API, no de la base de datos) -- esto pide en bloques hasta traer todo.
-  // OJO: se probó pedir primero el conteo exacto para lanzar todas las
-  // páginas en paralelo, pero ese conteo (count:'exact') es una operación
-  // pesada que causaba "statement timeout" -- así que se volvió a pedir de
-  // a un bloque por vez (más lento, pero seguro). La ganancia de velocidad
-  // real viene de que las distintas TABLAS se piden en paralelo entre sí
-  // (ver cargarMaestraVidaUtil), no de paralelizar páginas de una misma tabla.
-  let todas = [], desde = 0;
+  // Supabase corta cada respuesta en 1.000 filas por defecto -- esto pide en
+  // LOTES de varias páginas al mismo tiempo (rápido), sin usar count:'exact'
+  // (esa operación es pesada y causaba "statement timeout"). Sigue pidiendo
+  // lotes hasta que uno de ellos traiga menos de lo esperado -- ahí ya sabe
+  // que llegó al final.
   const TAM_BLOQUE = 1000;
+  const PAGINAS_POR_LOTE = 6; // 6 páginas a la vez = hasta 6.000 filas por lote
+  let todas = [], pagina = 0;
   while (true) {
-    const { data, error } = await sb.from(tabla).select(columnas).range(desde, desde + TAM_BLOQUE - 1);
-    if (error) throw error;
-    todas = todas.concat(data || []);
-    if (!data || data.length < TAM_BLOQUE) break;
-    desde += TAM_BLOQUE;
+    const peticiones = Array.from({ length: PAGINAS_POR_LOTE }, (_, i) => {
+      const desde = (pagina + i) * TAM_BLOQUE;
+      return sb.from(tabla).select(columnas).range(desde, desde + TAM_BLOQUE - 1);
+    });
+    const resultados = await Promise.all(peticiones);
+    const errorEnAlguna = resultados.find(r => r.error);
+    if (errorEnAlguna) throw errorEnAlguna.error;
+    let llegoAlFinal = false;
+    for (const r of resultados) {
+      const data = r.data || [];
+      todas = todas.concat(data);
+      if (data.length < TAM_BLOQUE) { llegoAlFinal = true; break; }
+    }
+    if (llegoAlFinal) break;
+    pagina += PAGINAS_POR_LOTE;
   }
   return todas;
 }
