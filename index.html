@@ -4551,22 +4551,23 @@ let SIESA_PROVEEDOR_MAP = new Map();
 let SIESA_COSTO_MAP = new Map(); // clave: "REFERENCIA|CEDI" -- el costo sí varía por CEDI, a diferencia del proveedor
 async function traerTodasLasFilas(tabla, columnas) {
   // Supabase corta cada respuesta en 1.000 filas por defecto (límite de la
-  // API, no de la base de datos). En vez de pedir de a 1.000 en fila (lento,
-  // una espera de red detrás de otra), primero pregunta cuántas hay en
-  // total, y pide TODAS las páginas al mismo tiempo -- mucho más rápido.
+  // API, no de la base de datos) -- esto pide en bloques hasta traer todo.
+  // OJO: se probó pedir primero el conteo exacto para lanzar todas las
+  // páginas en paralelo, pero ese conteo (count:'exact') es una operación
+  // pesada que causaba "statement timeout" -- así que se volvió a pedir de
+  // a un bloque por vez (más lento, pero seguro). La ganancia de velocidad
+  // real viene de que las distintas TABLAS se piden en paralelo entre sí
+  // (ver cargarMaestraVidaUtil), no de paralelizar páginas de una misma tabla.
+  let todas = [], desde = 0;
   const TAM_BLOQUE = 1000;
-  const { count, error: errorConteo } = await sb.from(tabla).select('*', { count: 'exact', head: true });
-  if (errorConteo) throw errorConteo;
-  const total = count || 0;
-  if (!total) return [];
-  const paginas = Math.ceil(total / TAM_BLOQUE);
-  const peticiones = Array.from({ length: paginas }, (_, i) =>
-    sb.from(tabla).select(columnas).range(i * TAM_BLOQUE, i * TAM_BLOQUE + TAM_BLOQUE - 1)
-  );
-  const resultados = await Promise.all(peticiones);
-  const errorEnAlguna = resultados.find(r => r.error);
-  if (errorEnAlguna) throw errorEnAlguna.error;
-  return resultados.flatMap(r => r.data || []);
+  while (true) {
+    const { data, error } = await sb.from(tabla).select(columnas).range(desde, desde + TAM_BLOQUE - 1);
+    if (error) throw error;
+    todas = todas.concat(data || []);
+    if (!data || data.length < TAM_BLOQUE) break;
+    desde += TAM_BLOQUE;
+  }
+  return todas;
 }
 
 async function cargarMaestraVidaUtil() {
