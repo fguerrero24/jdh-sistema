@@ -1178,7 +1178,7 @@ input:focus,select:focus,textarea:focus{outline:none!important;border-color:#176
   </div>
   <div id="inv-status" style="font-size:11px;color:var(--text-secondary);margin:8px 2px;"></div>
   <div class="inv-exception-grid">
-    <div class="inv-alert"><h4>🚨 Excepciones prioritarias -- con acción sugerida</h4><div id="inv-excepciones"><div class="inv-empty">Cargando análisis...</div></div></div>
+    <div class="inv-alert"><h4>🚨 Excepciones prioritarias -- con acción sugerida</h4><div id="inv-excepciones" style="max-height:340px;overflow-y:auto;"><div class="inv-empty">Cargando análisis...</div></div></div>
     <div class="inv-mini-card"><div class="inv-mini-label">Valor económico en riesgo</div><div class="inv-mini-value" id="inv-valor-riesgo">$0</div><div class="inv-mini-label" style="margin-top:10px;">% de Obsolescencia (riesgo / valor total)</div><div class="inv-progress"><span id="inv-riesgo-progress" style="width:0%"></span></div><div id="inv-riesgo-meta" style="font-size:10px;color:#94a3b8;margin-top:6px;">Sin datos</div></div>
   </div>
   <div class="inv-section"><div class="inv-section-head"><div><div class="inv-section-title">Existencias, vida útil y acción sugerida</div><div class="inv-section-note" id="inv-tabla-note">Ordenado por prioridad operativa</div></div></div><div class="inv-table-wrap" id="inv-tabla"></div></div>
@@ -1639,6 +1639,7 @@ input:focus,select:focus,textarea:focus{outline:none!important;border-color:#176
               <div class="indicator-fields">
                 <div class="indicator-field" style="min-width:180px;"><label>Filtrar operario</label><input type="text" id="csem-filtro-nombre" placeholder="Nombre o cédula"></div>
                 <div class="indicator-field"><label>Solo con exceso</label><select id="csem-solo-exceso"><option value="false">No</option><option value="true">Sí</option></select></div>
+                <div class="indicator-field"><label>Disponibilidad</label><select id="csem-disponibilidad"><option value="">Todos</option><option value="con-margen">Con margen (puede trabajar más)</option><option value="sin-margen">Sin margen (ya en el límite o excedido)</option></select></div>
               </div>
               <div id="csem-status" style="font-size:12px;color:var(--text-secondary);margin-top:8px;"></div>
             </div>
@@ -4804,19 +4805,29 @@ function renderInventarioExcepciones(items){
   const valor=riesgo.reduce((a,x)=>a+(x.e.valor||0),0); const total=items.reduce((a,x)=>a+(x.e.valor||0),0); const pct=total?Math.min(100,valor/total*100):0;
   document.getElementById('inv-riesgo-progress').style.width=pct.toFixed(1)+'%';
   document.getElementById('inv-riesgo-meta').textContent=`${pct.toFixed(1)}% del valor total del inventario`;
-  // Desglose por estado dentro de la tarjeta de valor en riesgo
+  // Desglose por estado, con SKU, unidades y valor -- cada columna con su etiqueta.
   const porEstado = ['vencido','critico','prioridad'].map(g => {
     const filas = riesgo.filter(x => x.e.estado === g);
-    return { g, cant: filas.length, val: filas.reduce((a,x)=>a+(x.e.valor||0),0) };
+    return {
+      g, sku: filas.length,
+      unid: filas.reduce((a,x)=>a+(Number(x.r.cantidad_inventario)||0),0),
+      val: filas.reduce((a,x)=>a+(x.e.valor||0),0),
+    };
   });
   const colorEstado = { vencido:'#dc2626', critico:'#dc2626', prioridad:'#d97706' };
+  const totalUnid = riesgo.reduce((a,x)=>a+(Number(x.r.cantidad_inventario)||0),0);
   document.getElementById('inv-valor-riesgo').innerHTML = `
     <div>${formatoCOP(valor)}</div>
-    <div style="font-size:10px;color:#94a3b8;font-weight:400;margin-top:2px;">${riesgo.length.toLocaleString('es-CO')} registros en riesgo</div>
+    <div style="font-size:10px;color:#94a3b8;font-weight:400;margin-top:2px;">${riesgo.length.toLocaleString('es-CO')} SKU · ${totalUnid.toLocaleString('es-CO')} unidades en riesgo</div>
     <div style="height:1px;background:#e5e9f0;margin:10px 0;"></div>
-    ${porEstado.map(x => `<div style="display:flex;justify-content:space-between;align-items:center;padding:3px 0;font-size:11px;font-weight:400;">
+    <div style="display:grid;grid-template-columns:1.3fr .7fr .8fr 1fr;gap:4px;font-size:9px;color:#94a3b8;text-transform:uppercase;font-weight:700;padding:0 0 4px;">
+      <span>Estado</span><span style="text-align:right;">SKU</span><span style="text-align:right;">Unidades</span><span style="text-align:right;">Valor</span>
+    </div>
+    ${porEstado.map(x => `<div style="display:grid;grid-template-columns:1.3fr .7fr .8fr 1fr;gap:4px;align-items:center;padding:3px 0;font-size:11px;font-weight:400;">
       <span style="color:${colorEstado[x.g]};">● ${etiquetaEstadoInventario(x.g)}</span>
-      <span>${x.cant.toLocaleString('es-CO')} · ${formatoCOP(x.val)}</span>
+      <span style="text-align:right;">${x.sku.toLocaleString('es-CO')}</span>
+      <span style="text-align:right;">${x.unid.toLocaleString('es-CO')}</span>
+      <span style="text-align:right;font-weight:700;">${formatoCOP(x.val)}</span>
     </div>`).join('')}
   `;
   // 30 excepciones, ordenadas por MAYOR VALOR EN RIESGO primero (no por estado/días)
@@ -6639,19 +6650,24 @@ async function cargarModuloControlSemana() {
 document.getElementById('btn-consultar-control-semana').addEventListener('click', consultarControlSemana);
 document.getElementById('csem-filtro-nombre').addEventListener('input', renderControlSemanaFiltrado);
 document.getElementById('csem-solo-exceso').addEventListener('change', renderControlSemanaFiltrado);
+document.getElementById('csem-disponibilidad').addEventListener('change', renderControlSemanaFiltrado);
 document.getElementById('btn-exportar-control-semana').addEventListener('click', () => {
   const texto = document.getElementById('csem-filtro-nombre').value.trim().toLowerCase();
   const soloExceso = document.getElementById('csem-solo-exceso').value === 'true';
+  const disponibilidad = document.getElementById('csem-disponibilidad').value;
   const filtrado = CONTROL_SEMANA_RESULTADO.filter(r => {
     const pasaTexto = !texto || r.operario.toLowerCase().includes(texto) || (r.cedula || '').toLowerCase().includes(texto);
     const pasaExceso = !soloExceso || r.estado === 'Excedido';
-    return pasaTexto && pasaExceso;
+    const disponible = Number(r.limite_horas) - Number(r.horas_ordinarias);
+    const pasaDisponibilidad = !disponibilidad || (disponibilidad === 'con-margen' ? disponible > 0 : disponible <= 0);
+    return pasaTexto && pasaExceso && pasaDisponibilidad;
   });
   if (!filtrado.length) { mostrarToast('No hay datos para exportar con este filtro.'); return; }
   const filasExcel = filtrado.map(r => ({
     'Operario': r.operario, 'Cédula': r.cedula,
     'Semana inicio': r.semana_inicio, 'Semana fin': r.semana_fin,
-    'Horas ordinarias': Number(r.horas_ordinarias).toFixed(1), 'Diferencia (extra)': Number(r.horas_extra_semana).toFixed(1),
+    'Horas ordinarias': Number(r.horas_ordinarias).toFixed(1), 'Disponible antes de extra': (Number(r.limite_horas) - Number(r.horas_ordinarias)).toFixed(1),
+    'Diferencia (extra)': Number(r.horas_extra_semana).toFixed(1),
     'Horas totales': Number(r.horas_totales).toFixed(1), 'Límite ordinario': Number(r.limite_horas).toFixed(0),
     'Estado': r.estado,
   }));
@@ -6678,11 +6694,14 @@ async function consultarControlSemana() {
 function renderControlSemanaFiltrado() {
   const texto = document.getElementById('csem-filtro-nombre').value.trim().toLowerCase();
   const soloExceso = document.getElementById('csem-solo-exceso').value === 'true';
+  const disponibilidad = document.getElementById('csem-disponibilidad').value;
 
   const filtrado = CONTROL_SEMANA_RESULTADO.filter(r => {
     const pasaTexto = !texto || r.operario.toLowerCase().includes(texto) || (r.cedula || '').toLowerCase().includes(texto);
     const pasaExceso = !soloExceso || r.estado === 'Excedido';
-    return pasaTexto && pasaExceso;
+    const disponible = Number(r.limite_horas) - Number(r.horas_ordinarias);
+    const pasaDisponibilidad = !disponibilidad || (disponibilidad === 'con-margen' ? disponible > 0 : disponible <= 0);
+    return pasaTexto && pasaExceso && pasaDisponibilidad;
   });
 
   document.getElementById('csem-status').textContent =
@@ -6697,17 +6716,18 @@ function renderControlSemanaFiltrado() {
   const cont = document.getElementById('csem-tabla');
   if (!filtrado.length) { cont.innerHTML = '<div class="empty-state">No hay resultados con ese filtro.</div>'; return; }
 
-  cont.innerHTML = `<table class="hist-table open"><tr><th>Operario</th><th>Cédula</th><th>Semana</th><th>Horas ordinarias</th><th>Diferencia (extra)</th><th>Horas totales</th><th>Límite ordinario</th><th>Estado</th></tr>${
-    filtrado.map(r => `<tr ${r.estado === 'Excedido' ? 'style="background:var(--crit-bg)"' : ''}>
+  cont.innerHTML = `<table class="hist-table open"><tr><th>Operario</th><th>Cédula</th><th>Semana</th><th>Horas ordinarias</th><th>Disponible antes de extra</th><th>Diferencia (extra)</th><th>Horas totales</th><th>Límite ordinario</th><th>Estado</th></tr>${
+    filtrado.map(r => { const disponible = Number(r.limite_horas) - Number(r.horas_ordinarias); return `<tr ${r.estado === 'Excedido' ? 'style="background:var(--crit-bg)"' : ''}>
       <td>${tEsc(r.operario)}</td>
       <td>${tEsc(r.cedula)}</td>
       <td>${new Date(r.semana_inicio).toLocaleString('es-CO', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })} a ${new Date(r.semana_fin).toLocaleString('es-CO', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}</td>
       <td>${Number(r.horas_ordinarias).toFixed(1)}</td>
+      <td style="font-weight:700;color:${disponible <= 0 ? 'var(--crit-dot)' : 'var(--ok-dot, #16a34a)'}">${disponible.toFixed(1)}</td>
       <td style="font-weight:700;color:${r.horas_extra_semana > 0 ? 'var(--crit-dot)' : 'inherit'}">${Number(r.horas_extra_semana).toFixed(1)}</td>
       <td>${Number(r.horas_totales).toFixed(1)}</td>
       <td>${Number(r.limite_horas).toFixed(0)}</td>
       <td>${tEsc(r.estado)}</td>
-    </tr>`).join('')
+    </tr>`; }).join('')
   }</table>`;
 }
 
