@@ -1903,17 +1903,22 @@ function parsearHoras(texto) {
 // Algunos archivos traen varias hojas (ej. un resumen/tabla dinámica antes de
 // los datos reales). En vez de asumir que los datos están en la primera,
 // se elige la hoja con más filas -- casi siempre es la que tiene los datos.
-function hojaConMasFilas(wb) {
+function hojaConMasFilas(wb, raw) {
+  // raw=false (por defecto) -- IMPORTANTE para archivos CSV con formato
+  // colombiano: sin esto, SheetJS intenta adivinar qué celdas son números y
+  // las convierte él solo, usando la convención en inglés (coma = separador
+  // de miles). Eso corrompe valores como "7,00" convirtiéndolos en 700.
+  //
+  // raw=true -- para archivos .xlsx donde el FORMATO de la celda en Excel
+  // puede estar mal formado (ej. "\$#,##0." con barra invertida) y SheetJS
+  // falla al construir el texto formateado, devolviendo solo "$." sin el
+  // número. Con raw:true se pide directamente el valor numérico guardado
+  // en la celda, sin pasar por el formato de texto -- evita ese problema
+  // por completo. Cada pantalla de importación decide cuál usar según el
+  // tipo de archivo que recibe.
   let mejorHoja = null, mejorFilas = -1, mejorNombre = '';
   wb.SheetNames.forEach(nombre => {
-    // raw:false -- IMPORTANTE: sin esto, SheetJS intenta adivinar qué celdas
-    // son números y las convierte él solo, usando la convención en inglés
-    // (coma = separador de miles). Eso corrompe valores como "7,00" (formato
-    // colombiano, coma = decimal) convirtiéndolos en 700. Con raw:false,
-    // siempre llega el texto tal cual está escrito en el archivo, y nuestras
-    // propias funciones (parsearMoneda / parsearMonedaFlexible) son las que
-    // deciden cómo interpretarlo.
-    const filas = XLSX.utils.sheet_to_json(wb.Sheets[nombre], { defval: '', raw: false });
+    const filas = XLSX.utils.sheet_to_json(wb.Sheets[nombre], { defval: '', raw: raw !== undefined ? raw : false });
     if (filas.length > mejorFilas) { mejorFilas = filas.length; mejorHoja = filas; mejorNombre = nombre; }
   });
   return mejorHoja || [];
@@ -2701,14 +2706,7 @@ async function importarCargue() {
 
   const buffer = await archivo.arrayBuffer();
   const wb = XLSX.read(buffer, { type: 'array' });
-  const filas = hojaConMasFilas(wb);
-  window.__DEBUG_FILAS_CARGUE = filas; // temporal, para diagnosticar el valor de venta -- se puede quitar después
-  if (filas.length) {
-    const claveValor = Object.keys(filas[0]).find(k => k.trim().toLowerCase() === 'valor subtotal');
-    const crudoDebug = claveValor ? filas[0][claveValor] : '(no se encontró la columna "Valor subtotal" en la primera fila)';
-    estado.textContent = `DEBUG -- valor crudo primera fila: ${JSON.stringify(crudoDebug)} (tipo ${typeof crudoDebug}) -> parseado: ${parsearMonedaFlexible(crudoDebug)}`;
-    await new Promise(r => setTimeout(r, 4000)); // deja el mensaje en pantalla un momento antes de seguir
-  }
+  const filas = hojaConMasFilas(wb, true); // raw:true -- este archivo trae formatos de celda que rompen el texto formateado (ver hojaConMasFilas)
 
   if (!filas.length) { estado.textContent = 'El archivo está vacío.'; return; }
 
