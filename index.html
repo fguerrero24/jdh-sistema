@@ -1123,9 +1123,9 @@ input:focus,select:focus,textarea:focus{outline:none!important;border-color:#176
           <div class="section-label" style="margin-top:0;">Control de Vencimientos</div>
 
           <div style="display:flex;gap:8px;margin-bottom:10px;">
-            <button class="btn ghost admin-tab active" id="tab-venc-tabla">Vencimientos</button>
-            <button class="btn ghost admin-tab" id="tab-venc-fefo">Rotación FEFO</button>
-            <button class="btn ghost admin-tab" id="tab-venc-destinatarios">Destinatarios</button>
+            <button class="btn ghost admin-tab active" id="tab-venc-tabla" style="display:flex;align-items:center;justify-content:center;text-align:center;">Vencimientos</button>
+            <button class="btn ghost admin-tab" id="tab-venc-fefo" style="display:flex;align-items:center;justify-content:center;text-align:center;">Rotación FEFO</button>
+            <button class="btn ghost admin-tab" id="tab-venc-destinatarios" style="display:flex;align-items:center;justify-content:center;text-align:center;">Destinatarios</button>
           </div>
 
           <div id="panel-venc-tabla">
@@ -1136,6 +1136,7 @@ input:focus,select:focus,textarea:focus{outline:none!important;border-color:#176
         <button class="btn ghost" id="btn-venc-exportar">Exportar a Excel</button>
         <button class="btn ghost" id="btn-venc-enviar-correo">📧 Enviar correo (CEDI filtrado)</button>
         <button class="btn ghost" id="btn-venc-sugerencias-ia">🤖 Sugerencias IA</button>
+        <button class="btn ghost" id="btn-venc-historico-resoluciones">📋 Histórico de resoluciones</button>
       </div>
     </div>
   </div>
@@ -1172,7 +1173,7 @@ input:focus,select:focus,textarea:focus{outline:none!important;border-color:#176
     <div class="inv-filter-row" style="grid-template-columns:1.2fr 1fr 1.6fr;margin-top:10px;">
       <div class="inv-filter svw-autocomplete-wrap"><label>Proveedor</label><input type="text" id="venc-filtro-proveedor-texto" placeholder="Escribe para buscar..." autocomplete="off"><div class="svw-autocomplete-lista hidden" id="venc-proveedor-lista"></div></div>
       <div class="inv-filter"><label>Categoría</label><select id="venc-filtro-categoria"><option value="">Todas</option></select></div>
-      <div class="inv-filter"><label>Producto / lote / referencia</label><input type="text" id="inv-filtro-producto" placeholder="Buscar referencia, producto, lote o ubicación..."></div>
+      <div class="inv-filter svw-autocomplete-wrap"><label>Producto / referencia / proveedor / lote</label><input type="text" id="inv-filtro-producto" placeholder="Escribe para buscar..." autocomplete="off"><div class="svw-autocomplete-lista hidden" id="inv-producto-lista"></div></div>
     </div>
     <div id="venc-sugerencias-ia" class="hidden" style="background:#0f2033;border-radius:12px;padding:14px 18px;margin:12px 0;color:#cbd5e1;font-size:13px;line-height:1.5;"><div style="font-size:10px;color:#6b829a;text-transform:uppercase;margin-bottom:4px;">🤖 Sugerencias IA</div><div id="venc-sugerencias-ia-texto"></div></div>
   </div>
@@ -4465,18 +4466,25 @@ document.getElementById('btn-sync-inventario').addEventListener('click', async (
 async function traerInventarioWmsSimple() {
   const estado = document.getElementById('wms-status');
   const cedi = document.getElementById('wms-filtro-cedi').value;
+  estado.textContent = 'Cargando inventario completo...';
 
-  let q = sb.from('inventario_wms').select('*').order('producto').limit(3000);
-  if (cedi) q = q.eq('cedi', cedi);
-  else if (!puedeVerTodosLosCedis()) q = q.eq('cedi', SESION.cedi);
+  let rows = [], from = 0, pageSize = 1000;
+  while (true) {
+    let q = sb.from('inventario_wms').select('*').order('producto').range(from, from + pageSize - 1);
+    if (cedi) q = q.eq('cedi', cedi);
+    else if (!puedeVerTodosLosCedis()) q = q.eq('cedi', SESION.cedi);
+    const { data, error } = await q;
+    if (error) { estado.textContent = 'Error al cargar: ' + error.message; return; }
+    rows = rows.concat(data || []);
+    if (!data || data.length < pageSize) break;
+    from += pageSize;
+    if (from >= 100000) break;
+  }
 
-  const { data, error } = await q;
-  if (error) { estado.textContent = 'Error al cargar: ' + error.message; return; }
-
-  INVENTARIO_WMS_SIMPLE_CACHE = data || [];
+  INVENTARIO_WMS_SIMPLE_CACHE = rows;
   if (INVENTARIO_WMS_SIMPLE_CACHE.length) {
     const masReciente = INVENTARIO_WMS_SIMPLE_CACHE.reduce((max, r) => r.actualizado_en > max ? r.actualizado_en : max, INVENTARIO_WMS_SIMPLE_CACHE[0].actualizado_en);
-    estado.textContent = `${INVENTARIO_WMS_SIMPLE_CACHE.length.toLocaleString('es-CO')} registro(s) (máximo 3000 a la vez). Última actualización desde Odoo: ${new Date(masReciente).toLocaleString('es-CO')}.`;
+    estado.textContent = `${INVENTARIO_WMS_SIMPLE_CACHE.length.toLocaleString('es-CO')} registro(s) (todo el inventario, sin límite). Última actualización desde Odoo: ${new Date(masReciente).toLocaleString('es-CO')}.`;
   } else {
     estado.textContent = 'Sin inventario cargado todavía -- dale clic a "Actualizar inventario desde Odoo".';
   }
@@ -4502,16 +4510,16 @@ function renderInventarioWmsSimple() {
   if (WMS_ZONA_ACTIVA) filtrado = filtrado.filter(r => zonaInventario(r.ubicacion) === WMS_ZONA_ACTIVA);
 
   // ---------- Tarjetas resumen (mismo estilo visual que Vencimientos) ----------
-  const totalDisponible = INVENTARIO_WMS_SIMPLE_CACHE.reduce((s, r) => s + (Number(r.cantidad_disponible) || 0), 0);
+  const totalDisponible = INVENTARIO_WMS_SIMPLE_CACHE.reduce((s, r) => s + (Number(r.cantidad_inventario) || 0), 0);
   const productosDistintos = new Set(INVENTARIO_WMS_SIMPLE_CACHE.map(r => r.producto)).size;
   const enPicking = INVENTARIO_WMS_SIMPLE_CACHE.filter(r => zonaInventario(r.ubicacion) === 'picking').length;
   const enAltura = INVENTARIO_WMS_SIMPLE_CACHE.filter(r => zonaInventario(r.ubicacion) === 'altura').length;
   const kpi = (label, value, meta) => `<div class="inv-kpi" style="cursor:default"><div class="inv-kpi-label">${label}</div><div class="inv-kpi-value">${value}</div><div class="inv-kpi-meta">${meta}</div></div>`;
   document.getElementById('wms-kpis').innerHTML =
-    kpi('Disponible', totalDisponible.toLocaleString('es-CO'), 'unidades') +
+    kpi('Existencia real', totalDisponible.toLocaleString('es-CO'), 'unidades') +
     kpi('Productos', productosDistintos.toLocaleString('es-CO'), 'referencias distintas') +
-    kpi('En Picking /1/', enPicking.toLocaleString('es-CO'), 'listo para surtir pedidos') +
-    kpi('En Altura /2/', enAltura.toLocaleString('es-CO'), 'pendiente de bajar a Picking');
+    kpi('En Picking', enPicking.toLocaleString('es-CO'), 'listo para surtir pedidos') +
+    kpi('En Altura', enAltura.toLocaleString('es-CO'), 'pendiente de bajar a Picking');
 
   const cont = document.getElementById('wms-tabla');
   document.getElementById('wms-tabla-note').textContent = `${filtrado.length.toLocaleString('es-CO')} registros visibles`;
@@ -4524,7 +4532,7 @@ function renderInventarioWmsSimple() {
     filtrado.map(r => { const zona = zonaInventario(r.ubicacion); return `<tr>
       <td>${tEsc(r.cedi || '—')}</td>
       <td class="inv-product">${tEsc(r.producto)}</td>
-      <td><span class="inv-zone ${zona}">${zona === 'picking' ? 'PICKING /1/' : zona === 'altura' ? 'ALTURA /2/' : 'OTRAS'}</span></td>
+      <td><span class="inv-zone ${zona}">${zona === 'picking' ? 'PICKING' : zona === 'altura' ? 'ALTURA' : 'OTRAS'}</span></td>
       <td style="font-size:10.5px;">${tEsc(r.ubicacion || '—')}</td>
       <td>${tEsc(r.lote || '—')}</td>
       <td>${tEsc(r.paquete || '—')}</td>
@@ -4543,48 +4551,58 @@ let SIESA_PROVEEDOR_MAP = new Map();
 let SIESA_COSTO_MAP = new Map(); // clave: "REFERENCIA|CEDI" -- el costo sí varía por CEDI, a diferencia del proveedor
 async function traerTodasLasFilas(tabla, columnas) {
   // Supabase corta cada respuesta en 1.000 filas por defecto (límite de la
-  // API, no de la base de datos) -- esto pide en bloques hasta traer todo.
-  let todas = [], desde = 0;
+  // API, no de la base de datos). En vez de pedir de a 1.000 en fila (lento,
+  // una espera de red detrás de otra), primero pregunta cuántas hay en
+  // total, y pide TODAS las páginas al mismo tiempo -- mucho más rápido.
   const TAM_BLOQUE = 1000;
-  while (true) {
-    const { data, error } = await sb.from(tabla).select(columnas).range(desde, desde + TAM_BLOQUE - 1);
-    if (error) throw error;
-    todas = todas.concat(data || []);
-    if (!data || data.length < TAM_BLOQUE) break;
-    desde += TAM_BLOQUE;
-  }
-  return todas;
+  const { count, error: errorConteo } = await sb.from(tabla).select('*', { count: 'exact', head: true });
+  if (errorConteo) throw errorConteo;
+  const total = count || 0;
+  if (!total) return [];
+  const paginas = Math.ceil(total / TAM_BLOQUE);
+  const peticiones = Array.from({ length: paginas }, (_, i) =>
+    sb.from(tabla).select(columnas).range(i * TAM_BLOQUE, i * TAM_BLOQUE + TAM_BLOQUE - 1)
+  );
+  const resultados = await Promise.all(peticiones);
+  const errorEnAlguna = resultados.find(r => r.error);
+  if (errorEnAlguna) throw errorEnAlguna.error;
+  return resultados.flatMap(r => r.data || []);
 }
 
 async function cargarMaestraVidaUtil() {
-  try {
-    MAESTRA_INVENTARIO_CACHE = await traerTodasLasFilas('maestra_articulos_siesa', 'referencia,descripcion,costo_promedio_unitario,vida_util_dias,categoria,linea,grupo,proveedor');
+  const [resultadoMaestra, resultadoSiesa] = await Promise.allSettled([
+    traerTodasLasFilas('maestra_articulos_siesa', 'referencia,descripcion,costo_promedio_unitario,vida_util_dias,categoria,linea,grupo,proveedor'),
+    traerTodasLasFilas('inventario_siesa', 'referencia,cedi,proveedor,costo_unitario'),
+  ]);
+
+  if (resultadoMaestra.status === 'fulfilled') {
+    MAESTRA_INVENTARIO_CACHE = resultadoMaestra.value;
     const map = new Map();
     MAESTRA_INVENTARIO_CACHE.forEach(m => {
       [m.referencia, m.descripcion].forEach(k => { const n = normalizarClaveInventario(k); if (n && !map.has(n)) map.set(n, m); });
     });
     MAESTRA_INVENTARIO_MAP = map;
-  } catch (e) {
+  } else {
     MAESTRA_INVENTARIO_CACHE = []; MAESTRA_INVENTARIO_MAP = new Map();
-    console.warn('No fue posible cargar la maestra de artículos:', e);
+    console.warn('No fue posible cargar la maestra de artículos:', resultadoMaestra.reason);
   }
+
   // El proveedor y el costo del archivo de Inventario SIESA son más frescos
   // que los del catálogo de Maestra -- se usan como fuente principal, y la
   // Maestra queda de respaldo. El costo, a diferencia del proveedor, se
   // guarda por CEDI (el mismo producto puede costar distinto en cada uno).
-  try {
-    const data = await traerTodasLasFilas('inventario_siesa', 'referencia,cedi,proveedor,costo_unitario');
+  if (resultadoSiesa.status === 'fulfilled') {
     const mapProveedor = new Map(), mapCosto = new Map();
-    data.forEach(r => {
+    resultadoSiesa.value.forEach(r => {
       const n = normalizarClaveInventario(r.referencia);
       if (n && r.proveedor && !mapProveedor.has(n)) mapProveedor.set(n, r.proveedor);
       if (n && r.cedi && r.costo_unitario != null) { const clave = n + '|' + r.cedi; if (!mapCosto.has(clave)) mapCosto.set(clave, Number(r.costo_unitario)); }
     });
     SIESA_PROVEEDOR_MAP = mapProveedor;
     SIESA_COSTO_MAP = mapCosto;
-  } catch (e) {
+  } else {
     SIESA_PROVEEDOR_MAP = new Map(); SIESA_COSTO_MAP = new Map();
-    console.warn('No fue posible cargar el proveedor/costo de inventario SIESA:', e);
+    console.warn('No fue posible cargar el proveedor/costo de inventario SIESA:', resultadoSiesa.reason);
   }
 }
 
@@ -4678,24 +4696,54 @@ async function traerInventario() {
   const estado = document.getElementById('inv-status');
   const cedi = document.getElementById('inv-filtro-cedi').value;
   estado.textContent = 'Cargando inventario completo...';
-  let rows = [], from = 0, pageSize = 1000;
-  while (true) {
-    let q = sb.from('inventario_wms').select('*').order('producto').range(from, from + pageSize - 1);
-    if (cedi) q = q.eq('cedi', cedi); else if (!puedeVerTodosLosCedis()) q = q.eq('cedi', SESION.cedi);
-    const { data, error } = await q;
-    if (error) { estado.textContent = 'Error al cargar: ' + error.message; return; }
-    rows = rows.concat(data || []);
-    if (!data || data.length < pageSize) break;
-    from += pageSize;
-    if (from >= 50000) break;
+
+  async function cargarInventarioWms() {
+    let rows = [], from = 0, pageSize = 1000;
+    while (true) {
+      let q = sb.from('inventario_wms').select('*').order('producto').range(from, from + pageSize - 1);
+      if (cedi) q = q.eq('cedi', cedi); else if (!puedeVerTodosLosCedis()) q = q.eq('cedi', SESION.cedi);
+      const { data, error } = await q;
+      if (error) throw error;
+      rows = rows.concat(data || []);
+      if (!data || data.length < pageSize) break;
+      from += pageSize;
+      if (from >= 50000) break;
+    }
+    return rows;
   }
-  INVENTARIO_CACHE = rows;
-  if (!MAESTRA_INVENTARIO_MAP.size) await cargarMaestraVidaUtil();
+
+  // Las 3 fuentes de datos son independientes entre sí -- se piden todas al
+  // mismo tiempo en vez de una detrás de otra.
+  const [inventarioWms] = await Promise.all([
+    cargarInventarioWms().catch(e => { estado.textContent = 'Error al cargar: ' + e.message; return []; }),
+    (!MAESTRA_INVENTARIO_MAP.size ? cargarMaestraVidaUtil() : Promise.resolve()),
+  ]);
+  INVENTARIO_CACHE = inventarioWms;
   const { data: acciones } = await sb.from('acciones_vencimientos').select('*').order('marcado_en', { ascending: false });
   ACCIONES_VENCIMIENTOS_CACHE = acciones || [];
+  await resolverAutomaticamenteLotesAgotados();
   estado.textContent = `${INVENTARIO_CACHE.length.toLocaleString('es-CO')} registros cargados. Vida útil: ${MAESTRA_INVENTARIO_MAP.size.toLocaleString('es-CO')} referencias disponibles en maestra.`;
   poblarCategoriasVencimientos();
   renderInventario();
+}
+
+// Si un lote marcado "en proceso" ya no aparece en el inventario (se agotó,
+// se vendió, se dio de baja), se archiva solo como resuelta -- sin que
+// nadie tenga que acordarse de limpiarlo a mano. Si sigue existiendo pero
+// ya bajó a Picking, no se resuelve solo (el usuario decide desde el
+// panel de detalle si de verdad ya se resolvió).
+async function resolverAutomaticamenteLotesAgotados() {
+  const enProceso = ACCIONES_VENCIMIENTOS_CACHE.filter(a => a.estado === 'en_proceso');
+  if (!enProceso.length) return;
+  const clavesVivas = new Set(INVENTARIO_CACHE.map(r => `${r.producto}|${r.lote}|${r.cedi}`));
+  const agotados = enProceso.filter(a => !clavesVivas.has(`${a.producto}|${a.lote}|${a.cedi}`));
+  if (!agotados.length) return;
+  const { error } = await sb.from('acciones_vencimientos')
+    .update({ estado: 'resuelta', motivo_resolucion: 'Salida de inventario', resuelto_en: new Date().toISOString() })
+    .in('id', agotados.map(a => a.id));
+  if (error) { console.warn('No se pudo auto-resolver lotes agotados:', error); return; }
+  agotados.forEach(a => { a.estado = 'resuelta'; a.motivo_resolucion = 'Salida de inventario'; });
+  mostrarToast(`${agotados.length} excepción(es) resuelta(s) automáticamente (lote agotado).`);
 }
 
 function poblarCategoriasVencimientos() {
@@ -4705,11 +4753,41 @@ function poblarCategoriasVencimientos() {
 }
 
 function marcadoEnProceso(r) {
-  return ACCIONES_VENCIMIENTOS_CACHE.find(a => a.producto === r.producto && a.lote === r.lote && a.cedi === r.cedi);
+  return ACCIONES_VENCIMIENTOS_CACHE.find(a => a.producto === r.producto && a.lote === r.lote && a.cedi === r.cedi && a.estado === 'en_proceso');
 }
 
 document.getElementById('inv-filtro-cedi').addEventListener('change', traerInventario);
-document.getElementById('inv-filtro-producto').addEventListener('input', renderInventario);
+document.getElementById('inv-filtro-producto').addEventListener('input', (e) => {
+  renderInventario();
+  const texto = e.target.value.trim().toLowerCase();
+  const lista = document.getElementById('inv-producto-lista');
+  if (!texto) { lista.classList.add('hidden'); return; }
+  const vistos = new Set();
+  const coincidencias = [];
+  for (const r of INVENTARIO_CACHE) {
+    const ev = evaluarVidaInventario(r);
+    const coincide = [r.producto, r.referencia, r.lote, ev.proveedor].some(v => (v || '').toLowerCase().includes(texto));
+    if (!coincide) continue;
+    const clave = (r.producto || '') + '|' + (r.lote || '');
+    if (vistos.has(clave)) continue;
+    vistos.add(clave);
+    coincidencias.push({ producto: r.producto, lote: r.lote, cedi: r.cedi, proveedor: ev.proveedor });
+    if (coincidencias.length >= 15) break;
+  }
+  if (!coincidencias.length) { lista.innerHTML = '<div class="svw-autocomplete-item" style="color:var(--modern-muted, #94a3b8);">Sin coincidencias</div>'; lista.classList.remove('hidden'); return; }
+  lista.innerHTML = coincidencias.map(c => `<div class="svw-autocomplete-item" data-valor="${tEsc(c.producto)}">${tEsc(c.producto)}<small>${tEsc(c.lote || 'sin lote')} · ${tEsc(c.cedi || '—')} · ${tEsc(c.proveedor || 'sin proveedor')}</small></div>`).join('');
+  lista.classList.remove('hidden');
+});
+document.getElementById('inv-producto-lista').addEventListener('click', (e) => {
+  const item = e.target.closest('[data-valor]');
+  if (!item) return;
+  document.getElementById('inv-filtro-producto').value = item.dataset.valor;
+  document.getElementById('inv-producto-lista').classList.add('hidden');
+  renderInventario();
+});
+document.addEventListener('click', (e) => {
+  if (!e.target.closest('.svw-autocomplete-wrap')) document.getElementById('inv-producto-lista')?.classList.add('hidden');
+});
 document.getElementById('venc-filtro-categoria').addEventListener('change', renderInventario);
 document.getElementById('btn-inv-limpiar').addEventListener('click', () => {
   document.getElementById('inv-filtro-producto').value = '';
@@ -4756,7 +4834,7 @@ function renderInventario() {
   const enriched = INVENTARIO_CACHE.map(r => ({r,e:evaluarVidaInventario(r),zona:zonaInventario(r.ubicacion)}));
   const filtrado = enriched.filter(x => {
     const r=x.r,e=x.e;
-    const textoOk=!texto || [r.producto,r.referencia,r.lote,r.ubicacion,r.codigo_barras_ubicacion].some(v=>String(v||'').toLowerCase().includes(texto));
+    const textoOk=!texto || [r.producto,r.referencia,r.lote,r.ubicacion,r.codigo_barras_ubicacion,e.proveedor].some(v=>String(v||'').toLowerCase().includes(texto));
     const zonaOk = VENC_ZONAS_ACTIVAS.size === 0 || VENC_ZONAS_ACTIVAS.has(x.zona);
     const critOk = VENC_ESTADOS_ACTIVOS.size === 0 || VENC_ESTADOS_ACTIVOS.has(e.estado);
     const provOk = !proveedorTexto || (e.proveedor || '').toLowerCase().includes(proveedorTexto);
@@ -4788,22 +4866,30 @@ function renderInventario() {
 }
 function renderInventarioKpis(items){
   const total=items.reduce((a,x)=>a+(Number(x.r.cantidad_inventario)||0),0), valor=items.reduce((a,x)=>a+(x.e.valor||0),0);
-  const grupos=['vencido','critico','prioridad','atencion','normal']; const cards=grupos.map(g=>{const u=items.filter(x=>x.e.estado===g).reduce((a,x)=>a+(Number(x.r.cantidad_inventario)||0),0);const v=items.filter(x=>x.e.estado===g).reduce((a,x)=>a+(x.e.valor||0),0);return {g,u,v}});
+  const grupos=['vencido','critico','prioridad','atencion','normal']; const cards=grupos.map(g=>{
+    const filas = items.filter(x=>x.e.estado===g);
+    const u=filas.reduce((a,x)=>a+(Number(x.r.cantidad_inventario)||0),0);
+    const v=filas.reduce((a,x)=>a+(x.e.valor||0),0);
+    return {g, sku:filas.length, u, v};
+  });
   const riesgo = items.filter(x => ['vencido','critico','prioridad'].includes(x.e.estado));
   const valorRiesgo = riesgo.reduce((a,x)=>a+(x.e.valor||0),0);
   const pctObsolescencia = valor ? (valorRiesgo/valor*100) : 0;
   const conDias = items.filter(x => x.e.dias != null && x.e.valor > 0);
   const diasPonderado = conDias.length ? conDias.reduce((a,x)=>a+x.e.dias*x.e.valor,0) / conDias.reduce((a,x)=>a+x.e.valor,0) : null;
   const k=(label,value,meta,cls,g)=>`<div class="inv-kpi ${cls}" data-kpi="${g}"><div class="inv-kpi-label">${label}</div><div class="inv-kpi-value">${value}</div><div class="inv-kpi-meta">${meta}</div></div>`;
+  // El número principal de estas 4 tarjetas es el conteo de SKU (centrado),
+  // con el valor y las unidades como texto secundario debajo.
+  const kEstado=(label,c,cls,g)=>`<div class="inv-kpi ${cls}" data-kpi="${g}" style="text-align:center;"><div class="inv-kpi-label">${label}</div><div class="inv-kpi-value" style="text-align:center;">${c.sku.toLocaleString('es-CO')}</div><div class="inv-kpi-meta">SKU</div><div class="inv-kpi-meta" style="margin-top:4px;">${formatoCOP(c.v)} · ${Math.round(c.u).toLocaleString('es-CO')} und</div></div>`;
   document.getElementById('inv-kpis').innerHTML=
     k('Existencia real',total.toLocaleString('es-CO'),'unidades (cantidad en inventario)', 'info','')+
     k('Valor inventario',formatoCOP(valor),'costo por CEDI (SIESA)','info','')+
     k('% Obsolescencia', pctObsolescencia.toFixed(1)+'%', 'valor en riesgo / valor total', pctObsolescencia>15?'danger':pctObsolescencia>5?'warn':'', '')+
     k('Días de vida restante', diasPonderado!=null?Math.round(diasPonderado).toLocaleString('es-CO'):'—', 'promedio ponderado por valor', '', '')+
-    k('Vencido',cards[0].u.toLocaleString('es-CO'),formatoCOP(cards[0].v),'danger','vencido')+
-    k('Crítico',cards[1].u.toLocaleString('es-CO'),formatoCOP(cards[1].v),'danger','critico')+
-    k('Prioridad',cards[2].u.toLocaleString('es-CO'),formatoCOP(cards[2].v),'warn','prioridad')+
-    k('Atención',cards[3].u.toLocaleString('es-CO'),formatoCOP(cards[3].v),'','atencion');
+    kEstado('Vencido',cards[0],'danger','vencido')+
+    kEstado('Crítico',cards[1],'danger','critico')+
+    kEstado('Prioridad',cards[2],'warn','prioridad')+
+    kEstado('Atención',cards[3],'','atencion');
   document.querySelectorAll('[data-kpi]').forEach(el=>el.addEventListener('click',()=>{
     const g=el.dataset.kpi; if(!g) return;
     VENC_ESTADOS_ACTIVOS.clear(); VENC_ESTADOS_ACTIVOS.add(g);
@@ -4850,8 +4936,10 @@ function renderInventarioExcepciones(items){
   }).join(''):'<div class="inv-empty">No hay excepciones críticas con los datos cargados.</div>';
 }
 
+const MOTIVOS_RESOLUCION_VENCIMIENTOS = ['Bajado a Picking', 'Despachado', 'Entregado en mercados', 'Salida de inventario', 'Devuelto al proveedor', 'Ajuste en lote', 'Ajuste en conteo'];
+
 function abrirDrawerVencimiento(d) {
-  const yaEnProceso = ACCIONES_VENCIMIENTOS_CACHE.find(a => a.producto === d.producto && a.lote === d.lote && a.cedi === d.cedi);
+  const yaEnProceso = ACCIONES_VENCIMIENTOS_CACHE.find(a => a.producto === d.producto && a.lote === d.lote && a.cedi === d.cedi && a.estado === 'en_proceso');
   document.getElementById('venc-drawer-contenido').innerHTML = `
     <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:14px;">
       <div><div style="font-size:10px;color:var(--modern-muted);text-transform:uppercase;">${tEsc(d.lote || 'Sin lote')}</div><div style="font-size:15px;font-weight:700;">${tEsc(d.producto || '—')}</div></div>
@@ -4873,15 +4961,32 @@ function abrirDrawerVencimiento(d) {
       <div style="font-size:13px;margin-top:4px;">${tEsc(d.accion)}</div>
     </div>
     ${yaEnProceso
-      ? `<p style="font-size:11px;color:#16a34a;margin-top:14px;">✓ Marcado en proceso el ${new Date(yaEnProceso.marcado_en).toLocaleString('es-CO')}.</p>
+      ? `<p style="font-size:11px;color:#16a34a;margin-top:14px;">✓ En proceso desde el ${new Date(yaEnProceso.marcado_en).toLocaleString('es-CO')}.</p>
+         <label style="font-size:11px;color:var(--modern-muted);display:block;margin-top:10px;">Motivo de resolución</label>
+         <select id="venc-motivo-resolucion" style="width:100%;padding:8px;border-radius:8px;border:1px solid #dbe2ea;margin-top:4px;">
+           <option value="">Elige un motivo...</option>
+           ${MOTIVOS_RESOLUCION_VENCIMIENTOS.map(m => `<option value="${tEsc(m)}">${tEsc(m)}</option>`).join('')}
+         </select>
+         <button class="btn" id="btn-venc-marcar-resuelta" style="margin-top:10px;width:100%;">Marcar como resuelta</button>
          <button class="btn ghost" id="btn-venc-quitar-proceso" style="margin-top:6px;width:100%;">Quitar marca de "en proceso"</button>`
       : `<button class="btn" id="btn-venc-marcar-proceso" style="margin-top:14px;width:100%;">Marcar como "en proceso"</button>`}
   `;
   const btnMarcar = document.getElementById('btn-venc-marcar-proceso');
   if (btnMarcar) btnMarcar.addEventListener('click', async () => {
-    const { error } = await sb.from('acciones_vencimientos').insert({ producto: d.producto, lote: d.lote, cedi: d.cedi, ubicacion: d.ubicacion, accion_sugerida: d.accion, marcado_por: SESION.id });
+    const { error } = await sb.from('acciones_vencimientos').insert({ producto: d.producto, lote: d.lote, cedi: d.cedi, ubicacion: d.ubicacion, accion_sugerida: d.accion, marcado_por: SESION.id, estado: 'en_proceso' });
     if (error) { mostrarToast('Error al marcar: ' + error.message); return; }
     mostrarToast('Marcado como en proceso.');
+    document.getElementById('venc-drawer-backdrop').classList.add('hidden');
+    document.getElementById('venc-drawer').classList.add('hidden');
+    await traerInventario();
+  });
+  const btnResuelta = document.getElementById('btn-venc-marcar-resuelta');
+  if (btnResuelta) btnResuelta.addEventListener('click', async () => {
+    const motivo = document.getElementById('venc-motivo-resolucion').value;
+    if (!motivo) { mostrarToast('Elige un motivo de resolución primero.'); return; }
+    const { error } = await sb.from('acciones_vencimientos').update({ estado: 'resuelta', motivo_resolucion: motivo, resuelto_en: new Date().toISOString(), resuelto_por: SESION.id }).eq('id', yaEnProceso.id);
+    if (error) { mostrarToast('Error al marcar como resuelta: ' + error.message); return; }
+    mostrarToast('Marcado como resuelta -- queda en el historial.');
     document.getElementById('venc-drawer-backdrop').classList.add('hidden');
     document.getElementById('venc-drawer').classList.add('hidden');
     await traerInventario();
@@ -4965,6 +5070,32 @@ document.getElementById('btn-venc-sugerencias-ia').addEventListener('click', asy
   const { data, error } = await sb.functions.invoke('ai-asistente', { body: { tipo: 'sugerencias_vencimientos', contexto: { productos_en_riesgo: filas } } });
   if (error || (data && data.error)) { cont.textContent = 'No se pudo generar (' + (data?.error || error.message) + ').'; return; }
   cont.textContent = data.respuesta;
+});
+
+document.getElementById('btn-venc-historico-resoluciones').addEventListener('click', async () => {
+  document.getElementById('venc-drawer-contenido').innerHTML = '<div class="inv-empty">Cargando histórico...</div>';
+  document.getElementById('venc-drawer-backdrop').classList.remove('hidden');
+  document.getElementById('venc-drawer').classList.remove('hidden');
+
+  const { data, error } = await sb.rpc('resumen_resoluciones_vencimientos');
+  if (error) { document.getElementById('venc-drawer-contenido').innerHTML = `<div class="inv-empty">Error: ${tEsc(error.message)}</div>`; return; }
+  if (!data || !data.length) { document.getElementById('venc-drawer-contenido').innerHTML = '<div class="inv-empty">Todavía no hay excepciones resueltas.</div>'; return; }
+
+  const porCedi = {};
+  data.forEach(r => { (porCedi[r.cedi] = porCedi[r.cedi] || []).push(r); });
+
+  document.getElementById('venc-drawer-contenido').innerHTML = `
+    <div style="font-size:15px;font-weight:700;margin-bottom:14px;">📋 Histórico de resoluciones, por CEDI</div>
+    ${Object.entries(porCedi).map(([cedi, filas]) => {
+      const total = filas.reduce((a, f) => a + Number(f.cantidad), 0);
+      return `<div style="margin-bottom:16px;">
+        <div style="font-size:12px;font-weight:700;color:var(--modern-primary, #1769e0);margin-bottom:6px;">${tEsc(cedi)} -- ${total} resuelta(s)</div>
+        ${filas.map(f => `<div style="display:flex;justify-content:space-between;padding:5px 0;font-size:12px;border-bottom:1px solid var(--modern-border, #e5e9f0);">
+          <span>${tEsc(f.motivo_resolucion || 'Sin motivo')}</span><span style="font-weight:700;">${f.cantidad}</span>
+        </div>`).join('')}
+      </div>`;
+    }).join('')}
+  `;
 });
 
 document.getElementById('btn-venc-exportar').addEventListener('click', () => {
