@@ -1281,8 +1281,8 @@ input:focus,select:focus,textarea:focus{outline:none!important;border-color:#176
           </div>
 
           <div style="display:flex;gap:8px;margin:12px 0;justify-content:center;">
-            <button class="btn ghost admin-tab active" id="tab-svw-resumen">Resumen</button>
-            <button class="btn ghost admin-tab" id="tab-svw-conciliacion">Conciliación</button>
+            <button class="btn ghost admin-tab active" id="tab-svw-resumen" style="display:flex;align-items:center;justify-content:center;text-align:center;">Resumen</button>
+            <button class="btn ghost admin-tab" id="tab-svw-conciliacion" style="display:flex;align-items:center;justify-content:center;text-align:center;">Conciliación</button>
           </div>
 
           <div id="svw-status" style="font-size:11px;color:var(--text-secondary);margin-bottom:8px;text-align:center;"></div>
@@ -1300,7 +1300,8 @@ input:focus,select:focus,textarea:focus{outline:none!important;border-color:#176
           </div>
 
           <div id="panel-svw-conciliacion" class="hidden">
-            <div class="inv-section"><div class="inv-table-wrap" id="svw-tabla-conciliacion"></div></div>
+            <div class="inv-section"><div class="inv-section-head"><div class="inv-section-title">Proveedores -- SKU y valor</div><div class="inv-section-note" id="svw-proveedores-note">Toca uno o varios para filtrar la tabla de abajo</div></div><div class="inv-table-wrap" id="svw-tabla-proveedores" style="max-height:260px;overflow-y:auto;"></div></div>
+            <div class="inv-section" style="margin-top:14px;"><div class="inv-table-wrap" id="svw-tabla-conciliacion"></div></div>
           </div>
 
           <div id="svw-drawer-backdrop" class="hidden" style="position:fixed;inset:0;background:rgba(15,23,42,.4);z-index:9500;" onclick="document.getElementById('svw-drawer-backdrop').classList.add('hidden');document.getElementById('svw-drawer').classList.add('hidden');">
@@ -1633,6 +1634,7 @@ input:focus,select:focus,textarea:focus{outline:none!important;border-color:#176
                 <div class="indicator-field"><label>Desde</label><input type="date" id="csem-desde"></div>
                 <div class="indicator-field"><label>Hasta</label><input type="date" id="csem-hasta"></div>
                 <button class="btn" id="btn-consultar-control-semana">Consultar</button>
+                <button class="btn ghost" id="btn-exportar-control-semana">Exportar a Excel</button>
               </div>
               <div class="indicator-fields">
                 <div class="indicator-field" style="min-width:180px;"><label>Filtrar operario</label><input type="text" id="csem-filtro-nombre" placeholder="Nombre o cédula"></div>
@@ -5559,6 +5561,8 @@ function marcarSvwCheckbox(atributo, setActivos, idBoton, etiquetaTodos, valor) 
   renderSvwTodo();
 }
 
+let SVW_PROVEEDORES_SELECCIONADOS = new Set();
+
 function filasSvwFiltradas() {
   const texto = document.getElementById('svw-filtro-texto').value.trim().toLowerCase();
   const proveedorTexto = document.getElementById('svw-filtro-proveedor-texto').value.trim().toLowerCase();
@@ -5580,7 +5584,48 @@ function renderSvwTodo() {
   renderSvwCharts(filas);
   renderSvwTablaUbicacion(filas);
   renderSvwExcepciones(filas);
-  renderSvwTabla('svw-tabla-conciliacion', filas);
+  renderSvwTablaProveedores(filas);
+  // La tabla principal de SKU respeta además los proveedores que estén
+  // seleccionados en el cuadro de arriba (si no hay ninguno seleccionado,
+  // muestra todo lo que ya viene filtrado).
+  const filasTabla = SVW_PROVEEDORES_SELECCIONADOS.size
+    ? filas.filter(r => SVW_PROVEEDORES_SELECCIONADOS.has(r.proveedor))
+    : filas;
+  renderSvwTabla('svw-tabla-conciliacion', filasTabla);
+}
+
+// Cuadro de proveedores en la pestaña Conciliación: SKU y valor por
+// proveedor, ordenado por número de SKU de mayor a menor. Se recalcula con
+// el filtro de Estado activo. Selección múltiple: tocar selecciona/filtra,
+// volver a tocar deselecciona -- sin recargar los datos, solo re-filtra.
+function renderSvwTablaProveedores(filas) {
+  const cont = document.getElementById('svw-tabla-proveedores');
+  if (!cont) return;
+  const porProveedor = {};
+  filas.forEach(r => {
+    const key = r.proveedor || 'Sin proveedor';
+    if (!porProveedor[key]) porProveedor[key] = { sku: 0, valor: 0 };
+    porProveedor[key].sku++;
+    porProveedor[key].valor += Math.max(Number(r.valor_siesa) || 0, Number(r.valor_wms) || 0);
+  });
+  const filas2 = Object.entries(porProveedor).sort((a, b) => b[1].sku - a[1].sku);
+  if (!filas2.length) { cont.innerHTML = '<div class="inv-empty">Sin datos para este filtro.</div>'; return; }
+  cont.innerHTML = `<table class="inv-table"><thead><tr><th></th><th>Proveedor</th><th>SKU</th><th>Valor</th></tr></thead><tbody>${
+    filas2.map(([prov, d]) => {
+      const activo = SVW_PROVEEDORES_SELECCIONADOS.has(prov);
+      return `<tr style="cursor:pointer;${activo ? 'background:#eff6ff;' : ''}" onclick='toggleSvwProveedorSeleccionado(${JSON.stringify(prov)})'>
+        <td>${activo ? '✓' : ''}</td>
+        <td>${tEsc(prov)}</td>
+        <td>${d.sku.toLocaleString('es-CO')}</td>
+        <td>${formatoCOP(d.valor)}</td>
+      </tr>`;
+    }).join('')
+  }</tbody></table>`;
+}
+function toggleSvwProveedorSeleccionado(prov) {
+  if (SVW_PROVEEDORES_SELECCIONADOS.has(prov)) SVW_PROVEEDORES_SELECCIONADOS.delete(prov);
+  else SVW_PROVEEDORES_SELECCIONADOS.add(prov);
+  renderSvwTodo();
 }
 
 function formatoValorONulo(v) {
@@ -5634,7 +5679,7 @@ function renderSvwCharts(filas) {
   }, 'cedi_dif');
 
   // 6: % de sincronización por CEDI (sobre el total de SKU en SIESA), coloreado por semáforo
-  const cedisOrdenadosPct = [...SVW_RESUMEN_CEDI].sort((a, b) => (a.pct_sincronizacion || 0) - (b.pct_sincronizacion || 0));
+  const cedisOrdenadosPct = [...SVW_RESUMEN_CEDI].sort((a, b) => (b.pct_sincronizacion || 0) - (a.pct_sincronizacion || 0));
   dibujarChart('svw-chart-cedi-pct', {
     chart: { type: 'bar', height: 240, foreColor: '#667085', toolbar: { show: false } },
     series: [{ name: '% Sincronización', data: cedisOrdenadosPct.map(r => r.pct_sincronizacion) }],
@@ -5668,32 +5713,59 @@ function dibujarChart(elId, opciones, clave) {
 
 // 2: tablero resumen de la clasificación de ubicación
 function renderSvwTablaUbicacion(filas) {
-  const conteo = {};
-  filas.forEach(r => { conteo[r.clasificacion_ubicacion] = (conteo[r.clasificacion_ubicacion] || 0) + 1; });
+  const conteo = {}, valorPorCat = {};
+  filas.forEach(r => {
+    const k = r.clasificacion_ubicacion;
+    conteo[k] = (conteo[k] || 0) + 1;
+    valorPorCat[k] = (valorPorCat[k] || 0) + Math.max(Number(r.valor_siesa) || 0, Number(r.valor_wms) || 0);
+  });
   const orden = ['Solo Picking', 'Solo Altura', 'Mixta (Picking + Altura)', 'Mixta (Altura + Otra)', 'Mixta (Picking + Otra)', 'Sin clasificar', 'Sin ubicación WMS'];
   const cont = document.getElementById('svw-tabla-ubicacion');
-  cont.innerHTML = `<table class="inv-table"><thead><tr><th>Clasificación de ubicación</th><th>SKU</th></tr></thead><tbody>${
-    orden.filter(k => conteo[k]).map(k => `<tr style="cursor:pointer;" onclick='marcarSvwCheckbox("data-svw-ubic", SVW_UBICACIONES_ACTIVAS, "svw-btn-ubicacion", "Todas", ${JSON.stringify(k)})'>
-      <td>${tEsc(k)}</td><td>${conteo[k].toLocaleString('es-CO')}</td>
-    </tr>`).join('')
-  }<tr style="font-weight:800;"><td>Total</td><td>${filas.length.toLocaleString('es-CO')}</td></tr></tbody></table>`;
+  const total = filas.length || 1;
+  cont.innerHTML = `<div style="display:flex;flex-wrap:wrap;gap:8px;">${
+    orden.filter(k => conteo[k]).map(k => {
+      const pct = (conteo[k] / total * 100).toFixed(0);
+      return `<button class="inv-chip" style="cursor:pointer;text-align:left;line-height:1.3;" onclick='marcarSvwCheckbox("data-svw-ubic", SVW_UBICACIONES_ACTIVAS, "svw-btn-ubicacion", "Todas", ${JSON.stringify(k)})'>
+        <strong>${tEsc(k)}</strong><br><span style="font-size:10px;color:var(--modern-muted);">${conteo[k].toLocaleString('es-CO')} SKU (${pct}%) · ${formatoCOP(valorPorCat[k])}</span>
+      </button>`;
+    }).join('')
+  }</div>`;
 }
 
+let SVW_EXCEPCIONES_VISTA = 'agrupada'; // 'agrupada' o 'detalle'
 function renderSvwExcepciones(filas) {
-  const top = filas.filter(r => r.estado !== 'Igual' && r.valor_diferencia !== null)
-    .sort((a, b) => Math.abs(Number(b.valor_diferencia) || 0) - Math.abs(Number(a.valor_diferencia) || 0))
-    .slice(0, 15);
+  const conValor = filas.filter(r => r.estado !== 'Igual' && r.valor_diferencia !== null);
   const cont = document.getElementById('svw-excepciones');
-  if (!top.length) { cont.innerHTML = '<div class="inv-empty">No hay excepciones con costo conocido para estos filtros.</div>'; return; }
-  cont.innerHTML = top.map(r => `
-    <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 4px;border-bottom:1px solid var(--modern-border);cursor:pointer;" onclick='abrirDrawerSvw(${JSON.stringify(r).replace(/'/g, "&apos;")})'>
-      <div>
-        <span class="inv-risk" style="background:${COLORES_ESTADO_SVW[r.estado]}1a;color:${COLORES_ESTADO_SVW[r.estado]};">${tEsc(r.estado)}</span>
-        <span style="margin-left:8px;font-size:12.5px;">${tEsc(r.producto || r.referencia)}</span>
-        <span style="margin-left:6px;font-size:10.5px;color:var(--modern-muted);">${tEsc(r.cedi || '—')}</span>
-      </div>
-      <div style="font-size:12px;font-weight:700;">${formatoCOP(Math.abs(Number(r.valor_diferencia) || 0))}</div>
-    </div>`).join('');
+  if (!conValor.length) { cont.innerHTML = '<div class="inv-empty">No hay excepciones con costo conocido para estos filtros.</div>'; return; }
+
+  const toggle = `<div style="text-align:right;margin-bottom:6px;"><button class="btn ghost" style="font-size:10px;padding:4px 10px;" onclick="SVW_EXCEPCIONES_VISTA = SVW_EXCEPCIONES_VISTA === 'agrupada' ? 'detalle' : 'agrupada'; renderSvwTodo();">${SVW_EXCEPCIONES_VISTA === 'agrupada' ? 'Ver detalle por SKU' : 'Ver agrupado por proveedor'}</button></div>`;
+
+  if (SVW_EXCEPCIONES_VISTA === 'agrupada') {
+    const porProveedor = {};
+    conValor.forEach(r => {
+      const key = r.proveedor || 'Sin proveedor';
+      if (!porProveedor[key]) porProveedor[key] = { sku: 0, valor: 0 };
+      porProveedor[key].sku++;
+      porProveedor[key].valor += Math.abs(Number(r.valor_diferencia) || 0);
+    });
+    const grupos = Object.entries(porProveedor).sort((a, b) => b[1].valor - a[1].valor).slice(0, 8);
+    cont.innerHTML = toggle + grupos.map(([prov, d]) => `
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:7px 4px;border-bottom:1px solid var(--modern-border);cursor:pointer;" onclick="document.getElementById('svw-filtro-proveedor-texto').value=${JSON.stringify(prov)};renderSvwTodo();">
+        <div><span style="font-size:12.5px;">${tEsc(prov)}</span><span style="margin-left:6px;font-size:10.5px;color:var(--modern-muted);">${d.sku} SKU</span></div>
+        <div style="font-size:12px;font-weight:700;">${formatoCOP(d.valor)}</div>
+      </div>`).join('');
+  } else {
+    const top = conValor.slice().sort((a, b) => Math.abs(Number(b.valor_diferencia) || 0) - Math.abs(Number(a.valor_diferencia) || 0)).slice(0, 10);
+    cont.innerHTML = toggle + top.map(r => `
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:7px 4px;border-bottom:1px solid var(--modern-border);cursor:pointer;" onclick='abrirDrawerSvw(${JSON.stringify(r).replace(/'/g, "&apos;")})'>
+        <div>
+          <span class="inv-risk" style="background:${COLORES_ESTADO_SVW[r.estado]}1a;color:${COLORES_ESTADO_SVW[r.estado]};">${tEsc(r.estado)}</span>
+          <span style="margin-left:8px;font-size:12.5px;">${tEsc(r.producto || r.referencia)}</span>
+          <span style="margin-left:6px;font-size:10.5px;color:var(--modern-muted);">${tEsc(r.cedi || '—')}</span>
+        </div>
+        <div style="font-size:12px;font-weight:700;">${formatoCOP(Math.abs(Number(r.valor_diferencia) || 0))}</div>
+      </div>`).join('');
+  }
 }
 
 function renderSvwTabla(contId, filas) {
@@ -6567,6 +6639,27 @@ async function cargarModuloControlSemana() {
 document.getElementById('btn-consultar-control-semana').addEventListener('click', consultarControlSemana);
 document.getElementById('csem-filtro-nombre').addEventListener('input', renderControlSemanaFiltrado);
 document.getElementById('csem-solo-exceso').addEventListener('change', renderControlSemanaFiltrado);
+document.getElementById('btn-exportar-control-semana').addEventListener('click', () => {
+  const texto = document.getElementById('csem-filtro-nombre').value.trim().toLowerCase();
+  const soloExceso = document.getElementById('csem-solo-exceso').value === 'true';
+  const filtrado = CONTROL_SEMANA_RESULTADO.filter(r => {
+    const pasaTexto = !texto || r.operario.toLowerCase().includes(texto) || (r.cedula || '').toLowerCase().includes(texto);
+    const pasaExceso = !soloExceso || r.estado === 'Excedido';
+    return pasaTexto && pasaExceso;
+  });
+  if (!filtrado.length) { mostrarToast('No hay datos para exportar con este filtro.'); return; }
+  const filasExcel = filtrado.map(r => ({
+    'Operario': r.operario, 'Cédula': r.cedula,
+    'Semana inicio': r.semana_inicio, 'Semana fin': r.semana_fin,
+    'Horas ordinarias': Number(r.horas_ordinarias).toFixed(1), 'Diferencia (extra)': Number(r.horas_extra_semana).toFixed(1),
+    'Horas totales': Number(r.horas_totales).toFixed(1), 'Límite ordinario': Number(r.limite_horas).toFixed(0),
+    'Estado': r.estado,
+  }));
+  const hoja = XLSX.utils.json_to_sheet(filasExcel);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, hoja, 'Control Semana');
+  XLSX.writeFile(wb, `Control_Semana_${fechaColombiaHoy()}.xlsx`);
+});
 
 async function consultarControlSemana() {
   const estado = document.getElementById('csem-status');
