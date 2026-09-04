@@ -4541,11 +4541,24 @@ let MAESTRA_INVENTARIO_CACHE = [];
 let MAESTRA_INVENTARIO_MAP = new Map();
 let SIESA_PROVEEDOR_MAP = new Map();
 let SIESA_COSTO_MAP = new Map(); // clave: "REFERENCIA|CEDI" -- el costo sí varía por CEDI, a diferencia del proveedor
+async function traerTodasLasFilas(tabla, columnas) {
+  // Supabase corta cada respuesta en 1.000 filas por defecto (límite de la
+  // API, no de la base de datos) -- esto pide en bloques hasta traer todo.
+  let todas = [], desde = 0;
+  const TAM_BLOQUE = 1000;
+  while (true) {
+    const { data, error } = await sb.from(tabla).select(columnas).range(desde, desde + TAM_BLOQUE - 1);
+    if (error) throw error;
+    todas = todas.concat(data || []);
+    if (!data || data.length < TAM_BLOQUE) break;
+    desde += TAM_BLOQUE;
+  }
+  return todas;
+}
+
 async function cargarMaestraVidaUtil() {
   try {
-    const { data, error } = await sb.from('maestra_articulos_siesa').select('referencia,descripcion,costo_promedio_unitario,vida_util_dias,categoria,linea,grupo,proveedor').limit(50000);
-    if (error) throw error;
-    MAESTRA_INVENTARIO_CACHE = data || [];
+    MAESTRA_INVENTARIO_CACHE = await traerTodasLasFilas('maestra_articulos_siesa', 'referencia,descripcion,costo_promedio_unitario,vida_util_dias,categoria,linea,grupo,proveedor');
     const map = new Map();
     MAESTRA_INVENTARIO_CACHE.forEach(m => {
       [m.referencia, m.descripcion].forEach(k => { const n = normalizarClaveInventario(k); if (n && !map.has(n)) map.set(n, m); });
@@ -4560,10 +4573,9 @@ async function cargarMaestraVidaUtil() {
   // Maestra queda de respaldo. El costo, a diferencia del proveedor, se
   // guarda por CEDI (el mismo producto puede costar distinto en cada uno).
   try {
-    const { data, error } = await sb.from('inventario_siesa').select('referencia,cedi,proveedor,costo_unitario').limit(50000);
-    if (error) throw error;
+    const data = await traerTodasLasFilas('inventario_siesa', 'referencia,cedi,proveedor,costo_unitario');
     const mapProveedor = new Map(), mapCosto = new Map();
-    (data || []).forEach(r => {
+    data.forEach(r => {
       const n = normalizarClaveInventario(r.referencia);
       if (n && r.proveedor && !mapProveedor.has(n)) mapProveedor.set(n, r.proveedor);
       if (n && r.cedi && r.costo_unitario != null) { const clave = n + '|' + r.cedi; if (!mapCosto.has(clave)) mapCosto.set(clave, Number(r.costo_unitario)); }
