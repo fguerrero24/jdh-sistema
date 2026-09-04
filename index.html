@@ -2702,6 +2702,13 @@ async function importarCargue() {
   const buffer = await archivo.arrayBuffer();
   const wb = XLSX.read(buffer, { type: 'array' });
   const filas = hojaConMasFilas(wb);
+  window.__DEBUG_FILAS_CARGUE = filas; // temporal, para diagnosticar el valor de venta -- se puede quitar después
+  if (filas.length) {
+    const claveValor = Object.keys(filas[0]).find(k => k.trim().toLowerCase() === 'valor subtotal');
+    const crudoDebug = claveValor ? filas[0][claveValor] : '(no se encontró la columna "Valor subtotal" en la primera fila)';
+    estado.textContent = `DEBUG -- valor crudo primera fila: ${JSON.stringify(crudoDebug)} (tipo ${typeof crudoDebug}) -> parseado: ${parsearMonedaFlexible(crudoDebug)}`;
+    await new Promise(r => setTimeout(r, 4000)); // deja el mensaje en pantalla un momento antes de seguir
+  }
 
   if (!filas.length) { estado.textContent = 'El archivo está vacío.'; return; }
 
