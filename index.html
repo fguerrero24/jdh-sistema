@@ -4506,6 +4506,7 @@ function renderInventarioWmsSimple() {
 let MAESTRA_INVENTARIO_CACHE = [];
 let MAESTRA_INVENTARIO_MAP = new Map();
 let SIESA_PROVEEDOR_MAP = new Map();
+let SIESA_COSTO_MAP = new Map(); // clave: "REFERENCIA|CEDI" -- el costo sí varía por CEDI, a diferencia del proveedor
 async function cargarMaestraVidaUtil() {
   try {
     const { data, error } = await sb.from('maestra_articulos_siesa').select('referencia,descripcion,costo_promedio_unitario,vida_util_dias,categoria,linea,grupo,proveedor').limit(50000);
@@ -4520,18 +4521,24 @@ async function cargarMaestraVidaUtil() {
     MAESTRA_INVENTARIO_CACHE = []; MAESTRA_INVENTARIO_MAP = new Map();
     console.warn('No fue posible cargar la maestra de artículos:', e);
   }
-  // El proveedor del archivo de Inventario SIESA es más fresco que el del
-  // catálogo de Maestra (mismo hallazgo que en SIESA vs WMS) -- se usa como
-  // fuente principal, y la Maestra queda de respaldo.
+  // El proveedor y el costo del archivo de Inventario SIESA son más frescos
+  // que los del catálogo de Maestra -- se usan como fuente principal, y la
+  // Maestra queda de respaldo. El costo, a diferencia del proveedor, se
+  // guarda por CEDI (el mismo producto puede costar distinto en cada uno).
   try {
-    const { data, error } = await sb.from('inventario_siesa').select('referencia,proveedor').not('proveedor', 'is', null).limit(50000);
+    const { data, error } = await sb.from('inventario_siesa').select('referencia,cedi,proveedor,costo_unitario').limit(50000);
     if (error) throw error;
-    const map = new Map();
-    (data || []).forEach(r => { const n = normalizarClaveInventario(r.referencia); if (n && r.proveedor && !map.has(n)) map.set(n, r.proveedor); });
-    SIESA_PROVEEDOR_MAP = map;
+    const mapProveedor = new Map(), mapCosto = new Map();
+    (data || []).forEach(r => {
+      const n = normalizarClaveInventario(r.referencia);
+      if (n && r.proveedor && !mapProveedor.has(n)) mapProveedor.set(n, r.proveedor);
+      if (n && r.cedi && r.costo_unitario != null) { const clave = n + '|' + r.cedi; if (!mapCosto.has(clave)) mapCosto.set(clave, Number(r.costo_unitario)); }
+    });
+    SIESA_PROVEEDOR_MAP = mapProveedor;
+    SIESA_COSTO_MAP = mapCosto;
   } catch (e) {
-    SIESA_PROVEEDOR_MAP = new Map();
-    console.warn('No fue posible cargar el proveedor de inventario SIESA:', e);
+    SIESA_PROVEEDOR_MAP = new Map(); SIESA_COSTO_MAP = new Map();
+    console.warn('No fue posible cargar el proveedor/costo de inventario SIESA:', e);
   }
 }
 
@@ -4572,14 +4579,26 @@ function diasRestantesInventario(fecha) {
   f.setHours(0,0,0,0);
   return Math.round((f-hoy)/86400000);
 }
+// El costo "real" a usar: primero el de Inventario SIESA para ESE CEDI
+// específico (más fresco, y sí varía por CEDI), y solo si no existe, el
+// único costo general de la Maestra de Artículos como respaldo. Devuelve
+// null (no 0) cuando de verdad no hay ningún costo disponible -- así se
+// puede distinguir "no sabemos el costo" de "vale $0 de verdad".
+function costoInventario(r, m) {
+  const refExtraida = extraerReferenciaWms(r.producto);
+  const claves = [refExtraida, r.referencia].map(normalizarClaveInventario).filter(Boolean);
+  for (const k of claves) { const c = SIESA_COSTO_MAP.get(k + '|' + r.cedi); if (c != null) return c; }
+  const costoMaestra = Number(m?.costo_promedio_unitario);
+  return costoMaestra > 0 ? costoMaestra : null;
+}
 function evaluarVidaInventario(r) {
   const m = metaMaestraInventario(r);
   const proveedor = proveedorInventario(r, m);
   const dias = diasRestantesInventario(r.fecha_caducidad);
   const vida = Number(m?.vida_util_dias);
-  const costo = Number(m?.costo_promedio_unitario) || 0;
-  const disponible = Number(r.cantidad_disponible) || 0;
-  const valor = disponible * costo;
+  const costo = costoInventario(r, m); // null si no hay costo -- ver costoInventario()
+  const existencia = Number(r.cantidad_inventario) || 0; // existencias reales, no "disponible" (que descuenta compromisos)
+  const valor = costo != null ? existencia * costo : null;
   if (dias == null) return { maestra:m, proveedor, dias, vida:vida>0?vida:null, pct:null, estado:'sinvida', valor, costo };
   if (dias <= 0) return { maestra:m, proveedor, dias, vida:vida>0?vida:null, pct:vida>0 ? (dias/vida)*100 : null, estado:'vencido', valor, costo };
   if (!(vida > 0)) return { maestra:m, proveedor, dias, vida:null, pct:null, estado:'sinvida', valor, costo };
@@ -4589,6 +4608,7 @@ function evaluarVidaInventario(r) {
 }
 function etiquetaEstadoInventario(e){ return ({vencido:'Vencido',critico:'Crítico',prioridad:'Prioridad',atencion:'Atención',normal:'Normal',sinvida:'Sin vida útil'})[e] || e; }
 function formatoCOP(v){ return '$' + Math.round(Number(v)||0).toLocaleString('es-CO'); }
+function formatoValorONuloVenc(v){ return v == null ? '<span style="color:var(--text-muted, #94a3b8);">Sin costo</span>' : formatoCOP(v); }
 // El cambio central de la reestructuración: no basta con alertar qué está
 // por vencer -- hay que sugerir qué hacer. Reglas simples, basadas en
 // estado + zona + proveedor, siguiendo la práctica de la industria de pasar
@@ -4596,7 +4616,7 @@ function formatoCOP(v){ return '$' + Math.round(Number(v)||0).toLocaleString('es
 function accionSugeridaVencimiento(r, e, zona) {
   if (e.estado === 'vencido') return { texto: 'Dar de baja / retirar del inventario disponible', prioridad: 1 };
   if (e.estado === 'critico' && zona === 'altura') return { texto: 'Bajar a Picking YA -- vence pronto y sigue en Altura', prioridad: 1 };
-  if (e.estado === 'critico') return { texto: 'Promocionar o despachar de inmediato', prioridad: 1 };
+  if (e.estado === 'critico') return { texto: 'Despachar de inmediato o entregar en mercados', prioridad: 1 };
   if (e.estado === 'prioridad' && zona === 'altura') return { texto: 'Programar bajada a Picking esta semana', prioridad: 2 };
   if (e.estado === 'prioridad') return { texto: e.proveedor ? `Priorizar despacho -- revisar con ${e.proveedor} si aplica devolución` : 'Priorizar despacho en las próximas rutas' , prioridad: 2 };
   if (e.estado === 'atencion') return { texto: 'Monitorear -- sin acción urgente todavía', prioridad: 3 };
@@ -4702,12 +4722,12 @@ function renderInventario() {
   const cont=document.getElementById('inv-tabla');
   document.getElementById('inv-tabla-note').textContent=`${filtrado.length.toLocaleString('es-CO')} registros visibles · ordenados por riesgo y vencimiento`;
   if(!filtrado.length){cont.innerHTML='<div class="inv-empty">No hay inventario que coincida con los filtros seleccionados.</div>';return;}
-  filtrado.sort((a,b)=>{const rank={vencido:0,critico:1,prioridad:2,atencion:3,normal:4,sinvida:5}; return (rank[a.e.estado]-rank[b.e.estado]) || ((a.e.dias??999999)-(b.e.dias??999999)) || (b.e.valor-a.e.valor);});
+  filtrado.sort((a,b)=>{const rank={vencido:0,critico:1,prioridad:2,atencion:3,normal:4,sinvida:5}; return (rank[a.e.estado]-rank[b.e.estado]) || ((a.e.dias??999999)-(b.e.dias??999999)) || ((b.e.valor||0)-(a.e.valor||0));});
   cont.innerHTML=`<table class="inv-table"><thead><tr><th>Estado</th><th>CEDI</th><th>Producto</th><th>Proveedor</th><th>Lote</th><th>Caducidad</th><th>Días</th><th>Vida restante</th><th>Valor</th><th>Acción sugerida</th></tr></thead><tbody>${filtrado.map(x=>{
     const r=x.r,e=x.e;const cls='risk-'+e.estado;
     const accion = accionSugeridaVencimiento(r, e, x.zona);
     const enProceso = marcadoEnProceso(r);
-    return `<tr style="cursor:pointer;" onclick='abrirDrawerVencimiento(${JSON.stringify({producto:r.producto,cedi:r.cedi,lote:r.lote,ubicacion:r.ubicacion,fecha_caducidad:r.fecha_caducidad,cantidad_disponible:r.cantidad_disponible,estado:e.estado,dias:e.dias,pct:e.pct,valor:e.valor,proveedor:e.proveedor,accion:accion.texto,zona:x.zona}).replace(/'/g, "&apos;")})'>
+    return `<tr style="cursor:pointer;" onclick='abrirDrawerVencimiento(${JSON.stringify({producto:r.producto,cedi:r.cedi,lote:r.lote,ubicacion:r.ubicacion,fecha_caducidad:r.fecha_caducidad,cantidad_inventario:r.cantidad_inventario,estado:e.estado,dias:e.dias,pct:e.pct,valor:e.valor,proveedor:e.proveedor,accion:accion.texto,zona:x.zona}).replace(/'/g, "&apos;")})'>
       <td><span class="inv-risk ${cls}">${etiquetaEstadoInventario(e.estado)}</span></td>
       <td>${tEsc(r.cedi||'—')}</td>
       <td class="inv-product">${tEsc(r.producto||'—')}</td>
@@ -4716,22 +4736,22 @@ function renderInventario() {
       <td>${r.fecha_caducidad?new Date(r.fecha_caducidad).toLocaleDateString('es-CO'):'—'}</td>
       <td style="font-weight:800;color:${e.dias!=null&&e.dias<=30?'#dc2626':'inherit'}">${e.dias??'—'}</td>
       <td class="inv-pct">${e.pct!=null?e.pct.toFixed(1)+'%':'—'}</td>
-      <td class="inv-money">${e.valor?formatoCOP(e.valor):'—'}</td>
+      <td class="inv-money">${formatoValorONuloVenc(e.valor)}</td>
       <td style="font-size:10.5px;max-width:180px;">${enProceso ? '<span style="color:#16a34a;font-weight:700;">✓ En proceso</span>' : tEsc(accion.texto)}</td>
     </tr>`}).join('')}</tbody></table>`;
 }
 function renderInventarioKpis(items){
-  const total=items.reduce((a,x)=>a+(Number(x.r.cantidad_disponible)||0),0), valor=items.reduce((a,x)=>a+x.e.valor,0);
-  const grupos=['vencido','critico','prioridad','atencion','normal']; const cards=grupos.map(g=>{const u=items.filter(x=>x.e.estado===g).reduce((a,x)=>a+(Number(x.r.cantidad_disponible)||0),0);const v=items.filter(x=>x.e.estado===g).reduce((a,x)=>a+x.e.valor,0);return {g,u,v}});
+  const total=items.reduce((a,x)=>a+(Number(x.r.cantidad_inventario)||0),0), valor=items.reduce((a,x)=>a+(x.e.valor||0),0);
+  const grupos=['vencido','critico','prioridad','atencion','normal']; const cards=grupos.map(g=>{const u=items.filter(x=>x.e.estado===g).reduce((a,x)=>a+(Number(x.r.cantidad_inventario)||0),0);const v=items.filter(x=>x.e.estado===g).reduce((a,x)=>a+(x.e.valor||0),0);return {g,u,v}});
   const riesgo = items.filter(x => ['vencido','critico','prioridad'].includes(x.e.estado));
-  const valorRiesgo = riesgo.reduce((a,x)=>a+x.e.valor,0);
+  const valorRiesgo = riesgo.reduce((a,x)=>a+(x.e.valor||0),0);
   const pctObsolescencia = valor ? (valorRiesgo/valor*100) : 0;
   const conDias = items.filter(x => x.e.dias != null && x.e.valor > 0);
   const diasPonderado = conDias.length ? conDias.reduce((a,x)=>a+x.e.dias*x.e.valor,0) / conDias.reduce((a,x)=>a+x.e.valor,0) : null;
   const k=(label,value,meta,cls,g)=>`<div class="inv-kpi ${cls}" data-kpi="${g}"><div class="inv-kpi-label">${label}</div><div class="inv-kpi-value">${value}</div><div class="inv-kpi-meta">${meta}</div></div>`;
   document.getElementById('inv-kpis').innerHTML=
-    k('Disponible',total.toLocaleString('es-CO'),'unidades', 'info','')+
-    k('Valor inventario',formatoCOP(valor),'costo promedio','info','')+
+    k('Existencia real',total.toLocaleString('es-CO'),'unidades (cantidad en inventario)', 'info','')+
+    k('Valor inventario',formatoCOP(valor),'costo por CEDI (SIESA)','info','')+
     k('% Obsolescencia', pctObsolescencia.toFixed(1)+'%', 'valor en riesgo / valor total', pctObsolescencia>15?'danger':pctObsolescencia>5?'warn':'', '')+
     k('Días de vida restante', diasPonderado!=null?Math.round(diasPonderado).toLocaleString('es-CO'):'—', 'promedio ponderado por valor', '', '')+
     k('Vencido',cards[0].u.toLocaleString('es-CO'),formatoCOP(cards[0].v),'danger','vencido')+
@@ -4747,12 +4767,30 @@ function renderInventarioKpis(items){
   }));
 }
 function renderInventarioExcepciones(items){
-  const riesgo=items.filter(x=>['vencido','critico','prioridad'].includes(x.e.estado)); const valor=riesgo.reduce((a,x)=>a+x.e.valor,0); const total=items.reduce((a,x)=>a+x.e.valor,0); const pct=total?Math.min(100,valor/total*100):0;
-  document.getElementById('inv-valor-riesgo').textContent=formatoCOP(valor); document.getElementById('inv-riesgo-progress').style.width=pct.toFixed(1)+'%'; document.getElementById('inv-riesgo-meta').textContent=`${pct.toFixed(1)}% del valor disponible · ${riesgo.length.toLocaleString('es-CO')} registros de riesgo`;
-  const top=riesgo.sort((a,b)=>{const rank={vencido:0,critico:1,prioridad:2};return rank[a.e.estado]-rank[b.e.estado] || (a.e.dias??999999)-(b.e.dias??999999) || b.e.valor-a.e.valor;}).slice(0,6);
+  const riesgo=items.filter(x=>['vencido','critico','prioridad'].includes(x.e.estado));
+  const valor=riesgo.reduce((a,x)=>a+(x.e.valor||0),0); const total=items.reduce((a,x)=>a+(x.e.valor||0),0); const pct=total?Math.min(100,valor/total*100):0;
+  document.getElementById('inv-riesgo-progress').style.width=pct.toFixed(1)+'%';
+  document.getElementById('inv-riesgo-meta').textContent=`${pct.toFixed(1)}% del valor total del inventario`;
+  // Desglose por estado dentro de la tarjeta de valor en riesgo
+  const porEstado = ['vencido','critico','prioridad'].map(g => {
+    const filas = riesgo.filter(x => x.e.estado === g);
+    return { g, cant: filas.length, val: filas.reduce((a,x)=>a+(x.e.valor||0),0) };
+  });
+  const colorEstado = { vencido:'#dc2626', critico:'#dc2626', prioridad:'#d97706' };
+  document.getElementById('inv-valor-riesgo').innerHTML = `
+    <div>${formatoCOP(valor)}</div>
+    <div style="font-size:10px;color:#94a3b8;font-weight:400;margin-top:2px;">${riesgo.length.toLocaleString('es-CO')} registros en riesgo</div>
+    <div style="height:1px;background:#e5e9f0;margin:10px 0;"></div>
+    ${porEstado.map(x => `<div style="display:flex;justify-content:space-between;align-items:center;padding:3px 0;font-size:11px;font-weight:400;">
+      <span style="color:${colorEstado[x.g]};">● ${etiquetaEstadoInventario(x.g)}</span>
+      <span>${x.cant.toLocaleString('es-CO')} · ${formatoCOP(x.val)}</span>
+    </div>`).join('')}
+  `;
+  // 30 excepciones, ordenadas por MAYOR VALOR EN RIESGO primero (no por estado/días)
+  const top=riesgo.slice().sort((a,b)=>(b.e.valor||0)-(a.e.valor||0)).slice(0,30);
   document.getElementById('inv-excepciones').innerHTML=top.length?top.map(x=>{
     const accion = accionSugeridaVencimiento(x.r, x.e, x.zona);
-    return `<div class="inv-alert-row" style="flex-wrap:wrap;"><div><strong>${tEsc(x.r.producto||'Sin producto')}</strong><div style="font-size:9px;color:#94a3b8;">${x.zona==='picking'?'Picking':x.zona==='altura'?'Altura':'Otras'} · ${tEsc(x.r.lote||'sin lote')} · ${tEsc(x.e.proveedor||'sin proveedor')}</div><div style="font-size:10px;color:#2563eb;margin-top:2px;">→ ${tEsc(accion.texto)}</div></div><span class="inv-risk risk-${x.e.estado}">${etiquetaEstadoInventario(x.e.estado)}</span><strong>${formatoCOP(x.e.valor)}</strong></div>`;
+    return `<div class="inv-alert-row" style="flex-wrap:wrap;"><div><strong>${tEsc(x.r.producto||'Sin producto')}</strong><div style="font-size:9px;color:#94a3b8;">${x.zona==='picking'?'Picking':x.zona==='altura'?'Altura':'Otras'} · ${tEsc(x.r.lote||'sin lote')} · ${tEsc(x.e.proveedor||'sin proveedor')}</div><div style="font-size:10px;color:#2563eb;margin-top:2px;">→ ${tEsc(accion.texto)}</div></div><span class="inv-risk risk-${x.e.estado}">${etiquetaEstadoInventario(x.e.estado)}</span><strong>${formatoValorONuloVenc(x.e.valor)}</strong></div>`;
   }).join(''):'<div class="inv-empty">No hay excepciones críticas con los datos cargados.</div>';
 }
 
@@ -4770,8 +4808,8 @@ function abrirDrawerVencimiento(d) {
       <div><div style="color:var(--modern-muted);font-size:10px;">Caducidad</div>${d.fecha_caducidad?new Date(d.fecha_caducidad).toLocaleDateString('es-CO'):'—'}</div>
       <div><div style="color:var(--modern-muted);font-size:10px;">Días restantes</div><strong>${d.dias ?? '—'}</strong></div>
       <div><div style="color:var(--modern-muted);font-size:10px;">Vida útil consumida</div>${d.pct!=null?(100-d.pct).toFixed(1)+'%':'—'}</div>
-      <div><div style="color:var(--modern-muted);font-size:10px;">Disponible</div>${Number(d.cantidad_disponible).toLocaleString('es-CO')}</div>
-      <div><div style="color:var(--modern-muted);font-size:10px;">Valor en riesgo</div><strong>${formatoCOP(d.valor)}</strong></div>
+      <div><div style="color:var(--modern-muted);font-size:10px;">Existencia real</div>${Number(d.cantidad_inventario).toLocaleString('es-CO')}</div>
+      <div><div style="color:var(--modern-muted);font-size:10px;">Valor en riesgo</div><strong>${formatoValorONuloVenc(d.valor)}</strong></div>
       <div style="grid-column:1/-1;"><div style="color:var(--modern-muted);font-size:10px;">Ubicación</div>${tEsc(d.ubicacion || '—')}</div>
     </div>
     <div style="background:#eff6ff;border-radius:10px;padding:12px;margin-top:14px;">
@@ -4862,9 +4900,9 @@ document.getElementById('btn-venc-sugerencias-ia').addEventListener('click', asy
 
   const filas = filasVencimientosFiltradasActuales()
     .filter(x => ['vencido', 'critico', 'prioridad'].includes(x.e.estado))
-    .sort((a, b) => (a.e.dias ?? 999999) - (b.e.dias ?? 999999))
-    .slice(0, 25)
-    .map(x => ({ producto: x.r.producto, lote: x.r.lote, cedi: x.r.cedi, dias_para_vencer: x.e.dias, disponible: x.r.cantidad_disponible, valor_en_riesgo: x.e.valor, zona: x.zona }));
+    .sort((a, b) => (b.e.valor||0) - (a.e.valor||0))
+    .slice(0, 30)
+    .map(x => ({ producto: x.r.producto, lote: x.r.lote, cedi: x.r.cedi, dias_para_vencer: x.e.dias, existencia: x.r.cantidad_inventario, valor_en_riesgo: x.e.valor, zona: x.zona }));
 
   if (!filas.length) { cont.textContent = 'No hay productos en riesgo con el filtro actual -- nada que priorizar.'; return; }
 
@@ -4881,7 +4919,7 @@ document.getElementById('btn-venc-exportar').addEventListener('click', () => {
     'Estado': etiquetaEstadoInventario(x.e.estado), 'CEDI': x.r.cedi, 'Producto': x.r.producto, 'Proveedor': x.e.proveedor,
     'Lote': x.r.lote, 'Zona': x.zona === 'picking' ? 'Picking' : x.zona === 'altura' ? 'Altura' : 'Otras',
     'Vencimiento': x.r.fecha_caducidad, 'Días': x.e.dias, 'Vida útil restante (%)': x.e.pct != null ? Number(x.e.pct.toFixed(1)) : null,
-    'Disponible': x.r.cantidad_disponible, 'Costo unitario': x.e.costo, 'Valor en riesgo': x.e.valor, 'Ubicación': x.r.ubicacion,
+    'Existencia real': x.r.cantidad_inventario, 'Costo unitario': x.e.costo, 'Valor en riesgo': x.e.valor, 'Ubicación': x.r.ubicacion,
     'Acción sugerida': accionSugeridaVencimiento(x.r, x.e, x.zona).texto,
   }));
   const hoja = XLSX.utils.json_to_sheet(filasExcel);
@@ -5061,6 +5099,7 @@ const TIPOS_IMPORTACION = {
       cedi: { alias: ['C.O. bodega'], tipo: 'texto', requerido: true }, // se traduce con MAPA_CO_BODEGA_CEDI
       cantidad: { alias: ['Cant. disponible'], tipo: 'numero' },
       proveedor: { alias: ['PROVEEDOR'], tipo: 'texto' }, // más fresco que el catálogo de Maestra
+      costo_unitario: { alias: ['Costo prom. uni.'], tipo: 'numero' }, // por CEDI, más fresco que el de la Maestra
     },
   },
 };
@@ -5118,9 +5157,11 @@ document.getElementById('btn-imp-procesar').addEventListener('click', async () =
       const cedi = MAPA_CO_BODEGA_CEDI[codigoCo];
       const cantidad = parsearMonedaFlexible(String(valorPorColumna(fila, ['Cant. disponible']) ?? '')) || 0;
       const proveedor = String(valorPorColumna(fila, ['PROVEEDOR']) ?? '').trim() || null;
+      const costoTexto = String(valorPorColumna(fila, ['Costo prom. uni.']) ?? '').trim();
+      const costo_unitario = costoTexto ? (parsearMonedaFlexible(costoTexto) || null) : null;
       if (!referencia) { sinReferencia++; return; }
       if (!cedi) { coDesconocido++; codigosDesconocidos.add(codigoCo); return; }
-      filasProcesadas.push({ referencia, cedi, cantidad, proveedor });
+      filasProcesadas.push({ referencia, cedi, cantidad, proveedor, costo_unitario });
     });
 
     IMPORTACION_FILAS_PROCESADAS = filasProcesadas;
@@ -5130,8 +5171,8 @@ document.getElementById('btn-imp-procesar').addEventListener('click', async () =
 
     document.getElementById('imp-preview').innerHTML = `
       <p style="font-size:12px;color:var(--text-secondary);">Vista previa (primeras 10 filas). Esta importación reemplaza TODO el inventario SIESA anterior, no lo acumula.</p>
-      <table class="hist-table open"><tr><th>Referencia</th><th>CEDI</th><th>Cantidad</th><th>Proveedor</th></tr>${
-        filasProcesadas.slice(0, 10).map(r => `<tr><td>${tEsc(r.referencia)}</td><td>${tEsc(r.cedi)}</td><td>${r.cantidad}</td><td>${tEsc(r.proveedor || '—')}</td></tr>`).join('')
+      <table class="hist-table open"><tr><th>Referencia</th><th>CEDI</th><th>Cantidad</th><th>Proveedor</th><th>Costo unitario</th></tr>${
+        filasProcesadas.slice(0, 10).map(r => `<tr><td>${tEsc(r.referencia)}</td><td>${tEsc(r.cedi)}</td><td>${r.cantidad}</td><td>${tEsc(r.proveedor || '—')}</td><td>${r.costo_unitario ?? '—'}</td></tr>`).join('')
       }</table>`;
     document.getElementById('btn-imp-confirmar').classList.toggle('hidden', filasProcesadas.length === 0);
     return;
