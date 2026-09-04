@@ -1830,10 +1830,31 @@ function fechaColombiaHoy() { return fechaColombia(new Date()); }
 // salario a veces "no funcionaban" en silencio si alguien escribía con formato.
 function parsearMoneda(texto) {
   if (texto === null || texto === undefined) return NaN;
+  if (typeof texto === 'number') return texto; // ya es un número real (ej. celda de Excel leída sin formato) -- no hay nada que reinterpretar
   let limpio = String(texto).trim().replace(/[^\d.,]/g, '');
   if (!limpio) return NaN;
-  if (limpio.includes(',')) {
-    limpio = limpio.replace(/\./g, '').replace(',', '.'); // puntos = miles, coma = decimal
+  const tieneComa = limpio.includes(',');
+  const tienePunto = limpio.includes('.');
+  if (tieneComa && tienePunto) {
+    // Aparecen los dos símbolos -- el que aparece MÁS A LA DERECHA es el
+    // separador decimal real (así distingue "1.234.567,89" colombiano de
+    // "1,234,567.89" inglés).
+    if (limpio.lastIndexOf(',') > limpio.lastIndexOf('.')) {
+      limpio = limpio.replace(/\./g, '').replace(',', '.');
+    } else {
+      limpio = limpio.replace(/,/g, '');
+    }
+  } else if (tieneComa) {
+    // Solo hay comas -- cuenta los dígitos después de la ÚLTIMA para saber si
+    // es decimal ("7,00", 2 dígitos) o separador de miles ("28,678", 3
+    // dígitos, o "1,234,567", varias comas de a 3 dígitos cada una).
+    const partes = limpio.split(',');
+    const digitosUltimaParte = partes[partes.length - 1].length;
+    if (partes.length === 2 && digitosUltimaParte !== 3) {
+      limpio = limpio.replace(',', '.'); // decimal, ej. "7,00" o "7,5"
+    } else {
+      limpio = limpio.replace(/,/g, ''); // miles, ej. "28,678" o "1,234,567"
+    }
   } else {
     limpio = limpio.replace(/\./g, ''); // sin coma: los puntos son de miles
   }
@@ -1849,9 +1870,14 @@ function parsearMoneda(texto) {
 // "162330.0000" (decimal, 4 dígitos) o "162330.5" (decimal, 1 dígito).
 function parsearMonedaFlexible(texto) {
   if (texto === null || texto === undefined) return NaN;
+  if (typeof texto === 'number') return texto; // ya es un número real -- sin ambigüedad que resolver
   const crudo = String(texto).trim();
   if (!crudo) return NaN;
-  if (crudo.includes(',')) return parsearMoneda(crudo); // coma presente = formato colombiano, sin ambigüedad
+  // Antes: "coma presente = formato colombiano, sin ambigüedad" -- eso
+  // resultó ser falso (Excel también usa coma como separador de miles, ej.
+  // "$28,678."), así que ahora también pasa por parsearMoneda(), que ya sabe
+  // distinguir ambos casos.
+  if (crudo.includes(',')) return parsearMoneda(crudo);
   const limpio = crudo.replace(/[^\d.]/g, '');
   const puntos = (limpio.match(/\./g) || []).length;
   if (puntos === 0) return Number(limpio); // entero plano, sin ambigüedad
