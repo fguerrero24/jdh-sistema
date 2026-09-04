@@ -4856,7 +4856,7 @@ function renderInventario() {
   document.getElementById('inv-tabla-note').textContent=`${filtrado.length.toLocaleString('es-CO')} registros visibles · ordenados por riesgo y vencimiento`;
   if(!filtrado.length){cont.innerHTML='<div class="inv-empty">No hay inventario que coincida con los filtros seleccionados.</div>';return;}
   filtrado.sort((a,b)=>{const rank={vencido:0,critico:1,prioridad:2,atencion:3,normal:4,sinvida:5}; return (rank[a.e.estado]-rank[b.e.estado]) || ((a.e.dias??999999)-(b.e.dias??999999)) || ((b.e.valor||0)-(a.e.valor||0));});
-  cont.innerHTML=`<table class="inv-table"><thead><tr><th>Estado</th><th>CEDI</th><th>Producto</th><th>Proveedor</th><th>Lote</th><th>Caducidad</th><th>Días</th><th>Vida restante</th><th>Valor</th><th>Acción sugerida</th></tr></thead><tbody>${filtrado.map(x=>{
+  cont.innerHTML=`<table class="inv-table"><thead><tr><th>Estado</th><th>CEDI</th><th>Producto</th><th>Proveedor</th><th>Lote</th><th>Cant. inventario</th><th>Caducidad</th><th>Días</th><th>Vida restante</th><th>Valor</th><th>Acción sugerida</th></tr></thead><tbody>${filtrado.map(x=>{
     const r=x.r,e=x.e;const cls='risk-'+e.estado;
     const accion = accionSugeridaVencimiento(r, e, x.zona);
     const enProceso = marcadoEnProceso(r);
@@ -4866,6 +4866,7 @@ function renderInventario() {
       <td class="inv-product">${tEsc(r.producto||'—')}</td>
       <td style="font-size:10.5px;">${tEsc(e.proveedor||'—')}</td>
       <td>${tEsc(r.lote||'—')}</td>
+      <td style="font-weight:700;">${Number(r.cantidad_inventario||0).toLocaleString('es-CO')}</td>
       <td>${r.fecha_caducidad?new Date(r.fecha_caducidad).toLocaleDateString('es-CO'):'—'}</td>
       <td style="font-weight:800;color:${e.dias!=null&&e.dias<=30?'#dc2626':'inherit'}">${e.dias??'—'}</td>
       <td class="inv-pct">${e.pct!=null?e.pct.toFixed(1)+'%':'—'}</td>
