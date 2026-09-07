@@ -4718,16 +4718,27 @@ async function traerInventario() {
   estado.textContent = 'Cargando inventario completo...';
 
   async function cargarInventarioWms() {
-    let rows = [], from = 0, pageSize = 1000;
+    const TAM_BLOQUE = 1000, PAGINAS_POR_LOTE = 6;
+    let rows = [], pagina = 0;
     while (true) {
-      let q = sb.from('inventario_wms').select('*').order('producto').range(from, from + pageSize - 1);
-      if (cedi) q = q.eq('cedi', cedi); else if (!puedeVerTodosLosCedis()) q = q.eq('cedi', SESION.cedi);
-      const { data, error } = await q;
-      if (error) throw error;
-      rows = rows.concat(data || []);
-      if (!data || data.length < pageSize) break;
-      from += pageSize;
-      if (from >= 50000) break;
+      const peticiones = Array.from({ length: PAGINAS_POR_LOTE }, (_, i) => {
+        const desde = (pagina + i) * TAM_BLOQUE;
+        let q = sb.from('inventario_wms').select('*').order('producto').range(desde, desde + TAM_BLOQUE - 1);
+        if (cedi) q = q.eq('cedi', cedi); else if (!puedeVerTodosLosCedis()) q = q.eq('cedi', SESION.cedi);
+        return q;
+      });
+      const resultados = await Promise.all(peticiones);
+      const errorEnAlguna = resultados.find(r => r.error);
+      if (errorEnAlguna) throw errorEnAlguna.error;
+      let llegoAlFinal = false;
+      for (const r of resultados) {
+        const data = r.data || [];
+        rows = rows.concat(data);
+        if (data.length < TAM_BLOQUE) { llegoAlFinal = true; break; }
+      }
+      if (llegoAlFinal) break;
+      pagina += PAGINAS_POR_LOTE;
+      if (pagina * TAM_BLOQUE >= 100000) break;
     }
     return rows;
   }
