@@ -1135,6 +1135,7 @@ input:focus,select:focus,textarea:focus{outline:none!important;border-color:#176
       <div class="inv-sync" style="display:flex;gap:8px;">
         <button class="btn ghost" id="btn-venc-exportar">Exportar a Excel</button>
         <button class="btn ghost" id="btn-venc-enviar-correo">📧 Enviar correo (CEDI filtrado)</button>
+        <button class="btn" id="btn-venc-enviar-seleccionados" disabled>📧 Enviar seleccionados</button>
         <button class="btn ghost" id="btn-venc-sugerencias-ia">🤖 Sugerencias IA</button>
         <button class="btn ghost" id="btn-venc-historico-resoluciones">📋 Histórico de resoluciones</button>
       </div>
@@ -4695,6 +4696,8 @@ function accionSugeridaVencimiento(r, e, zona) {
 
 let ACCIONES_VENCIMIENTOS_CACHE = [];
 let VENC_ESTADOS_ACTIVOS = new Set();
+let VENC_SELECCIONADOS = new Map(); // clave "producto|lote|cedi" -> datos del item, para enviar por correo
+let ENVIOS_VENCIMIENTOS_CACHE = new Set(); // claves "producto|lote|cedi" que ya se enviaron alguna vez
 let VENC_ZONAS_ACTIVAS = new Set();
 
 async function traerInventario() {
@@ -4727,6 +4730,8 @@ async function traerInventario() {
   const { data: acciones } = await sb.from('acciones_vencimientos').select('*').order('marcado_en', { ascending: false });
   ACCIONES_VENCIMIENTOS_CACHE = acciones || [];
   await resolverAutomaticamenteLotesAgotados();
+  const { data: envios } = await sb.from('envios_reporte_vencimientos').select('producto,lote,cedi');
+  ENVIOS_VENCIMIENTOS_CACHE = new Set((envios || []).map(e => `${e.producto}|${e.lote}|${e.cedi}`));
   estado.textContent = `${INVENTARIO_CACHE.length.toLocaleString('es-CO')} registros cargados. Vida útil: ${MAESTRA_INVENTARIO_MAP.size.toLocaleString('es-CO')} referencias disponibles en maestra.` +
     (VENC_ERRORES_CARGA.length ? ` ⚠️ ${VENC_ERRORES_CARGA.join(' | ')}` : '');
   if (VENC_ERRORES_CARGA.length) estado.style.color = '#dc2626';
@@ -4761,6 +4766,19 @@ function poblarCategoriasVencimientos() {
 
 function marcadoEnProceso(r) {
   return ACCIONES_VENCIMIENTOS_CACHE.find(a => a.producto === r.producto && a.lote === r.lote && a.cedi === r.cedi && a.estado === 'en_proceso');
+}
+
+function toggleVencSeleccionado(clave, item) {
+  if (VENC_SELECCIONADOS.has(clave)) VENC_SELECCIONADOS.delete(clave);
+  else VENC_SELECCIONADOS.set(clave, item);
+  actualizarBotonEnviarSeleccionados();
+}
+function actualizarBotonEnviarSeleccionados() {
+  const btn = document.getElementById('btn-venc-enviar-seleccionados');
+  if (!btn) return;
+  const n = VENC_SELECCIONADOS.size;
+  btn.textContent = n ? `📧 Enviar seleccionados (${n})` : '📧 Enviar seleccionados';
+  btn.disabled = n === 0;
 }
 
 document.getElementById('inv-filtro-cedi').addEventListener('change', traerInventario);
@@ -4854,12 +4872,16 @@ function renderInventario() {
   document.getElementById('inv-tabla-note').textContent=`${filtrado.length.toLocaleString('es-CO')} registros visibles · ordenados por riesgo y vencimiento`;
   if(!filtrado.length){cont.innerHTML='<div class="inv-empty">No hay inventario que coincida con los filtros seleccionados.</div>';return;}
   filtrado.sort((a,b)=>{const rank={vencido:0,critico:1,prioridad:2,atencion:3,normal:4,sinvida:5}; return (rank[a.e.estado]-rank[b.e.estado]) || ((a.e.dias??999999)-(b.e.dias??999999)) || ((b.e.valor||0)-(a.e.valor||0));});
-  cont.innerHTML=`<table class="inv-table"><thead><tr><th>Estado</th><th>Acción sugerida</th><th>Producto</th><th>Vida restante</th><th>Valor</th><th>Días</th><th>CEDI</th><th>Proveedor</th><th>Lote</th><th>Cant. inventario</th><th>Caducidad</th></tr></thead><tbody>${filtrado.map(x=>{
+  cont.innerHTML=`<table class="inv-table"><thead><tr><th></th><th>Estado</th><th>Acción sugerida</th><th>Producto</th><th>Vida restante</th><th>Valor</th><th>Días</th><th>CEDI</th><th>Proveedor</th><th>Lote</th><th>Cant. inventario</th><th>Caducidad</th></tr></thead><tbody>${filtrado.map(x=>{
     const r=x.r,e=x.e;const cls='risk-'+e.estado;
     const accion = accionSugeridaVencimiento(r, e, x.zona);
     const enProceso = marcadoEnProceso(r);
+    const claveEnvio = `${r.producto}|${r.lote}|${r.cedi}`;
+    const yaEnviado = ENVIOS_VENCIMIENTOS_CACHE.has(claveEnvio);
+    const marcado = VENC_SELECCIONADOS.has(claveEnvio);
     return `<tr style="cursor:pointer;" onclick='abrirDrawerVencimiento(${JSON.stringify({producto:r.producto,cedi:r.cedi,lote:r.lote,ubicacion:r.ubicacion,fecha_caducidad:r.fecha_caducidad,cantidad_inventario:r.cantidad_inventario,estado:e.estado,dias:e.dias,pct:e.pct,valor:e.valor,proveedor:e.proveedor,accion:accion.texto,zona:x.zona}).replace(/'/g, "&apos;")})'>
-      <td><span class="inv-risk ${cls}">${etiquetaEstadoInventario(e.estado)}</span></td>
+      <td onclick="event.stopPropagation()"><input type="checkbox" ${marcado?'checked':''} onchange='toggleVencSeleccionado(${JSON.stringify(claveEnvio)}, ${JSON.stringify({producto:r.producto,cedi:r.cedi,lote:r.lote,proveedor:e.proveedor,estado:e.estado,dias:e.dias,valor:e.valor,accion:accion.texto})})'></td>
+      <td><span class="inv-risk ${cls}">${etiquetaEstadoInventario(e.estado)}</span>${yaEnviado?' <span style="font-size:9px;color:#2563eb;font-weight:700;">✓ Enviado</span>':''}</td>
       <td style="font-size:10.5px;max-width:170px;white-space:normal;">${enProceso ? '<span style="color:#16a34a;font-weight:700;">✓ En proceso</span>' : tEsc(accion.texto)}</td>
       <td class="inv-product">${tEsc(r.producto||'—')}</td>
       <td class="inv-pct">${e.pct!=null?e.pct.toFixed(1)+'%':'—'}</td>
@@ -4871,6 +4893,7 @@ function renderInventario() {
       <td style="font-weight:700;">${Number(r.cantidad_inventario||0).toLocaleString('es-CO')}</td>
       <td>${r.fecha_caducidad?new Date(r.fecha_caducidad).toLocaleDateString('es-CO'):'—'}</td>
     </tr>`}).join('')}</tbody></table>`;
+  actualizarBotonEnviarSeleccionados();
 }
 function renderInventarioKpis(items){
   const total=items.reduce((a,x)=>a+(Number(x.r.cantidad_inventario)||0),0), valor=items.reduce((a,x)=>a+(x.e.valor||0),0);
@@ -5132,8 +5155,15 @@ document.getElementById('btn-venc-enviar-correo').addEventListener('click', asyn
     return;
   }
 
+  const items = filasVencimientosFiltradasActuales().map(x => ({
+    producto: x.r.producto, cedi: x.r.cedi, lote: x.r.lote, proveedor: x.e.proveedor,
+    estado: etiquetaEstadoInventario(x.e.estado), dias: x.e.dias, valor: x.e.valor,
+    accion: accionSugeridaVencimiento(x.r, x.e, x.zona).texto,
+  }));
+  if (!items.length) { mostrarToast('No hay registros con los filtros actuales para enviar.'); return; }
+
   estado.textContent = 'Enviando correo...';
-  const { data, error } = await sb.functions.invoke('enviar-informe-vencimientos', { body: { cedi, desde: null, hasta: null } });
+  const { data, error } = await sb.functions.invoke('enviar-informe-vencimientos', { body: { cedi, items } });
 
   if (error || (data && data.error)) {
     estado.textContent = 'Error al enviar: ' + (data?.error || error.message);
@@ -5141,6 +5171,32 @@ document.getElementById('btn-venc-enviar-correo').addEventListener('click', asyn
   }
   estado.textContent = `Correo enviado a: ${data.enviado_a.join(', ')} (${data.filas} registros incluidos).`;
   mostrarToast('Informe enviado correctamente.');
+  await traerInventario();
+});
+
+document.getElementById('btn-venc-enviar-seleccionados').addEventListener('click', async () => {
+  const estado = document.getElementById('inv-status');
+  const items = Array.from(VENC_SELECCIONADOS.values());
+  if (!items.length) { mostrarToast('No hay ninguna referencia seleccionada.'); return; }
+
+  const cedis = new Set(items.map(it => it.cedi));
+  if (cedis.size > 1) {
+    mostrarToast('Las referencias seleccionadas son de varios CEDIs distintos -- selecciona solo las de un CEDI a la vez.');
+    return;
+  }
+  const cedi = items[0].cedi;
+
+  estado.textContent = 'Enviando correo...';
+  const { data, error } = await sb.functions.invoke('enviar-informe-vencimientos', { body: { cedi, items } });
+
+  if (error || (data && data.error)) {
+    estado.textContent = 'Error al enviar: ' + (data?.error || error.message);
+    return;
+  }
+  estado.textContent = `Correo enviado a: ${data.enviado_a.join(', ')} (${data.filas} registros incluidos).`;
+  mostrarToast('Informe enviado correctamente.');
+  VENC_SELECCIONADOS.clear();
+  await traerInventario();
 });
 
 // ---------- Pestaña: Rotación FEFO ----------
@@ -5293,7 +5349,7 @@ const TIPOS_IMPORTACION = {
     columnas: {
       referencia: { alias: ['Referencia'], tipo: 'texto', requerido: true },
       cedi: { alias: ['C.O. bodega'], tipo: 'texto', requerido: true }, // se traduce con MAPA_CO_BODEGA_CEDI
-      cantidad: { alias: ['Cant. disponible'], tipo: 'numero' },
+      cantidad: { alias: ['Existencia'], tipo: 'numero' }, // existencia real, no "Cant. disponible" (que descuenta compromisos)
       proveedor: { alias: ['PROVEEDOR'], tipo: 'texto' }, // más fresco que el catálogo de Maestra
       costo_unitario: { alias: ['Costo prom. uni.'], tipo: 'numero' }, // por CEDI, más fresco que el de la Maestra
     },
@@ -5351,7 +5407,7 @@ document.getElementById('btn-imp-procesar').addEventListener('click', async () =
       const referencia = String(valorPorColumna(fila, ['Referencia']) ?? '').trim();
       const codigoCo = normalizarCodigoCo(valorPorColumna(fila, ['C.O. bodega', 'C.O. docto.']));
       const cedi = MAPA_CO_BODEGA_CEDI[codigoCo];
-      const cantidad = parsearMonedaFlexible(String(valorPorColumna(fila, ['Cant. disponible']) ?? '')) || 0;
+      const cantidad = parsearMonedaFlexible(String(valorPorColumna(fila, ['Existencia']) ?? '')) || 0; // existencia real, no "Cant. disponible"
       const proveedor = String(valorPorColumna(fila, ['PROVEEDOR']) ?? '').trim() || null;
       const costoTexto = String(valorPorColumna(fila, ['Costo prom. uni.']) ?? '').trim();
       const costo_unitario = costoTexto ? (parsearMonedaFlexible(costoTexto) || null) : null;
