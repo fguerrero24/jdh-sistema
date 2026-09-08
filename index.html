@@ -4720,9 +4720,21 @@ async function traerInventario() {
   // cruzarlos aquí -- eso lo hace la base de datos (vista materializada +
   // función analisis_vencimientos), mucho más rápido. Solo se pide el
   // resultado ya calculado.
+  //
+  // OJO: Supabase corta cada respuesta en 1.000 filas por defecto (mismo
+  // límite que ya nos mordió antes en SIESA vs WMS) -- se pide en bloques
+  // de 1.000 hasta traer todo el resultado completo.
   const cediEfectivo = cedi || (!puedeVerTodosLosCedis() ? SESION.cedi : null);
-  const { data, error } = await sb.rpc('analisis_vencimientos', { p_cedi: cediEfectivo });
-  if (error) { estado.textContent = 'Error al cargar: ' + error.message; return; }
+  const TAM_BLOQUE = 1000;
+  let data = [], desde = 0;
+  while (true) {
+    const { data: bloque, error } = await sb.rpc('analisis_vencimientos', { p_cedi: cediEfectivo }).range(desde, desde + TAM_BLOQUE - 1);
+    if (error) { estado.textContent = 'Error al cargar: ' + error.message; return; }
+    data = data.concat(bloque || []);
+    estado.textContent = `Cargando análisis de vencimientos... ${data.length.toLocaleString('es-CO')} filas`;
+    if (!bloque || bloque.length < TAM_BLOQUE) break;
+    desde += TAM_BLOQUE;
+  }
 
   INVENTARIO_CACHE = (data || []).map(row => ({
     r: {
