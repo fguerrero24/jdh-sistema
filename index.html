@@ -4424,7 +4424,6 @@ async function cargarLiquidaciones() {
 let INVENTARIO_CACHE = [];
 
 async function cargarModuloInventario() {
-  await cargarMaestraVidaUtil();
   const selCedi = document.getElementById('inv-filtro-cedi');
   if (selCedi.options.length <= 1) {
     CEDIS_VALIDOS.forEach(c => selCedi.insertAdjacentHTML('beforeend', `<option value="${c}">${c}</option>`));
@@ -4715,49 +4714,36 @@ let VENC_ZONAS_ACTIVAS = new Set();
 async function traerInventario() {
   const estado = document.getElementById('inv-status');
   const cedi = document.getElementById('inv-filtro-cedi').value;
-  estado.textContent = 'Cargando inventario completo...';
+  estado.textContent = 'Cargando análisis de vencimientos...';
 
-  async function cargarInventarioWms() {
-    const TAM_BLOQUE = 1000, PAGINAS_POR_LOTE = 6;
-    let rows = [], pagina = 0;
-    while (true) {
-      const peticiones = Array.from({ length: PAGINAS_POR_LOTE }, (_, i) => {
-        const desde = (pagina + i) * TAM_BLOQUE;
-        let q = sb.from('inventario_wms').select('*').order('producto').range(desde, desde + TAM_BLOQUE - 1);
-        if (cedi) q = q.eq('cedi', cedi); else if (!puedeVerTodosLosCedis()) q = q.eq('cedi', SESION.cedi);
-        return q;
-      });
-      const resultados = await Promise.all(peticiones);
-      const errorEnAlguna = resultados.find(r => r.error);
-      if (errorEnAlguna) throw errorEnAlguna.error;
-      let llegoAlFinal = false;
-      for (const r of resultados) {
-        const data = r.data || [];
-        rows = rows.concat(data);
-        if (data.length < TAM_BLOQUE) { llegoAlFinal = true; break; }
-      }
-      if (llegoAlFinal) break;
-      pagina += PAGINAS_POR_LOTE;
-      if (pagina * TAM_BLOQUE >= 100000) break;
-    }
-    return rows;
-  }
+  // Ya no se trae el inventario completo ni la Maestra al navegador para
+  // cruzarlos aquí -- eso lo hace la base de datos (vista materializada +
+  // función analisis_vencimientos), mucho más rápido. Solo se pide el
+  // resultado ya calculado.
+  const cediEfectivo = cedi || (!puedeVerTodosLosCedis() ? SESION.cedi : null);
+  const { data, error } = await sb.rpc('analisis_vencimientos', { p_cedi: cediEfectivo });
+  if (error) { estado.textContent = 'Error al cargar: ' + error.message; return; }
 
-  // Las 3 fuentes de datos son independientes entre sí -- se piden todas al
-  // mismo tiempo en vez de una detrás de otra.
-  const [inventarioWms] = await Promise.all([
-    cargarInventarioWms().catch(e => { estado.textContent = 'Error al cargar: ' + e.message; return []; }),
-    (!MAESTRA_INVENTARIO_MAP.size ? cargarMaestraVidaUtil() : Promise.resolve()),
-  ]);
-  INVENTARIO_CACHE = inventarioWms;
+  INVENTARIO_CACHE = (data || []).map(row => ({
+    r: {
+      producto: row.producto, cedi: row.cedi, lote: row.lote, ubicacion: row.ubicacion,
+      fecha_caducidad: row.fecha_caducidad, cantidad_inventario: row.cantidad_inventario,
+      codigo_barras_ubicacion: row.codigo_barras_ubicacion, referencia: row.referencia_wms,
+    },
+    e: {
+      proveedor: row.proveedor, categoria: row.categoria, dias: row.dias_restantes,
+      vida: row.vida_util_dias, pct: row.pct_vida_restante, estado: row.estado,
+      valor: row.valor, costo: row.costo_unitario,
+    },
+    zona: row.zona,
+  }));
+
   const { data: acciones } = await sb.from('acciones_vencimientos').select('*').order('marcado_en', { ascending: false });
   ACCIONES_VENCIMIENTOS_CACHE = acciones || [];
   await resolverAutomaticamenteLotesAgotados();
   const { data: envios } = await sb.from('envios_reporte_vencimientos').select('producto,lote,cedi');
   ENVIOS_VENCIMIENTOS_CACHE = new Set((envios || []).map(e => `${e.producto}|${e.lote}|${e.cedi}`));
-  estado.textContent = `${INVENTARIO_CACHE.length.toLocaleString('es-CO')} registros cargados. Vida útil: ${MAESTRA_INVENTARIO_MAP.size.toLocaleString('es-CO')} referencias disponibles en maestra.` +
-    (VENC_ERRORES_CARGA.length ? ` ⚠️ ${VENC_ERRORES_CARGA.join(' | ')}` : '');
-  if (VENC_ERRORES_CARGA.length) estado.style.color = '#dc2626';
+  estado.textContent = `${INVENTARIO_CACHE.length.toLocaleString('es-CO')} registros cargados.`;
   poblarCategoriasVencimientos();
   renderInventario();
 }
@@ -4770,7 +4756,7 @@ async function traerInventario() {
 async function resolverAutomaticamenteLotesAgotados() {
   const enProceso = ACCIONES_VENCIMIENTOS_CACHE.filter(a => a.estado === 'en_proceso');
   if (!enProceso.length) return;
-  const clavesVivas = new Set(INVENTARIO_CACHE.map(r => `${r.producto}|${r.lote}|${r.cedi}`));
+  const clavesVivas = new Set(INVENTARIO_CACHE.map(x => `${x.r.producto}|${x.r.lote}|${x.r.cedi}`));
   const agotados = enProceso.filter(a => !clavesVivas.has(`${a.producto}|${a.lote}|${a.cedi}`));
   if (!agotados.length) return;
   const { error } = await sb.from('acciones_vencimientos')
@@ -4783,7 +4769,7 @@ async function resolverAutomaticamenteLotesAgotados() {
 
 function poblarCategoriasVencimientos() {
   const sel = document.getElementById('venc-filtro-categoria');
-  const categorias = [...new Set(INVENTARIO_CACHE.map(r => metaMaestraInventario(r)?.categoria).filter(Boolean))].sort();
+  const categorias = [...new Set(INVENTARIO_CACHE.map(x => x.e.categoria).filter(Boolean))].sort();
   sel.innerHTML = '<option value="">Todas</option>' + categorias.map(c => `<option value="${tEsc(c)}">${tEsc(c)}</option>`).join('');
 }
 
@@ -4812,9 +4798,9 @@ document.getElementById('inv-filtro-producto').addEventListener('input', (e) => 
   if (!texto) { lista.classList.add('hidden'); return; }
   const vistos = new Set();
   const coincidencias = [];
-  for (const r of INVENTARIO_CACHE) {
-    const ev = evaluarVidaInventario(r);
-    const coincide = [r.producto, r.referencia, r.lote, ev.proveedor].some(v => (v || '').toLowerCase().includes(texto));
+  for (const x of INVENTARIO_CACHE) {
+    const r = x.r, ev = x.e;
+    const coincide = [r.producto, r.lote, ev.proveedor].some(v => (v || '').toLowerCase().includes(texto));
     if (!coincide) continue;
     const clave = (r.producto || '') + '|' + (r.lote || '');
     if (vistos.has(clave)) continue;
@@ -4855,7 +4841,7 @@ document.getElementById('venc-filtro-proveedor-texto').addEventListener('input',
   const lista = document.getElementById('venc-proveedor-lista');
   renderInventario();
   if (!texto) { lista.classList.add('hidden'); return; }
-  const proveedores = [...new Set(INVENTARIO_CACHE.map(r => evaluarVidaInventario(r).proveedor).filter(Boolean))]
+  const proveedores = [...new Set(INVENTARIO_CACHE.map(x => x.e.proveedor).filter(Boolean))]
     .filter(p => p.toLowerCase().includes(texto)).sort().slice(0, 15);
   if (!proveedores.length) { lista.innerHTML = '<div class="svw-autocomplete-item" style="color:var(--modern-muted);">Sin coincidencias</div>'; lista.classList.remove('hidden'); return; }
   lista.innerHTML = proveedores.map(p => `<div class="svw-autocomplete-item" data-valor="${tEsc(p)}">${tEsc(p)}</div>`).join('');
@@ -4879,14 +4865,14 @@ function renderInventario() {
   const texto = document.getElementById('inv-filtro-producto').value.trim().toLowerCase();
   const proveedorTexto = document.getElementById('venc-filtro-proveedor-texto').value.trim().toLowerCase();
   const categoria = document.getElementById('venc-filtro-categoria').value;
-  const enriched = INVENTARIO_CACHE.map(r => ({r,e:evaluarVidaInventario(r),zona:zonaInventario(r.ubicacion)}));
+  const enriched = INVENTARIO_CACHE;
   const filtrado = enriched.filter(x => {
     const r=x.r,e=x.e;
     const textoOk=!texto || [r.producto,r.referencia,r.lote,r.ubicacion,r.codigo_barras_ubicacion,e.proveedor].some(v=>String(v||'').toLowerCase().includes(texto));
     const zonaOk = VENC_ZONAS_ACTIVAS.size === 0 || VENC_ZONAS_ACTIVAS.has(x.zona);
     const critOk = VENC_ESTADOS_ACTIVOS.size === 0 || VENC_ESTADOS_ACTIVOS.has(e.estado);
     const provOk = !proveedorTexto || (e.proveedor || '').toLowerCase().includes(proveedorTexto);
-    const catOk = !categoria || e.maestra?.categoria === categoria;
+    const catOk = !categoria || e.categoria === categoria;
     return textoOk && zonaOk && critOk && provOk && catOk;
   });
   renderInventarioKpis(enriched);
@@ -5096,13 +5082,13 @@ function filasVencimientosFiltradasActuales() {
   const texto = document.getElementById('inv-filtro-producto').value.trim().toLowerCase();
   const proveedorTexto = document.getElementById('venc-filtro-proveedor-texto').value.trim().toLowerCase();
   const categoria = document.getElementById('venc-filtro-categoria').value;
-  return INVENTARIO_CACHE.map(r => ({ r, e: evaluarVidaInventario(r), zona: zonaInventario(r.ubicacion) })).filter(x => {
+  return INVENTARIO_CACHE.filter(x => {
     const r = x.r, e = x.e;
-    const textoOk = !texto || [r.producto, r.lote, r.ubicacion, r.codigo_barras_ubicacion].some(v => String(v || '').toLowerCase().includes(texto));
+    const textoOk = !texto || [r.producto, r.lote, r.ubicacion, r.codigo_barras_ubicacion, r.referencia].some(v => String(v || '').toLowerCase().includes(texto));
     const zonaOk = VENC_ZONAS_ACTIVAS.size === 0 || VENC_ZONAS_ACTIVAS.has(x.zona);
     const critOk = VENC_ESTADOS_ACTIVOS.size === 0 || VENC_ESTADOS_ACTIVOS.has(e.estado);
     const provOk = !proveedorTexto || (e.proveedor || '').toLowerCase().includes(proveedorTexto);
-    const catOk = !categoria || e.maestra?.categoria === categoria;
+    const catOk = !categoria || e.categoria === categoria;
     return textoOk && zonaOk && critOk && provOk && catOk;
   });
 }
@@ -5630,6 +5616,12 @@ document.getElementById('btn-imp-confirmar').addEventListener('click', async () 
     : `Listo -- ${importados} registro(s) importados/actualizados en "${config.tabla}".`;
   mostrarToast('Importación completada.');
   document.getElementById('btn-imp-confirmar').classList.add('hidden');
+  // Si se importó la Maestra de Artículos, hay que refrescar la vista
+  // materializada de Vencimientos (que depende de esos datos).
+  if (config.tabla === 'maestra_articulos_siesa') {
+    const { error: errorRefrescoVenc } = await sb.rpc('refrescar_vencimientos');
+    if (errorRefrescoVenc) console.warn('No se pudo refrescar la vista de Vencimientos:', errorRefrescoVenc.message);
+  }
 });
 
 // ============================================================
