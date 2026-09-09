@@ -5455,7 +5455,7 @@ document.getElementById('btn-imp-procesar').addEventListener('click', async () =
   estado.textContent = 'Leyendo archivo...';
   const buffer = await archivo.arrayBuffer();
   const wb = XLSX.read(buffer, { type: 'array' });
-  const filasArchivo = hojaConMasFilas(wb);
+  const filasArchivo = hojaConMasFilas(wb, true); // raw:true -- evita que formatos de celda rotos (ej. "$#,##0.") corrompan los números
 
   if (!filasArchivo.length) { estado.textContent = 'El archivo está vacío o no se pudo leer.'; return; }
 
