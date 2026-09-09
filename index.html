@@ -5466,7 +5466,7 @@ document.getElementById('btn-imp-procesar').addEventListener('click', async () =
     let faltaRequerido = false;
     for (const [campoDb, def] of Object.entries(config.columnas)) {
       let v = valorPorColumna(fila, def.alias);
-      if (def.tipo === 'numero' && v !== null) v = parsearMoneda(String(v)) || Number(v) || null;
+      if (def.tipo === 'numero' && v !== null) { const n = parsearMonedaFlexible(v); v = Number.isNaN(n) ? null : n; }
       if (def.requerido && (v === null || v === '')) faltaRequerido = true;
       registro[campoDb] = v;
     }
