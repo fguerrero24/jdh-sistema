@@ -1037,6 +1037,7 @@ input:focus,select:focus,textarea:focus{outline:none!important;border-color:#176
       <div class="sidebar-item sidebar-sub hidden" data-modulo="vencimientos" style="padding-left:38px;font-size:11.5px;">Vencimientos</div>
       <div class="sidebar-item sidebar-sub hidden" data-modulo="importacion-maestros" style="padding-left:38px;font-size:11.5px;">Importación de Maestros</div>
       <div class="sidebar-item sidebar-sub hidden" data-modulo="siesa-vs-wms" style="padding-left:38px;font-size:11.5px;">SIESA vs WMS</div>
+      <div class="sidebar-item sidebar-sub hidden" data-modulo="inventarios-ciclicos" style="padding-left:38px;font-size:11.5px;">Inventarios Cíclicos</div>
       <div class="sidebar-item" data-modulo-grupo="recepcion" id="grupo-recepcion"><i class="ti ti-truck-delivery"></i>Recepción y despacho<i class="ti ti-chevron-down" style="margin-left:auto;font-size:13px;"></i></div>
       <div class="sidebar-item sidebar-sub hidden" data-modulo="recepcion-importar" style="padding-left:38px;font-size:11.5px;">Importar cargue</div>
       <div class="sidebar-item sidebar-sub hidden" data-modulo="recepcion-rutas" style="padding-left:38px;font-size:11.5px;">Rutas del día</div>
@@ -1225,6 +1226,7 @@ input:focus,select:focus,textarea:focus{outline:none!important;border-color:#176
               <select id="imp-tipo">
                 <option value="maestra_articulos_siesa">Maestra de Artículos (SIESA)</option>
                 <option value="inventario_siesa">Inventario SIESA (existencias por CEDI)</option>
+                <option value="maestro_bodegas">Maestro de Bodegas (Inventarios Cíclicos)</option>
               </select>
             </div>
             <div class="indicator-field"><label>Archivo (.xlsx o .csv)</label><input type="file" id="imp-archivo" accept=".xlsx,.xls,.csv"></div>
@@ -1310,6 +1312,58 @@ input:focus,select:focus,textarea:focus{outline:none!important;border-color:#176
             <div id="svw-drawer" class="hidden" style="position:fixed;right:0;top:0;bottom:0;width:380px;background:var(--modern-panel);box-shadow:-8px 0 24px rgba(0,0,0,.15);padding:20px;overflow-y:auto;" onclick="event.stopPropagation()">
               <div id="svw-drawer-contenido"></div>
             </div>
+          </div>
+        </div>
+
+        <div id="view-inventarios-ciclicos" class="hidden">
+          <div class="inv-hero">
+            <div class="inv-hero-top">
+              <div><div class="inv-eyebrow">JDH · Inventory Control Tower</div><div class="inv-title">Inventarios Cíclicos</div><div class="inv-subtitle">Conteo físico contra el teórico de SIESA -- información, excepción, decisión, acción.</div></div>
+              <div class="inv-sync" style="display:flex;gap:8px;">
+                <button class="btn ghost" id="btn-ic-importar-conteo"><i class="ti ti-upload"></i> Importar conteo</button>
+                <button class="btn" id="btn-ic-cerrar-ciclo"><i class="ti ti-lock"></i> Cerrar ciclo</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="inv-filterbar">
+            <div class="inv-filter-row" style="grid-template-columns:1fr auto;">
+              <div class="inv-filter"><label>CEDI</label><select id="ic-filtro-cedi"><option value="">Elige un CEDI...</option></select></div>
+              <button class="btn" id="btn-ic-consultar">Consultar</button>
+            </div>
+          </div>
+
+          <div id="ic-status" style="font-size:11px;color:var(--text-secondary);margin:8px 2px;"></div>
+          <div id="ic-kpis" class="inv-kpis"></div>
+
+          <div style="display:flex;gap:8px;margin:12px 0;justify-content:center;">
+            <button class="btn ghost admin-tab active" id="tab-ic-analisis" style="display:flex;align-items:center;justify-content:center;text-align:center;">Análisis</button>
+            <button class="btn ghost admin-tab" id="tab-ic-cronograma" style="display:flex;align-items:center;justify-content:center;text-align:center;">Cronograma</button>
+            <button class="btn ghost admin-tab" id="tab-ic-historico" style="display:flex;align-items:center;justify-content:center;text-align:center;">Histórico de cierres</button>
+          </div>
+
+          <div id="panel-ic-analisis">
+            <div class="inv-filter svw-autocomplete-wrap" style="margin-bottom:10px;"><label>Buscar por código o producto</label><input type="text" id="ic-filtro-texto" placeholder="Escribe para buscar..." autocomplete="off"></div>
+            <div class="inv-section"><div class="inv-table-wrap" id="ic-tabla-analisis"></div></div>
+          </div>
+
+          <div id="panel-ic-cronograma" class="hidden">
+            <div class="inv-filterbar">
+              <div class="inv-filter-row" style="grid-template-columns:1fr auto;">
+                <div class="inv-filter"><label>Meta de referencias a contar por mes en este CEDI</label><input type="number" id="ic-meta-mensual" min="0" placeholder="ej. 200"></div>
+                <button class="btn ghost" id="btn-ic-guardar-meta">Guardar meta</button>
+              </div>
+            </div>
+            <div class="inv-section"><div class="inv-section-head"><div class="inv-section-title">Cumplimiento por mes</div></div><div id="ic-cumplimiento-mensual" style="padding:10px;"></div></div>
+            <div class="inv-section" style="margin-top:14px;"><div class="inv-section-head"><div class="inv-section-title">Próximo a contar (según Pareto + criticidad)</div></div><div class="inv-table-wrap" id="ic-tabla-cronograma"></div></div>
+          </div>
+
+          <div id="panel-ic-historico" class="hidden">
+            <div class="inv-section"><div class="inv-table-wrap" id="ic-tabla-historico"></div></div>
+          </div>
+
+          <div id="ic-modal-backdrop" class="hidden" style="position:fixed;inset:0;background:rgba(15,23,42,.5);z-index:9600;display:flex;align-items:center;justify-content:center;">
+            <div id="ic-modal-contenido" style="background:var(--modern-panel);border-radius:16px;padding:24px;max-width:520px;width:92%;max-height:85vh;overflow-y:auto;"></div>
           </div>
         </div>
 
@@ -2004,7 +2058,7 @@ async function cargarSesionYArrancar() {
 // módulo de permisos (ej. "Empleados y Asistencia" cubre 2 módulos).
 const MAPA_MENU_A_PERMISO = {
   'torre': ['torre'], 'indicadores': ['indicadores'], 'inventario-wms': ['inventario'], 'vencimientos': ['vencimientos'],
-  'importacion-maestros': ['importacion-maestros'], 'siesa-vs-wms': ['siesa-vs-wms'],
+  'importacion-maestros': ['importacion-maestros'], 'siesa-vs-wms': ['siesa-vs-wms'], 'inventarios-ciclicos': ['inventarios-ciclicos'],
   'recepcion-importar': ['importar-cargue'], 'recepcion-rutas': ['rutas-del-dia'], 'recepcion-ranking': ['ranking-auditores'],
   'reportes': ['reportes'],
   'rrhh-empleados': ['empleados', 'asistencia'], 'rrhh-registros': ['registros'], 'rrhh-nomina': ['liquidador-nomina'],
@@ -2015,7 +2069,7 @@ const MAPA_MENU_A_PERMISO = {
 // Qué ítems de menú pertenecen a cada grupo desplegable (para poder ocultar
 // el grupo COMPLETO si ninguno de sus hijos quedó visible).
 const GRUPOS_MENU = {
-  'grupo-inventario': ['inventario-wms', 'vencimientos', 'importacion-maestros', 'siesa-vs-wms'],
+  'grupo-inventario': ['inventario-wms', 'vencimientos', 'importacion-maestros', 'siesa-vs-wms', 'inventarios-ciclicos'],
   'grupo-recepcion': ['recepcion-importar', 'recepcion-rutas', 'recepcion-ranking'],
   'grupo-rrhh': ['rrhh-empleados', 'rrhh-registros', 'rrhh-nomina', 'rrhh-control-semana', 'rrhh-liquidador', 'rrhh-cedi', 'rrhh-compensatorios', 'rrhh-historico'],
   'grupo-nomina': ['rrhh-nomina', 'rrhh-control-semana', 'rrhh-liquidador', 'rrhh-cedi', 'rrhh-compensatorios', 'rrhh-historico'],
@@ -2074,7 +2128,7 @@ function mostrarLogin(mensaje) {
 // NAVEGACIÓN ENTRE MÓDULOS
 // ============================================================
 const NOMBRES_MODULO = {
-  torre: 'Torre de control', indicadores: 'Indicadores', 'inventario-wms': 'Inventario · Inventario WMS', vencimientos: 'Inventario · Vencimientos', 'importacion-maestros': 'Inventario · Importación de Maestros', 'siesa-vs-wms': 'Inventario · SIESA vs WMS',
+  torre: 'Torre de control', indicadores: 'Indicadores', 'inventario-wms': 'Inventario · Inventario WMS', vencimientos: 'Inventario · Vencimientos', 'importacion-maestros': 'Inventario · Importación de Maestros', 'siesa-vs-wms': 'Inventario · SIESA vs WMS', 'inventarios-ciclicos': 'Inventario · Inventarios Cíclicos',
   'recepcion-importar': 'Recepción y despacho · Importar cargue',
   'recepcion-rutas': 'Recepción y despacho · Rutas del día',
   'recepcion-ranking': 'Recepción y despacho · Ranking de auditores',
@@ -2094,7 +2148,7 @@ document.querySelectorAll('.sidebar-item[data-modulo]').forEach(el => {
 });
 
 document.getElementById('grupo-inventario').addEventListener('click', () => {
-  document.querySelectorAll('.sidebar-sub[data-modulo="inventario-wms"], .sidebar-sub[data-modulo="vencimientos"], .sidebar-sub[data-modulo="importacion-maestros"], .sidebar-sub[data-modulo="siesa-vs-wms"]').forEach(el => el.classList.toggle('hidden'));
+  document.querySelectorAll('.sidebar-sub[data-modulo="inventario-wms"], .sidebar-sub[data-modulo="vencimientos"], .sidebar-sub[data-modulo="importacion-maestros"], .sidebar-sub[data-modulo="siesa-vs-wms"], .sidebar-sub[data-modulo="inventarios-ciclicos"]').forEach(el => el.classList.toggle('hidden'));
 });
 document.getElementById('grupo-recepcion').addEventListener('click', () => {
   document.querySelectorAll('#grupo-recepcion ~ .sidebar-sub[data-modulo^="recepcion-"]').forEach(el => el.classList.toggle('hidden'));
@@ -2142,6 +2196,7 @@ function cambiarModulo(modulo) {
   document.getElementById('view-vencimientos').classList.toggle('hidden', modulo !== 'vencimientos' || bloqueado);
   document.getElementById('view-importacion-maestros').classList.toggle('hidden', modulo !== 'importacion-maestros' || bloqueado);
   document.getElementById('view-siesa-vs-wms').classList.toggle('hidden', modulo !== 'siesa-vs-wms' || bloqueado);
+  document.getElementById('view-inventarios-ciclicos').classList.toggle('hidden', modulo !== 'inventarios-ciclicos' || bloqueado);
   document.getElementById('view-locked').classList.toggle('hidden', !bloqueado);
 
   if (bloqueado) {
@@ -2169,6 +2224,7 @@ function cambiarModulo(modulo) {
   if (modulo === 'vencimientos') cargarModuloVencimientos();
   if (modulo === 'importacion-maestros') cargarModuloImportacionMaestros();
   if (modulo === 'siesa-vs-wms') cargarModuloSiesaVsWms();
+  if (modulo === 'inventarios-ciclicos') cargarModuloInventariosCiclicos();
 }
 
 // Orden lógico según el proceso físico de la bodega (no alfabético).
@@ -3327,7 +3383,7 @@ document.getElementById('btn-eliminar-rol').addEventListener('click', async () =
 // aparecen en el menú lateral real -- así la matriz se lee igual que el menú.
 const GRUPOS_MATRIZ = {
   'Operación': ['torre', 'indicadores'],
-  'Inventario': ['inventario', 'vencimientos', 'importacion-maestros', 'siesa-vs-wms'],
+  'Inventario': ['inventario', 'vencimientos', 'importacion-maestros', 'siesa-vs-wms', 'inventarios-ciclicos'],
   'Recepción y despacho': ['importar-cargue', 'rutas-del-dia', 'ranking-auditores', 'reportes'],
   'Recursos Humanos': ['empleados', 'asistencia', 'registros'],
   'Nómina': ['liquidador-nomina', 'control-semana', 'liquidador-individual', 'liquidacion-cedi', 'compensatorios', 'rrhh-historico'],
@@ -5373,6 +5429,7 @@ const TIPOS_IMPORTACION = {
       cantidad: { alias: ['Existencia'], tipo: 'numero' }, // existencia real, no "Cant. disponible" (que descuenta compromisos)
       proveedor: { alias: ['PROVEEDOR'], tipo: 'texto' }, // más fresco que el catálogo de Maestra
       costo_unitario: { alias: ['Costo prom. uni.'], tipo: 'numero' }, // por CEDI, más fresco que el de la Maestra
+      bodega: { alias: ['Bodega'], tipo: 'texto' }, // necesario para Inventarios Cíclicos (Principal/Diferencias/No conforme)
     },
   },
 };
@@ -5432,9 +5489,10 @@ document.getElementById('btn-imp-procesar').addEventListener('click', async () =
       const proveedor = String(valorPorColumna(fila, ['PROVEEDOR']) ?? '').trim() || null;
       const costoTexto = String(valorPorColumna(fila, ['Costo prom. uni.']) ?? '').trim();
       const costo_unitario = costoTexto ? (parsearMonedaFlexible(costoTexto) || null) : null;
+      const bodega = String(valorPorColumna(fila, ['Bodega']) ?? '').trim() || null; // necesario para Inventarios Cíclicos
       if (!referencia) { sinReferencia++; return; }
       if (!cedi) { coDesconocido++; codigosDesconocidos.add(codigoCo); return; }
-      filasProcesadas.push({ referencia, cedi, cantidad, proveedor, costo_unitario });
+      filasProcesadas.push({ referencia, cedi, cantidad, proveedor, costo_unitario, bodega });
     });
 
     IMPORTACION_FILAS_PROCESADAS = filasProcesadas;
@@ -5446,6 +5504,41 @@ document.getElementById('btn-imp-procesar').addEventListener('click', async () =
       <p style="font-size:12px;color:var(--text-secondary);">Vista previa (primeras 10 filas). Esta importación reemplaza TODO el inventario SIESA anterior, no lo acumula.</p>
       <table class="hist-table open"><tr><th>Referencia</th><th>CEDI</th><th>Cantidad</th><th>Proveedor</th><th>Costo unitario</th></tr>${
         filasProcesadas.slice(0, 10).map(r => `<tr><td>${tEsc(r.referencia)}</td><td>${tEsc(r.cedi)}</td><td>${r.cantidad}</td><td>${tEsc(r.proveedor || '—')}</td><td>${r.costo_unitario ?? '—'}</td></tr>`).join('')
+      }</table>`;
+    document.getElementById('btn-imp-confirmar').classList.toggle('hidden', filasProcesadas.length === 0);
+    return;
+  }
+
+  // ---------- Caso especial: Maestro de Bodegas (traduce C.O. a CEDI, y
+  // "Estado" a activo/inactivo) ----------
+  if (tipoId === 'maestro_bodegas') {
+    estado.textContent = 'Leyendo archivo...';
+    const buffer = await archivo.arrayBuffer();
+    const wb = XLSX.read(buffer, { type: 'array' });
+    const filasArchivo = hojaConMasFilas(wb, true);
+    if (!filasArchivo.length) { estado.textContent = 'El archivo está vacío o no se pudo leer.'; return; }
+
+    const filasProcesadas = [];
+    let sinCodigo = 0;
+    filasArchivo.forEach(fila => {
+      const codigo_bodega = String(valorPorColumna(fila, ['Código', 'Codigo']) ?? '').trim();
+      const descripcion = String(valorPorColumna(fila, ['Descripción', 'Descripcion']) ?? '').trim() || null;
+      const clasificacion = String(valorPorColumna(fila, ['Descripción Corta', 'Descripcion Corta']) ?? '').trim().toUpperCase() || null;
+      const codigoCo = normalizarCodigoCo(valorPorColumna(fila, ['C.O.']));
+      const cedi = MAPA_CO_BODEGA_CEDI[codigoCo] || null;
+      const activo = String(valorPorColumna(fila, ['Estado']) ?? '').trim().toLowerCase() === 'activo';
+      if (!codigo_bodega) { sinCodigo++; return; }
+      filasProcesadas.push({ codigo_bodega, descripcion, clasificacion, cedi, activo });
+    });
+
+    IMPORTACION_FILAS_PROCESADAS = filasProcesadas;
+    estado.textContent = `${filasProcesadas.length.toLocaleString('es-CO')} bodega(s) listas para importar.` +
+      (sinCodigo ? ` ${sinCodigo} fila(s) sin Código se ignoraron.` : '');
+
+    document.getElementById('imp-preview').innerHTML = `
+      <p style="font-size:12px;color:var(--text-secondary);">Vista previa (primeras 10 filas). Esta importación reemplaza TODO el maestro de bodegas anterior, no lo acumula.</p>
+      <table class="hist-table open"><tr><th>Código</th><th>Descripción</th><th>Clasificación</th><th>CEDI</th><th>Activo</th></tr>${
+        filasProcesadas.slice(0, 10).map(r => `<tr><td>${tEsc(r.codigo_bodega)}</td><td>${tEsc(r.descripcion || '—')}</td><td>${tEsc(r.clasificacion || '—')}</td><td>${tEsc(r.cedi || '—')}</td><td>${r.activo ? 'Sí' : 'No'}</td></tr>`).join('')
       }</table>`;
     document.getElementById('btn-imp-confirmar').classList.toggle('hidden', filasProcesadas.length === 0);
     return;
@@ -5573,6 +5666,31 @@ document.getElementById('btn-imp-confirmar').addEventListener('click', async () 
     } else {
       estado.textContent = estado.textContent.replace('Actualizando la conciliación...', 'Conciliación actualizada.');
     }
+    mostrarToast('Importación completada.');
+    document.getElementById('btn-imp-confirmar').classList.add('hidden');
+    return;
+  }
+
+  // ---------- Caso especial: Maestro de Bodegas -- también es una foto
+  // completa (borra todo y vuelve a insertar). ----------
+  if (tipoId === 'maestro_bodegas') {
+    boton.disabled = true;
+    estado.textContent = 'Borrando maestro de bodegas anterior...';
+    const { error: errorBorrar } = await sb.from('maestro_bodegas').delete().neq('codigo_bodega', '__nunca_va_a_existir__');
+    if (errorBorrar) { estado.textContent = 'Error al borrar lo anterior: ' + errorBorrar.message; boton.disabled = false; return; }
+
+    const TAM_LOTE = 500;
+    let importados = 0;
+    const total = IMPORTACION_FILAS_PROCESADAS.length;
+    for (let i = 0; i < total; i += TAM_LOTE) {
+      const lote = IMPORTACION_FILAS_PROCESADAS.slice(i, i + TAM_LOTE).map(r => ({ ...r, actualizado_en: new Date().toISOString() }));
+      const { error } = await sb.from('maestro_bodegas').insert(lote);
+      if (error) { estado.textContent = `Error en el lote ${i}-${i + TAM_LOTE}: ${error.message}`; boton.disabled = false; return; }
+      importados += lote.length;
+      estado.textContent = `Importando... ${importados}/${total}`;
+    }
+    boton.disabled = false;
+    estado.textContent = `Listo -- ${importados} bodega(s) importadas (reemplazó todo lo anterior).`;
     mostrarToast('Importación completada.');
     document.getElementById('btn-imp-confirmar').classList.add('hidden');
     return;
@@ -6026,13 +6144,20 @@ function renderSvwExcepciones(filas) {
   }
 }
 
+let SVW_SELECCIONADOS_CICLICO = new Set();
+
 function renderSvwTabla(contId, filas) {
   const cont = document.getElementById(contId);
   if (!filas.length) { cont.innerHTML = '<div class="inv-empty">Sin resultados con este filtro.</div>'; return; }
-  cont.innerHTML = `<table class="inv-table"><thead><tr>
-      <th>CEDI</th><th>Referencia</th><th>Producto</th><th>Proveedor</th><th>SIESA</th><th>WMS</th><th>Diferencia</th><th>Valor diferencia</th><th>Estado</th>
+  const barraAcciones = `<div style="display:flex;justify-content:flex-end;align-items:center;gap:8px;margin-bottom:8px;">
+    <span id="svw-contador-seleccion" style="font-size:11px;color:var(--modern-muted);">${SVW_SELECCIONADOS_CICLICO.size} seleccionada(s)</span>
+    <button class="btn" id="btn-svw-generar-ciclico" ${SVW_SELECCIONADOS_CICLICO.size ? '' : 'disabled'}>Generar cíclico</button>
+  </div>`;
+  cont.innerHTML = barraAcciones + `<table class="inv-table"><thead><tr>
+      <th></th><th>CEDI</th><th>Referencia</th><th>Producto</th><th>Proveedor</th><th>SIESA</th><th>WMS</th><th>Diferencia</th><th>Valor diferencia</th><th>Estado</th>
     </tr></thead><tbody>${
-    filas.map(r => `<tr style="cursor:pointer;" onclick='abrirDrawerSvw(${JSON.stringify(r).replace(/'/g, "&apos;")})'>
+    filas.map(r => { const clave = r.referencia + '|' + r.cedi; return `<tr style="cursor:pointer;" onclick='abrirDrawerSvw(${JSON.stringify(r).replace(/'/g, "&apos;")})'>
+      <td onclick="event.stopPropagation()"><input type="checkbox" ${SVW_SELECCIONADOS_CICLICO.has(clave) ? 'checked' : ''} onchange='toggleSvwSeleccionCiclico(${JSON.stringify(clave)}, ${JSON.stringify({ referencia: r.referencia, cedi: r.cedi, producto: r.producto })})'></td>
       <td>${tEsc(r.cedi || '—')}</td>
       <td>${tEsc(r.referencia)}</td>
       <td class="inv-product">${tEsc(r.producto || '—')}</td>
@@ -6042,8 +6167,34 @@ function renderSvwTabla(contId, filas) {
       <td style="font-weight:700;color:${Number(r.diferencia) !== 0 ? (Number(r.diferencia) > 0 ? '#2563eb' : '#dc2626') : 'inherit'}">${Number(r.diferencia).toLocaleString('es-CO')}</td>
       <td>${formatoValorONulo(r.valor_diferencia)}</td>
       <td><span class="inv-risk" style="background:${COLORES_ESTADO_SVW[r.estado]}1a;color:${COLORES_ESTADO_SVW[r.estado]};">${tEsc(r.estado)}</span></td>
-    </tr>`).join('')
+    </tr>`; }).join('')
   }</tbody></table><p style="font-size:11px;color:var(--modern-muted);padding:8px;">${filas.length.toLocaleString('es-CO')} fila(s) -- todo el universo consolidado, sin límite.</p>`;
+
+  const btnGenerar = document.getElementById('btn-svw-generar-ciclico');
+  if (btnGenerar) btnGenerar.addEventListener('click', async () => {
+    const items = Array.from(SVW_SELECCIONADOS_CICLICO).map(clave => {
+      const [referencia, cedi] = clave.split('|');
+      const fila = filas.find(f => f.referencia === referencia && f.cedi === cedi);
+      return { referencia, cedi, producto: fila?.producto || null };
+    });
+    const cedis = new Set(items.map(i => i.cedi));
+    if (cedis.size > 1) { mostrarToast('Selecciona referencias de un solo CEDI a la vez para generar el cíclico.'); return; }
+    const { error } = await sb.from('conteos_ciclicos').upsert(
+      items.map(i => ({ referencia: i.referencia, cedi: i.cedi, producto: i.producto, origen: 'siesa_vs_wms' })),
+      { onConflict: 'referencia,cedi', ignoreDuplicates: true }
+    );
+    if (error) { mostrarToast('Error al generar el cíclico: ' + error.message); return; }
+    mostrarToast(`${items.length} referencia(s) agregadas a Inventarios Cíclicos, pendientes de contar.`);
+    SVW_SELECCIONADOS_CICLICO.clear();
+    renderSvwTodo();
+  });
+}
+function toggleSvwSeleccionCiclico(clave) {
+  if (SVW_SELECCIONADOS_CICLICO.has(clave)) SVW_SELECCIONADOS_CICLICO.delete(clave);
+  else SVW_SELECCIONADOS_CICLICO.add(clave);
+  document.getElementById('svw-contador-seleccion').textContent = `${SVW_SELECCIONADOS_CICLICO.size} seleccionada(s)`;
+  const btn = document.getElementById('btn-svw-generar-ciclico');
+  if (btn) btn.disabled = SVW_SELECCIONADOS_CICLICO.size === 0;
 }
 
 function abrirDrawerSvw(r) {
@@ -6085,6 +6236,348 @@ document.getElementById('btn-svw-exportar').addEventListener('click', () => {
   XLSX.utils.book_append_sheet(wb, hoja, 'SIESA vs WMS');
   XLSX.writeFile(wb, `SIESA_vs_WMS_${fechaColombiaHoy()}.xlsx`);
 });
+
+// ============================================================
+// MÓDULO DE INVENTARIOS CÍCLICOS
+// ============================================================
+let IC_ANALISIS_CACHE = [];
+let IC_CRONOGRAMA_CACHE = [];
+let IC_INDICADORES_CACHE = null;
+let IC_CIERRE_DETALLE = new Map(); // referencia -> { causal, accion_correctiva }
+
+async function cargarModuloInventariosCiclicos() {
+  const sel = document.getElementById('ic-filtro-cedi');
+  if (sel.options.length <= 1) CEDIS_VALIDOS.forEach(c => sel.insertAdjacentHTML('beforeend', `<option value="${c}">${c}</option>`));
+  if (!puedeVerTodosLosCedis() && SESION.cedi) sel.value = SESION.cedi;
+  cambiarTabIc('analisis');
+  document.getElementById('ic-status').textContent = 'Elige un CEDI y dale clic a Consultar.';
+}
+
+document.getElementById('tab-ic-analisis').addEventListener('click', () => cambiarTabIc('analisis'));
+document.getElementById('tab-ic-cronograma').addEventListener('click', () => { cambiarTabIc('cronograma'); consultarCronogramaIc(); });
+document.getElementById('tab-ic-historico').addEventListener('click', () => { cambiarTabIc('historico'); consultarHistoricoIc(); });
+function cambiarTabIc(cual) {
+  ['analisis', 'cronograma', 'historico'].forEach(t => document.getElementById('panel-ic-' + t).classList.toggle('hidden', t !== cual));
+  document.querySelectorAll('#view-inventarios-ciclicos .admin-tab').forEach(b => b.classList.remove('active'));
+  document.getElementById('tab-ic-' + cual).classList.add('active');
+}
+
+document.getElementById('btn-ic-consultar').addEventListener('click', consultarCiclicos);
+
+async function consultarCiclicos() {
+  const cedi = document.getElementById('ic-filtro-cedi').value;
+  const estado = document.getElementById('ic-status');
+  if (!cedi) { mostrarToast('Elige un CEDI primero.'); return; }
+  estado.textContent = 'Consultando...';
+
+  const [{ data: analisis, error: e1 }, { data: indicadores, error: e2 }] = await Promise.all([
+    sb.rpc('analisis_ciclicos', { p_cedi: cedi }),
+    sb.rpc('indicadores_ciclicos', { p_cedi: cedi }),
+  ]);
+  if (e1) { estado.textContent = 'Error: ' + e1.message; return; }
+  if (e2) console.error('Error trayendo indicadores:', e2.message);
+
+  IC_ANALISIS_CACHE = analisis || [];
+  IC_INDICADORES_CACHE = (indicadores && indicadores[0]) || null;
+  estado.textContent = `${IC_ANALISIS_CACHE.length.toLocaleString('es-CO')} referencia(s) en conteo para ${cedi}.`;
+  renderKpisIc();
+  renderTablaAnalisisIc();
+}
+
+function renderKpisIc() {
+  const k = IC_INDICADORES_CACHE;
+  const cont = document.getElementById('ic-kpis');
+  if (!k) { cont.innerHTML = ''; return; }
+  const kpi = (label, value, meta) => `<div class="inv-kpi" style="cursor:default"><div class="inv-kpi-label">${label}</div><div class="inv-kpi-value">${value}</div><div class="inv-kpi-meta">${meta}</div></div>`;
+  cont.innerHTML =
+    kpi('Referencias contadas', (k.referencias_contadas ?? 0).toLocaleString('es-CO'), `${k.referencias_ok ?? 0} sin diferencia`) +
+    kpi('Valor teórico', formatoCOP(k.valor_total_teorico), 'contable, según SIESA') +
+    kpi('Valor contado', formatoCOP(k.valor_total_contado), 'físico, según conteo') +
+    kpi('IRA Abs SKU', k.ira_abs_sku != null ? k.ira_abs_sku + '%' : '—', 'referencias exactas') +
+    kpi('IRA Abs Unidades', k.ira_abs_unds != null ? k.ira_abs_unds + '%' : '—', '') +
+    kpi('IRA Abs Valor', k.ira_abs_valor != null ? k.ira_abs_valor + '%' : '—', '') +
+    kpi('IRA Neto Unds / Valor', (k.ira_neto_unds ?? '—') + '% / ' + (k.ira_neto_valor ?? '—') + '%', '') +
+    kpi('Exactitud', k.exactitud != null ? k.exactitud + '%' : '—', 'promedio de los 3 IRA Abs');
+}
+
+document.getElementById('ic-filtro-texto').addEventListener('input', renderTablaAnalisisIc);
+
+function renderTablaAnalisisIc() {
+  const texto = document.getElementById('ic-filtro-texto').value.trim().toLowerCase();
+  const filas = IC_ANALISIS_CACHE.filter(r => !texto || (r.referencia || '').toLowerCase().includes(texto) || (r.producto || '').toLowerCase().includes(texto));
+  const cont = document.getElementById('ic-tabla-analisis');
+  if (!filas.length) { cont.innerHTML = '<div class="inv-empty">Sin resultados. Importa un conteo o ajusta el filtro.</div>'; return; }
+  const etiquetaEstado = { ok_conteo1: 'OK (conteo 1)', ok_conteo2: 'OK (conteo 2)', ok_conteo3: 'Cerrado (conteo 3)', pendiente_conteo2: 'Falta conteo 2', pendiente_conteo3: 'Falta conteo 3 (desempate)', sin_contar: 'Sin contar', sin_resolver: 'Sin resolver' };
+  const colorEstado = { ok_conteo1: '#16a34a', ok_conteo2: '#16a34a', ok_conteo3: '#2563eb', pendiente_conteo2: '#d97706', pendiente_conteo3: '#dc2626', sin_contar: '#94a3b8', sin_resolver: '#dc2626' };
+  cont.innerHTML = `<table class="inv-table"><thead><tr>
+      <th>Código</th><th>Producto</th><th>Conteo 1</th><th>Conteo 2</th><th>Conteo 3</th><th>Contado</th><th>Teórico</th><th>Diferencia</th><th>Costo dif.</th><th>Estado</th>
+    </tr></thead><tbody>${
+    filas.map(r => `<tr>
+      <td>${tEsc(r.referencia)}</td>
+      <td class="inv-product">${tEsc(r.producto || '—')}</td>
+      <td>${r.conteo1 ?? '—'}</td><td>${r.conteo2 ?? '—'}</td><td>${r.conteo3 ?? '—'}</td>
+      <td style="font-weight:700;">${r.inventario_contado ?? '—'}</td>
+      <td>${Number(r.inventario_teorico).toLocaleString('es-CO')}</td>
+      <td style="font-weight:700;color:${r.diferencia_unidades ? (r.diferencia_unidades > 0 ? '#2563eb' : '#dc2626') : 'inherit'}">${r.diferencia_unidades ?? '—'}</td>
+      <td>${r.costo_diferencia != null ? formatoCOP(r.costo_diferencia) : '—'}</td>
+      <td><span class="inv-risk" style="background:${colorEstado[r.estado_conteo]}1a;color:${colorEstado[r.estado_conteo]};">${etiquetaEstado[r.estado_conteo] || r.estado_conteo}</span></td>
+    </tr>`).join('')
+  }</tbody></table>`;
+}
+
+// ---------- Cronograma ----------
+async function consultarCronogramaIc() {
+  const cedi = document.getElementById('ic-filtro-cedi').value;
+  if (!cedi) { mostrarToast('Elige un CEDI primero.'); return; }
+  document.getElementById('ic-meta-mensual').dataset.cedi = cedi;
+
+  const [{ data: meta }, { data: cronograma, error: e1 }, { data: cumplimiento, error: e2 }] = await Promise.all([
+    sb.from('meta_conteo_mensual').select('meta_referencias').eq('cedi', cedi).maybeSingle(),
+    sb.rpc('cronograma_ciclicos', { p_cedi: cedi }),
+    sb.rpc('cumplimiento_meta_mensual', { p_cedi: cedi }),
+  ]);
+  document.getElementById('ic-meta-mensual').value = meta?.meta_referencias ?? '';
+  if (e1) { mostrarToast('Error cargando cronograma: ' + e1.message); return; }
+  if (e2) console.error('Error cargando cumplimiento:', e2.message);
+
+  IC_CRONOGRAMA_CACHE = cronograma || [];
+  renderCumplimientoMensualIc(cumplimiento || []);
+  renderTablaCronogramaIc();
+}
+
+document.getElementById('btn-ic-guardar-meta').addEventListener('click', async () => {
+  const cedi = document.getElementById('ic-filtro-cedi').value;
+  if (!cedi) { mostrarToast('Elige un CEDI primero.'); return; }
+  const meta = parseInt(document.getElementById('ic-meta-mensual').value, 10) || 0;
+  const { error } = await sb.from('meta_conteo_mensual').upsert({ cedi, meta_referencias: meta, actualizado_en: new Date().toISOString() }, { onConflict: 'cedi' });
+  if (error) { mostrarToast('Error al guardar la meta: ' + error.message); return; }
+  mostrarToast('Meta guardada.');
+  consultarCronogramaIc();
+});
+
+function renderCumplimientoMensualIc(filas) {
+  const cont = document.getElementById('ic-cumplimiento-mensual');
+  if (!filas.length) { cont.innerHTML = '<div class="inv-empty">Todavía no hay ciclos cerrados para calcular el cumplimiento.</div>'; return; }
+  cont.innerHTML = `<table class="inv-table"><thead><tr><th>Mes</th><th>Referencias contadas</th><th>Meta</th><th>% Cumplimiento</th></tr></thead><tbody>${
+    filas.map(f => `<tr>
+      <td>${new Date(f.mes).toLocaleDateString('es-CO', { month: 'long', year: 'numeric' })}</td>
+      <td>${f.referencias_contadas}</td>
+      <td>${f.meta || '—'}</td>
+      <td style="font-weight:700;color:${f.pct_cumplimiento >= 100 ? '#16a34a' : f.pct_cumplimiento >= 70 ? '#d97706' : '#dc2626'}">${f.pct_cumplimiento != null ? f.pct_cumplimiento + '%' : '—'}</td>
+    </tr>`).join('')
+  }</tbody></table>`;
+}
+
+function renderTablaCronogramaIc() {
+  const cont = document.getElementById('ic-tabla-cronograma');
+  if (!IC_CRONOGRAMA_CACHE.length) { cont.innerHTML = '<div class="inv-empty">No hay referencias con inventario teórico (Principal + Diferencias) para este CEDI.</div>'; return; }
+  const colorCriticidad = { 'Crítico': '#dc2626', 'Atención': '#d97706', 'Estable': '#16a34a' };
+  cont.innerHTML = `<table class="inv-table"><thead><tr>
+      <th>Código</th><th>Producto</th><th>Clase</th><th>Criticidad</th><th>Frecuencia</th><th>Última vez contado</th><th>Próxima fecha sugerida</th><th></th>
+    </tr></thead><tbody>${
+    IC_CRONOGRAMA_CACHE.slice(0, 200).map(r => `<tr style="${r.atrasado ? 'background:#fef2f2;' : ''}">
+      <td>${tEsc(r.referencia)}</td>
+      <td class="inv-product">${tEsc(r.producto || '—')}</td>
+      <td>${tEsc(r.clase_pareto)}</td>
+      <td><span class="inv-risk" style="background:${colorCriticidad[r.criticidad]}1a;color:${colorCriticidad[r.criticidad]};">${tEsc(r.criticidad)}</span></td>
+      <td>cada ${r.frecuencia_dias} días</td>
+      <td>${r.ultima_fecha_contado ? new Date(r.ultima_fecha_contado).toLocaleDateString('es-CO') : 'Nunca'}</td>
+      <td>${new Date(r.proxima_fecha_sugerida).toLocaleDateString('es-CO')}</td>
+      <td>${r.atrasado ? '<span style="color:#dc2626;font-weight:700;">⚠ Atrasado</span>' : ''}</td>
+    </tr>`).join('')
+  }</tbody></table><p style="font-size:11px;color:var(--modern-muted);padding:8px;">Mostrando las primeras 200 de ${IC_CRONOGRAMA_CACHE.length.toLocaleString('es-CO')} referencias, ordenadas por atraso.</p>`;
+}
+
+// ---------- Importar conteo ----------
+document.getElementById('btn-ic-importar-conteo').addEventListener('click', () => {
+  const cedi = document.getElementById('ic-filtro-cedi').value || SESION.cedi;
+  document.getElementById('ic-modal-contenido').innerHTML = `
+    <h3 style="margin-top:0;">Importar conteo -- ${tEsc(cedi || 'sin CEDI')}</h3>
+    <p style="font-size:12px;color:var(--modern-muted);">El CEDI se toma de tu sesión (${tEsc(cedi || '—')}). Si varios CEDIs están contando al mismo tiempo, cada quien importa el suyo por separado.</p>
+    <label style="font-size:12px;font-weight:600;display:block;margin-top:10px;">¿A cuál conteo va este archivo?</label>
+    <select id="ic-slot-conteo" style="width:100%;padding:8px;border-radius:8px;border:1px solid #dbe2ea;margin-top:4px;">
+      <option value="1">Conteo 1 (primer conteo)</option>
+      <option value="2">Conteo 2 (si el primero no coincidió con el teórico)</option>
+      <option value="3">Conteo 3 (desempate, si 1 y 2 no coincidieron entre sí)</option>
+    </select>
+    <label style="font-size:12px;font-weight:600;display:block;margin-top:10px;">Archivo del conteo (WMS)</label>
+    <input type="file" id="ic-archivo-conteo" accept=".xlsx,.xls,.csv" style="margin-top:4px;">
+    <div id="ic-import-status" style="font-size:12px;color:var(--modern-muted);margin-top:10px;"></div>
+    <div style="display:flex;gap:8px;margin-top:16px;">
+      <button class="btn ghost" id="btn-ic-cancelar-import" style="flex:1;">Cancelar</button>
+      <button class="btn" id="btn-ic-confirmar-import" style="flex:1;">Importar</button>
+    </div>
+  `;
+  document.getElementById('ic-modal-backdrop').classList.remove('hidden');
+  document.getElementById('btn-ic-cancelar-import').addEventListener('click', () => document.getElementById('ic-modal-backdrop').classList.add('hidden'));
+
+  document.getElementById('btn-ic-confirmar-import').addEventListener('click', async () => {
+    const estado = document.getElementById('ic-import-status');
+    const archivo = document.getElementById('ic-archivo-conteo').files[0];
+    const slot = document.getElementById('ic-slot-conteo').value;
+    if (!archivo) { estado.textContent = 'Selecciona un archivo.'; return; }
+    if (!cedi) { estado.textContent = 'No se detectó tu CEDI -- no se puede importar.'; return; }
+
+    estado.textContent = 'Leyendo archivo...';
+    const buffer = await archivo.arrayBuffer();
+    const wb = XLSX.read(buffer, { type: 'array' });
+    const filas = hojaConMasFilas(wb, true);
+    if (!filas.length) { estado.textContent = 'El archivo está vacío.'; return; }
+
+    // La columna de referencia y la de cantidad pueden venir con nombres
+    // distintos según el reporte del WMS -- se toma la primera columna como
+    // referencia y la segunda como cantidad contada, sin importar el título.
+    const claves = Object.keys(filas[0]);
+    const claveRef = claves[0], claveCant = claves[1];
+
+    const registros = filas
+      .map(f => ({ referencia: String(f[claveRef] ?? '').trim(), cantidad: Number(f[claveCant]) }))
+      .filter(r => r.referencia && !Number.isNaN(r.cantidad));
+
+    estado.textContent = `Guardando ${registros.length} conteo(s)...`;
+    const campoConteo = 'conteo' + slot, campoFecha = 'conteo' + slot + '_en', campoPor = 'conteo' + slot + '_por';
+    let guardados = 0;
+    for (const r of registros) {
+      const { error } = await sb.from('conteos_ciclicos').upsert({
+        referencia: r.referencia, cedi,
+        [campoConteo]: r.cantidad, [campoFecha]: new Date().toISOString(), [campoPor]: SESION.id,
+      }, { onConflict: 'referencia,cedi', ignoreDuplicates: false });
+      if (!error) guardados++;
+    }
+    estado.textContent = `Listo -- ${guardados}/${registros.length} conteo(s) guardados en Conteo ${slot}.`;
+    mostrarToast('Conteo importado.');
+    document.getElementById('ic-modal-backdrop').classList.add('hidden');
+    consultarCiclicos();
+  });
+});
+
+// ---------- Cerrar ciclo ----------
+document.getElementById('btn-ic-cerrar-ciclo').addEventListener('click', () => {
+  const cedi = document.getElementById('ic-filtro-cedi').value;
+  if (!cedi) { mostrarToast('Elige y consulta un CEDI primero.'); return; }
+  if (!IC_ANALISIS_CACHE.length) { mostrarToast('No hay conteos cargados para este CEDI.'); return; }
+
+  const conDiferencia = IC_ANALISIS_CACHE.filter(r => r.inventario_contado != null && r.diferencia_unidades !== 0);
+
+  document.getElementById('ic-modal-contenido').innerHTML = `
+    <h3 style="margin-top:0;">Cerrar ciclo -- ${tEsc(cedi)}</h3>
+    <p style="font-size:12px;color:var(--modern-muted);">El ciclo no se puede cerrar sin el número de ajuste ya realizado en SIESA. Esto genera el acta y archiva el conteo actual.</p>
+    <label style="font-size:12px;font-weight:600;display:block;margin-top:8px;">Número de ajuste realizado en SIESA *</label>
+    <input type="text" id="ic-cierre-ajuste" style="width:100%;padding:8px;border-radius:8px;border:1px solid #dbe2ea;margin-top:4px;">
+    <label style="font-size:12px;font-weight:600;display:block;margin-top:8px;">Nombre solicitante</label>
+    <input type="text" id="ic-cierre-solicitante" style="width:100%;padding:8px;border-radius:8px;border:1px solid #dbe2ea;margin-top:4px;" value="${tEsc(SESION.nombre || '')}">
+    <label style="font-size:12px;font-weight:600;display:block;margin-top:8px;">Cargo del solicitante</label>
+    <input type="text" id="ic-cierre-cargo" style="width:100%;padding:8px;border-radius:8px;border:1px solid #dbe2ea;margin-top:4px;">
+    <label style="font-size:12px;font-weight:600;display:block;margin-top:8px;">Nombre del director</label>
+    <input type="text" id="ic-cierre-director" style="width:100%;padding:8px;border-radius:8px;border:1px solid #dbe2ea;margin-top:4px;">
+    ${conDiferencia.length ? `
+    <label style="font-size:12px;font-weight:600;display:block;margin-top:14px;">Causal y acción correctiva (${conDiferencia.length} referencia(s) con diferencia)</label>
+    <div style="max-height:220px;overflow-y:auto;border:1px solid #e5e9f0;border-radius:8px;margin-top:4px;">
+      ${conDiferencia.map(r => `
+        <div style="padding:8px;border-bottom:1px solid #f1f5f9;">
+          <div style="font-size:12px;font-weight:700;">${tEsc(r.referencia)} -- ${tEsc(r.producto)} (dif: ${r.diferencia_unidades})</div>
+          <select data-causal-ref="${tEsc(r.referencia)}" style="width:100%;padding:6px;border-radius:6px;border:1px solid #dbe2ea;margin-top:4px;font-size:12px;">
+            <option value="">Causal...</option>
+            <option>Error de digitación en SIESA</option>
+            <option>Error de picking</option>
+            <option>Hurto / faltante</option>
+            <option>Producto mal ubicado</option>
+            <option>Devolución no registrada</option>
+            <option>Otro</option>
+          </select>
+          <input data-accion-ref="${tEsc(r.referencia)}" type="text" placeholder="Acción correctiva..." style="width:100%;padding:6px;border-radius:6px;border:1px solid #dbe2ea;margin-top:4px;font-size:12px;">
+        </div>
+      `).join('')}
+    </div>` : ''}
+    <div id="ic-cierre-status" style="font-size:12px;color:var(--modern-muted);margin-top:10px;"></div>
+    <div style="display:flex;gap:8px;margin-top:16px;">
+      <button class="btn ghost" id="btn-ic-cancelar-cierre" style="flex:1;">Cancelar</button>
+      <button class="btn" id="btn-ic-confirmar-cierre" style="flex:1;">Cerrar ciclo y generar acta</button>
+    </div>
+  `;
+  document.getElementById('ic-modal-backdrop').classList.remove('hidden');
+  document.getElementById('btn-ic-cancelar-cierre').addEventListener('click', () => document.getElementById('ic-modal-backdrop').classList.add('hidden'));
+
+  document.getElementById('btn-ic-confirmar-cierre').addEventListener('click', async () => {
+    const estado = document.getElementById('ic-cierre-status');
+    const numeroAjuste = document.getElementById('ic-cierre-ajuste').value.trim();
+    if (!numeroAjuste) { estado.textContent = 'El número de ajuste en SIESA es obligatorio para cerrar el ciclo.'; return; }
+    const solicitante = document.getElementById('ic-cierre-solicitante').value.trim();
+    const cargo = document.getElementById('ic-cierre-cargo').value.trim();
+    const director = document.getElementById('ic-cierre-director').value.trim();
+
+    const detalle = conDiferencia.map(r => ({
+      referencia: r.referencia, producto: r.producto,
+      teorico: r.inventario_teorico, fisico: r.inventario_contado, diferencia: r.diferencia_unidades, costo: r.costo_diferencia,
+      causal: document.querySelector(`[data-causal-ref="${CSS.escape(r.referencia)}"]`)?.value || '',
+      accion_correctiva: document.querySelector(`[data-accion-ref="${CSS.escape(r.referencia)}"]`)?.value || '',
+    }));
+
+    estado.textContent = 'Cerrando ciclo...';
+    const { data: cicloId, error } = await sb.rpc('cerrar_ciclo_conteo', {
+      p_cedi: cedi, p_numero_ajuste_siesa: numeroAjuste,
+      p_nombre_solicitante: solicitante, p_cargo_solicitante: cargo, p_nombre_director: director,
+      p_detalle: detalle,
+    });
+    if (error) { estado.textContent = 'Error al cerrar el ciclo: ' + error.message; return; }
+
+    generarActaXlsx(cedi, numeroAjuste, solicitante, cargo, director, cicloId, IC_INDICADORES_CACHE, detalle);
+    mostrarToast('Ciclo cerrado y acta generada.');
+    document.getElementById('ic-modal-backdrop').classList.add('hidden');
+    consultarCiclicos();
+  });
+});
+
+function generarActaXlsx(cedi, numeroAjuste, solicitante, cargo, director, cicloId, indicadores, detalle) {
+  const wb = XLSX.utils.book_new();
+  const k = indicadores || {};
+  const filasEncabezado = [
+    ['ACTA DE INVENTARIO CICLICO'],
+    [],
+    ['Fecha del documento', fechaColombiaHoy()],
+    ['No. de documento', cicloId],
+    ['Centro de Distribución', cedi],
+    ['Nombre del Director', director],
+    ['Nombre Solicitante', solicitante],
+    ['Cargo del Solicitante', cargo],
+    ['Número de ajuste de inventario realizado en ERP', numeroAjuste],
+    [],
+    ['Reporte de resultados'],
+    ['', 'Referencias', 'Cantidad', 'Valor', 'Indicador', ''],
+    ['Mercancía inventariada', k.referencias_contadas, '', k.valor_total_contado, 'Ira Abs Sku', k.ira_abs_sku],
+    ['Total diferencia', detalle.length, '', '', 'Ira Abs Unds', k.ira_abs_unds],
+    ['', '', '', '', 'Ira Abs Valor', k.ira_abs_valor],
+    ['', '', '', '', 'Ira Neto Unds', k.ira_neto_unds],
+    ['', '', '', '', 'Ira Neto Valor', k.ira_neto_valor],
+    ['', '', '', '', 'Exactitud', k.exactitud],
+    [],
+    ['Productos con diferencia de inventario'],
+    ['Código', 'Descripción', 'Teórico', 'Físico', 'Diferencia', 'Costo', 'Causal', 'Acción Correctiva'],
+    ...detalle.map(d => [d.referencia, d.producto, d.teorico, d.fisico, d.diferencia, d.costo, d.causal, d.accion_correctiva]),
+  ];
+  const hoja = XLSX.utils.aoa_to_sheet(filasEncabezado);
+  XLSX.utils.book_append_sheet(wb, hoja, 'Acta');
+  XLSX.writeFile(wb, `Acta_Ciclico_${cedi}_${fechaColombiaHoy()}.xlsx`);
+}
+
+// ---------- Histórico de cierres ----------
+async function consultarHistoricoIc() {
+  const cedi = document.getElementById('ic-filtro-cedi').value;
+  const cont = document.getElementById('ic-tabla-historico');
+  if (!cedi) { cont.innerHTML = '<div class="inv-empty">Elige un CEDI primero.</div>'; return; }
+  const { data, error } = await sb.from('ciclos_cerrados').select('*').eq('cedi', cedi).order('fecha_cierre', { ascending: false });
+  if (error) { cont.innerHTML = `<div class="inv-empty">Error: ${tEsc(error.message)}</div>`; return; }
+  if (!data || !data.length) { cont.innerHTML = '<div class="inv-empty">Todavía no hay ciclos cerrados para este CEDI.</div>'; return; }
+  cont.innerHTML = `<table class="inv-table"><thead><tr><th>Fecha de cierre</th><th>No. documento</th><th>Ajuste SIESA</th><th>Referencias</th><th>Exactitud</th></tr></thead><tbody>${
+    data.map(c => `<tr>
+      <td>${new Date(c.fecha_cierre).toLocaleString('es-CO')}</td>
+      <td>${c.no_documento}</td>
+      <td>${tEsc(c.numero_ajuste_siesa)}</td>
+      <td>${c.totales?.referencias_contadas ?? '—'}</td>
+      <td>${c.indicadores?.exactitud != null ? c.indicadores.exactitud + '%' : '—'}</td>
+    </tr>`).join('')
+  }</tbody></table>`;
+}
 
 // ============================================================
 // MÓDULO DE COMPENSATORIOS
