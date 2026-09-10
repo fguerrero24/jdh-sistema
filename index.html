@@ -1349,18 +1349,19 @@ input:focus,select:focus,textarea:focus{outline:none!important;border-color:#176
             <div class="inv-filter-row" style="grid-template-columns:1.6fr 1fr;margin-bottom:10px;">
               <div class="inv-filter svw-autocomplete-wrap"><label>Buscar por código, producto o proveedor</label><input type="text" id="ic-filtro-texto" placeholder="Escribe para buscar..." autocomplete="off"></div>
               <div class="inv-filter svw-multiselect-wrap">
-                <label>Estado</label>
+                <label>Estado (según diferencia)</label>
                 <button type="button" class="svw-multiselect-btn" id="ic-btn-estado">Todos</button>
                 <div class="svw-multiselect-panel hidden" id="ic-panel-estado">
                   <label style="font-weight:700;border-bottom:1px solid #e5e9f0;margin-bottom:4px;"><input type="checkbox" data-ic-estado-todos> Seleccionar todos</label>
-                  <label><input type="checkbox" data-ic-estado="ok_conteo1"> OK (conteo 1)</label>
-                  <label><input type="checkbox" data-ic-estado="ok_conteo2"> OK (conteo 2)</label>
-                  <label><input type="checkbox" data-ic-estado="ok_conteo3"> Cerrado (conteo 3)</label>
-                  <label><input type="checkbox" data-ic-estado="pendiente_conteo2"> Falta conteo 2</label>
-                  <label><input type="checkbox" data-ic-estado="pendiente_conteo3"> Falta conteo 3</label>
+                  <label><input type="checkbox" data-ic-estado="sobrante"> Sobrante</label>
+                  <label><input type="checkbox" data-ic-estado="faltante"> Faltante</label>
+                  <label><input type="checkbox" data-ic-estado="igual"> Igual</label>
                   <label><input type="checkbox" data-ic-estado="sin_contar"> Sin contar</label>
                 </div>
               </div>
+            </div>
+            <div style="display:flex;justify-content:flex-end;margin-bottom:8px;">
+              <button class="btn ghost" id="btn-ic-exportar">📤 Exportar (lo filtrado)</button>
             </div>
             <div class="inv-section"><div class="inv-table-wrap" id="ic-tabla-analisis"></div></div>
           </div>
@@ -6171,7 +6172,9 @@ let SVW_SELECCIONADOS_CICLICO = new Set();
 function renderSvwTabla(contId, filas) {
   const cont = document.getElementById(contId);
   if (!filas.length) { cont.innerHTML = '<div class="inv-empty">Sin resultados con este filtro.</div>'; return; }
+  const todosFiltradosSeleccionados = filas.length > 0 && filas.every(r => SVW_SELECCIONADOS_CICLICO.has(r.referencia + '|' + r.cedi));
   const barraAcciones = `<div style="display:flex;justify-content:flex-end;align-items:center;gap:8px;margin-bottom:8px;">
+    <label style="font-size:11px;color:var(--modern-muted);display:flex;align-items:center;gap:4px;cursor:pointer;"><input type="checkbox" id="svw-check-todos-filtrados" ${todosFiltradosSeleccionados ? 'checked' : ''}> Seleccionar todo lo filtrado (${filas.length})</label>
     <span id="svw-contador-seleccion" style="font-size:11px;color:var(--modern-muted);">${SVW_SELECCIONADOS_CICLICO.size} seleccionada(s)</span>
     <button class="btn" id="btn-svw-generar-ciclico" ${SVW_SELECCIONADOS_CICLICO.size ? '' : 'disabled'}>Generar cíclico</button>
   </div>`;
@@ -6192,25 +6195,60 @@ function renderSvwTabla(contId, filas) {
     </tr>`; }).join('')
   }</tbody></table><p style="font-size:11px;color:var(--modern-muted);padding:8px;">${filas.length.toLocaleString('es-CO')} fila(s) -- todo el universo consolidado, sin límite.</p>`;
 
+  document.getElementById('svw-check-todos-filtrados').addEventListener('change', (e) => {
+    filas.forEach(r => {
+      const clave = r.referencia + '|' + r.cedi;
+      if (e.target.checked) SVW_SELECCIONADOS_CICLICO.add(clave); else SVW_SELECCIONADOS_CICLICO.delete(clave);
+    });
+    renderSvwTabla(contId, filas);
+  });
+
   const btnGenerar = document.getElementById('btn-svw-generar-ciclico');
   if (btnGenerar) btnGenerar.addEventListener('click', async () => {
     const items = Array.from(SVW_SELECCIONADOS_CICLICO).map(clave => {
       const [referencia, cedi] = clave.split('|');
-      const fila = filas.find(f => f.referencia === referencia && f.cedi === cedi);
+      const fila = filas.find(f => f.referencia === referencia && f.cedi === cedi) || SVW_CACHE.find(f => f.referencia === referencia && f.cedi === cedi);
       return { referencia, cedi, producto: fila?.producto || null };
     });
     const cedis = new Set(items.map(i => i.cedi));
     if (cedis.size > 1) { mostrarToast('Selecciona referencias de un solo CEDI a la vez para generar el cíclico.'); return; }
-    const { data: nuevoCicloId, error: errorCiclo } = await sb.rpc('crear_ciclo_activo', { p_cedi: items[0].cedi });
-    if (errorCiclo) { mostrarToast('Error al crear el ciclo: ' + errorCiclo.message); return; }
-    const { error } = await sb.from('conteos_ciclicos').upsert(
-      items.map(i => ({ referencia: i.referencia, cedi: i.cedi, producto: i.producto, origen: 'siesa_vs_wms', ciclo_id: nuevoCicloId })),
-      { onConflict: 'referencia,cedi,ciclo_id', ignoreDuplicates: true }
-    );
-    if (error) { mostrarToast('Error al generar el cíclico: ' + error.message); return; }
-    mostrarToast(`Ciclo #${nuevoCicloId} creado con ${items.length} referencia(s), pendientes de contar en Inventarios Cíclicos.`);
-    SVW_SELECCIONADOS_CICLICO.clear();
-    renderSvwTodo();
+    const cedi = items[0].cedi;
+
+    // Pregunta: ¿nuevo ciclo o uno ya abierto?
+    const { data: ciclosAbiertos } = await sb.from('ciclos_activos').select('id,creado_en').eq('cedi', cedi).eq('estado', 'en_elaboracion').order('creado_en', { ascending: false });
+    document.getElementById('ic-modal-contenido').innerHTML = `
+      <h3 style="margin-top:0;">Generar cíclico -- ${tEsc(cedi)}</h3>
+      <p style="font-size:12px;color:var(--modern-muted);">${items.length} referencia(s) seleccionada(s).</p>
+      <label style="font-size:12px;font-weight:600;display:block;margin-top:8px;">¿A cuál ciclo van?</label>
+      <select id="svw-ciclico-destino" style="width:100%;padding:8px;border-radius:8px;border:1px solid #dbe2ea;margin-top:4px;">
+        <option value="__nuevo__">+ Nuevo ciclo</option>
+        ${(ciclosAbiertos || []).map(c => `<option value="${c.id}">Ciclo #${c.id} -- abierto ${new Date(c.creado_en).toLocaleDateString('es-CO')}</option>`).join('')}
+      </select>
+      <div style="display:flex;gap:8px;margin-top:16px;">
+        <button class="btn ghost" id="btn-svw-ciclico-cancelar" style="flex:1;">Cancelar</button>
+        <button class="btn" id="btn-svw-ciclico-confirmar" style="flex:1;">Generar</button>
+      </div>
+    `;
+    document.getElementById('ic-modal-backdrop').classList.remove('hidden');
+    document.getElementById('btn-svw-ciclico-cancelar').addEventListener('click', () => document.getElementById('ic-modal-backdrop').classList.add('hidden'));
+    document.getElementById('btn-svw-ciclico-confirmar').addEventListener('click', async () => {
+      const destino = document.getElementById('svw-ciclico-destino').value;
+      let cicloId = destino === '__nuevo__' ? null : Number(destino);
+      if (!cicloId) {
+        const { data: nuevoId, error: errorCiclo } = await sb.rpc('crear_ciclo_activo', { p_cedi: cedi });
+        if (errorCiclo) { mostrarToast('Error al crear el ciclo: ' + errorCiclo.message); return; }
+        cicloId = nuevoId;
+      }
+      const { error } = await sb.from('conteos_ciclicos').upsert(
+        items.map(i => ({ referencia: i.referencia, cedi: i.cedi, producto: i.producto, origen: 'siesa_vs_wms', ciclo_id: cicloId })),
+        { onConflict: 'referencia,cedi,ciclo_id', ignoreDuplicates: true }
+      );
+      document.getElementById('ic-modal-backdrop').classList.add('hidden');
+      if (error) { mostrarToast('Error al generar el cíclico: ' + error.message); return; }
+      alert(`Listo -- ${items.length} referencia(s) agregadas al Ciclo #${cicloId} de ${cedi}, pendientes de contar en Inventarios Cíclicos.`);
+      SVW_SELECCIONADOS_CICLICO.clear();
+      renderSvwTodo();
+    });
   });
 }
 function toggleSvwSeleccionCiclico(clave) {
@@ -6311,7 +6349,7 @@ async function consultarCiclosEnElaboracion() {
   const { data, error } = await sb.rpc('listar_ciclos_en_elaboracion');
   if (error) { cont.innerHTML = `<div class="inv-empty">Error: ${tEsc(error.message)}</div>`; return; }
   if (!data || !data.length) { cont.innerHTML = '<div class="inv-empty">No hay ciclos en elaboración ahora mismo.</div>'; return; }
-  cont.innerHTML = `<table class="inv-table"><thead><tr><th>Ciclo</th><th>CEDI</th><th>Abierto por</th><th>Abierto el</th><th>Referencias</th><th>Pendientes por resolver</th><th></th></tr></thead><tbody>${
+  cont.innerHTML = `<table class="inv-table"><thead><tr><th>Ciclo</th><th>CEDI</th><th>Abierto por</th><th>Abierto el</th><th>Referencias</th><th>Pendientes por resolver</th><th></th><th></th></tr></thead><tbody>${
     data.map(c => `<tr>
       <td>#${c.ciclo_id}</td>
       <td>${tEsc(c.cedi)}</td>
@@ -6320,8 +6358,18 @@ async function consultarCiclosEnElaboracion() {
       <td>${c.referencias_en_ciclo}</td>
       <td style="font-weight:700;color:${c.pendientes_por_resolver > 0 ? '#dc2626' : '#16a34a'}">${c.pendientes_por_resolver}</td>
       <td><button class="btn ghost" onclick='irAlCicloIc(${JSON.stringify(c.cedi)}, ${c.ciclo_id})'>Retomar →</button></td>
+      <td><button class="btn ghost" style="color:#dc2626;" onclick='eliminarCicloIc(${c.ciclo_id}, ${c.referencias_en_ciclo})'>Eliminar</button></td>
     </tr>`).join('')
   }</tbody></table>`;
+}
+
+async function eliminarCicloIc(cicloId, cantidadReferencias) {
+  if (!confirm(`¿Eliminar el Ciclo #${cicloId} por completo? Se van a perder los ${cantidadReferencias} conteo(s) que tenga -- esto no se puede deshacer.`)) return;
+  const { error } = await sb.rpc('eliminar_ciclo_activo', { p_ciclo_id: cicloId });
+  if (error) { mostrarToast('Error al eliminar el ciclo: ' + error.message); return; }
+  mostrarToast(`Ciclo #${cicloId} eliminado.`);
+  if (IC_CICLO_ACTUAL === cicloId) { IC_CICLO_ACTUAL = null; IC_ANALISIS_CACHE = []; document.getElementById('ic-tabla-analisis').innerHTML = ''; document.getElementById('ic-kpis').innerHTML = ''; }
+  consultarCiclosEnElaboracion();
 }
 
 async function irAlCicloIc(cedi, cicloId) {
@@ -6351,6 +6399,24 @@ async function eliminarItemIc(referencia, cedi) {
   mostrarToast('Referencia quitada del ciclo.');
   consultarCiclicos();
 }
+
+document.getElementById('btn-ic-exportar').addEventListener('click', () => {
+  const filas = filasAnalisisIcFiltradas();
+  if (!filas.length) { mostrarToast('No hay nada para exportar con este filtro.'); return; }
+  const datos = filas.map(r => ({
+    'Código': r.referencia, 'Producto': r.producto, 'Proveedor': r.proveedor,
+    'Bodega Principal': r.bodega_principal, 'Bodega Diferencias': r.bodega_diferencias, 'Bodega No Conforme': r.bodega_no_conforme,
+    'Conteo 1': r.conteo1, 'Conteo 2': r.conteo2, 'Conteo 3': r.conteo3,
+    'Inventario Contado': r.inventario_contado, 'Inventario Teórico': r.inventario_teorico,
+    'Diferencia (unds)': r.diferencia_unidades, 'Costo Diferencia': r.costo_diferencia,
+    'Estado': ETIQUETA_ESTADO_IC[estadoPorDiferenciaIc(r)],
+  }));
+  const hoja = XLSX.utils.json_to_sheet(datos);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, hoja, 'Ciclico');
+  const cedi = document.getElementById('ic-filtro-cedi').value;
+  XLSX.writeFile(wb, `Ciclico_${cedi}_Ciclo${IC_CICLO_ACTUAL}_${fechaColombiaHoy()}.xlsx`);
+});
 
 // Devuelve el ciclo_id a usar -- si el selector dice "__nuevo__", crea uno
 // nuevo primero y lo deja seleccionado.
@@ -6408,27 +6474,48 @@ function renderKpisIc() {
 }
 
 document.getElementById('ic-filtro-texto').addEventListener('input', renderTablaAnalisisIc);
+let IC_ORDEN_COSTO_DIF = null; // null | 'asc' | 'desc'
+
+function estadoPorDiferenciaIc(r) {
+  if (r.diferencia_unidades == null) return 'sin_contar';
+  if (r.diferencia_unidades > 0) return 'sobrante';
+  if (r.diferencia_unidades < 0) return 'faltante';
+  return 'igual';
+}
 
 function filasAnalisisIcFiltradas() {
   const texto = document.getElementById('ic-filtro-texto').value.trim().toLowerCase();
-  return IC_ANALISIS_CACHE.filter(r => {
+  let filas = IC_ANALISIS_CACHE.filter(r => {
     const textoOk = !texto || (r.referencia || '').toLowerCase().includes(texto) || (r.producto || '').toLowerCase().includes(texto) || (r.proveedor || '').toLowerCase().includes(texto);
-    const estadoOk = IC_ESTADOS_ACTIVOS.size === 0 || IC_ESTADOS_ACTIVOS.has(r.estado_conteo);
+    const estadoOk = IC_ESTADOS_ACTIVOS.size === 0 || IC_ESTADOS_ACTIVOS.has(estadoPorDiferenciaIc(r));
     return textoOk && estadoOk;
   });
+  if (IC_ORDEN_COSTO_DIF) {
+    filas = filas.slice().sort((a, b) => {
+      const av = a.costo_diferencia ?? 0, bv = b.costo_diferencia ?? 0;
+      return IC_ORDEN_COSTO_DIF === 'desc' ? bv - av : av - bv;
+    });
+  }
+  return filas;
 }
 
-const ETIQUETA_ESTADO_IC = { ok_conteo1: 'OK (conteo 1)', ok_conteo2: 'OK (conteo 2)', ok_conteo3: 'Cerrado (conteo 3)', pendiente_conteo2: 'Falta conteo 2', pendiente_conteo3: 'Falta conteo 3', sin_contar: 'Sin contar', sin_resolver: 'Sin resolver' };
-const COLOR_ESTADO_IC = { ok_conteo1: '#16a34a', ok_conteo2: '#16a34a', ok_conteo3: '#2563eb', pendiente_conteo2: '#d97706', pendiente_conteo3: '#dc2626', sin_contar: '#94a3b8', sin_resolver: '#dc2626' };
+const ETIQUETA_ESTADO_IC = { sobrante: 'Sobrante', faltante: 'Faltante', igual: 'Igual', sin_contar: 'Sin contar' };
+const COLOR_ESTADO_IC = { sobrante: '#2563eb', faltante: '#dc2626', igual: '#16a34a', sin_contar: '#94a3b8' };
+
+function alternarOrdenCostoDifIc() {
+  IC_ORDEN_COSTO_DIF = IC_ORDEN_COSTO_DIF === 'desc' ? 'asc' : IC_ORDEN_COSTO_DIF === 'asc' ? null : 'desc';
+  renderTablaAnalisisIc();
+}
 
 function renderTablaAnalisisIc() {
   const filas = filasAnalisisIcFiltradas();
   const cont = document.getElementById('ic-tabla-analisis');
   if (!filas.length) { cont.innerHTML = '<div class="inv-empty">Sin resultados. Importa un conteo o ajusta el filtro.</div>'; return; }
+  const flechaOrden = IC_ORDEN_COSTO_DIF === 'desc' ? ' ▼' : IC_ORDEN_COSTO_DIF === 'asc' ? ' ▲' : '';
   cont.innerHTML = `<div style="overflow-x:auto;"><table class="inv-table" style="font-size:10.5px;white-space:nowrap;"><thead><tr>
-      <th></th><th>Código</th><th>Producto</th><th>Proveedor</th><th>B. Principal</th><th>B. Diferencias</th><th>B. No conforme</th><th>C1</th><th>C2</th><th>C3</th><th>Contado</th><th>Teórico</th><th>Diferencia</th><th>Costo dif.</th><th>Estado</th>
+      <th></th><th>Código</th><th>Producto</th><th>Proveedor</th><th>B. Principal</th><th>B. Diferencias</th><th>B. No conforme</th><th>C1</th><th>C2</th><th>C3</th><th>Contado</th><th>Teórico</th><th>Diferencia</th><th style="cursor:pointer;user-select:none;" onclick="alternarOrdenCostoDifIc()">Costo dif.${flechaOrden}</th><th>Estado</th>
     </tr></thead><tbody>${
-    filas.map(r => `<tr>
+    filas.map(r => { const est = estadoPorDiferenciaIc(r); return `<tr>
       <td><button title="Quitar del ciclo" onclick='eliminarItemIc(${JSON.stringify(r.referencia)}, ${JSON.stringify(r.cedi)})' style="border:none;background:none;color:#dc2626;cursor:pointer;font-weight:700;">✕</button></td>
       <td>${tEsc(r.referencia)}</td>
       <td class="inv-product" style="max-width:140px;white-space:normal;overflow-wrap:break-word;">${tEsc(r.producto || '—')}</td>
@@ -6443,8 +6530,8 @@ function renderTablaAnalisisIc() {
       <td>${Number(r.inventario_teorico).toLocaleString('es-CO')}</td>
       <td style="font-weight:700;color:${r.diferencia_unidades ? (r.diferencia_unidades > 0 ? '#2563eb' : '#dc2626') : 'inherit'}">${r.diferencia_unidades ?? '—'}</td>
       <td>${r.costo_diferencia != null ? formatoCOP(r.costo_diferencia) : '—'}</td>
-      <td><span class="inv-risk" style="background:${COLOR_ESTADO_IC[r.estado_conteo]}1a;color:${COLOR_ESTADO_IC[r.estado_conteo]};">${ETIQUETA_ESTADO_IC[r.estado_conteo] || r.estado_conteo}</span></td>
-    </tr>`).join('')
+      <td><span class="inv-risk" style="background:${COLOR_ESTADO_IC[est]}1a;color:${COLOR_ESTADO_IC[est]};">${ETIQUETA_ESTADO_IC[est]}</span></td>
+    </tr>`; }).join('')
   }</tbody></table></div>`;
 }
 
@@ -6589,9 +6676,17 @@ document.getElementById('btn-ic-importar-conteo').addEventListener('click', asyn
     const claves = Object.keys(filas[0]);
     const claveRef = claves[0], claveCant = claves[1];
 
-    const registros = filas
-      .map(f => ({ referencia: String(f[claveRef] ?? '').trim(), cantidad: Number(f[claveCant]) }))
-      .filter(r => r.referencia && !Number.isNaN(r.cantidad));
+    // Si la misma referencia aparece en varias filas (ej. una por
+    // ubicación/lote), se SUMAN las cantidades -- no se sobreescribe la
+    // anterior con la última.
+    const mapaSumado = new Map();
+    filas.forEach(f => {
+      const referencia = String(f[claveRef] ?? '').trim();
+      const cantidad = Number(f[claveCant]);
+      if (!referencia || Number.isNaN(cantidad)) return;
+      mapaSumado.set(referencia, (mapaSumado.get(referencia) || 0) + cantidad);
+    });
+    const registros = Array.from(mapaSumado, ([referencia, cantidad]) => ({ referencia, cantidad }));
 
     estado.textContent = `Guardando ${registros.length} conteo(s) en el Ciclo #${cicloId}...`;
     const campoConteo = 'conteo' + slot, campoFecha = 'conteo' + slot + '_en', campoPor = 'conteo' + slot + '_por';
