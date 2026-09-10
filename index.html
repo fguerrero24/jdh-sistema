@@ -7753,7 +7753,7 @@ function renderControlSemanaFiltrado() {
 
   const groups={
     inventario:{id:'grupo-inventario',title:'Inventario',icon:'ti-package',items:[
-      ['inventario-wms','Inventario WMS','ti-package'],['vencimientos','Vencimientos','ti-calendar-exclamation'],['importacion-maestros','Importación de Maestros','ti-file-upload'],['siesa-vs-wms','SIESA vs WMS','ti-arrows-exchange']]},
+      ['inventario-wms','Inventario WMS','ti-package'],['vencimientos','Vencimientos','ti-calendar-exclamation'],['importacion-maestros','Importación de Maestros','ti-file-upload'],['siesa-vs-wms','SIESA vs WMS','ti-arrows-exchange'],['inventarios-ciclicos','Inventarios Cíclicos','ti-clipboard-check']]},
     recepcion:{id:'grupo-recepcion',title:'Recepción y despacho',icon:'ti-truck-delivery',items:[
       ['recepcion-importar','Importar cargue','ti-file-import'],['recepcion-rutas','Rutas del día','ti-route'],['recepcion-ranking','Ranking de auditores','ti-trophy']]},
     rrhh:{id:'grupo-rrhh',title:'Recursos Humanos',icon:'ti-users',items:[
@@ -7792,7 +7792,7 @@ function renderControlSemanaFiltrado() {
     let body='';
     if(groupKey==='recepcion' || groupKey==='inventario'){
       body=g.items.filter(x=>visible(x[0])).map(x=>'<button type="button" class="flyout-item" data-mod="'+x[0]+'"><span class="flyout-icon"><i class="ti '+x[2]+'"></i></span><span class="flyout-copy"><strong>'+x[1]+'</strong><small>'+({
-        'inventario-wms':'Existencias y disponibilidad','vencimientos':'Control de caducidades','importacion-maestros':'Carga y actualización de maestros','siesa-vs-wms':'Conciliación SIESA vs WMS',
+        'inventario-wms':'Existencias y disponibilidad','vencimientos':'Control de caducidades','importacion-maestros':'Carga y actualización de maestros','siesa-vs-wms':'Conciliación SIESA vs WMS','inventarios-ciclicos':'Conteo físico contra el teórico',
         'recepcion-importar':'Gestión de entradas y salidas de mercancía','recepcion-rutas':'Visualiza y sigue las rutas programadas','recepcion-ranking':'Desempeño y posiciones de auditores'
       }[x[0]]||'Acceso al módulo')+'</small></span></button>').join('');
     } else {
@@ -7828,7 +7828,7 @@ function renderControlSemanaFiltrado() {
     rail.querySelectorAll('.nav-parent-active').forEach(x=>x.classList.remove('nav-parent-active'));
     if(String(modulo).startsWith('recepcion-')) rail.querySelector('#grupo-recepcion')?.classList.add('nav-parent-active');
     if(String(modulo).startsWith('rrhh-')) rail.querySelector('#grupo-rrhh')?.classList.add('nav-parent-active');
-    if(String(modulo).startsWith('inventario-') || modulo === 'vencimientos' || modulo === 'importacion-maestros' || modulo === 'siesa-vs-wms') rail.querySelector('#grupo-inventario')?.classList.add('nav-parent-active');
+    if(String(modulo).startsWith('inventario-') || modulo === 'vencimientos' || modulo === 'importacion-maestros' || modulo === 'siesa-vs-wms' || modulo === 'inventarios-ciclicos') rail.querySelector('#grupo-inventario')?.classList.add('nav-parent-active');
   };
 
   const originalCambiar=window.cambiarModulo;
