@@ -1362,7 +1362,7 @@ input:focus,select:focus,textarea:focus{outline:none!important;border-color:#176
               </div>
             </div>
             <div style="display:flex;justify-content:flex-end;margin-bottom:8px;">
-              <button class="btn ghost" id="btn-ic-exportar">📤 Exportar </button>
+              <button class="btn ghost" id="btn-ic-exportar">📤 Exportar (lo filtrado)</button>
             </div>
             <div class="inv-section"><div class="inv-table-wrap" id="ic-tabla-analisis"></div></div>
           </div>
@@ -1372,13 +1372,7 @@ input:focus,select:focus,textarea:focus{outline:none!important;border-color:#176
           </div>
 
           <div id="panel-ic-cronograma" class="hidden">
-            <div class="inv-filterbar">
-              <div class="inv-filter-row" style="grid-template-columns:1fr auto;">
-                <div class="inv-filter"><label>Meta de referencias a contar por mes en este CEDI</label><input type="number" id="ic-meta-mensual" min="0" placeholder="ej. 200"></div>
-                <button class="btn ghost" id="btn-ic-guardar-meta">Guardar meta</button>
-              </div>
-            </div>
-            <div class="inv-section"><div class="inv-section-head"><div class="inv-section-title">Cumplimiento por mes</div></div><div id="ic-cumplimiento-mensual" style="padding:10px;"></div></div>
+            <div class="inv-section"><div class="inv-section-head"><div><div class="inv-section-title">Cumplimiento por mes</div><div class="inv-section-note">La meta de cada mes es automática -- cuántas referencias tenían su fecha sugerida de conteo dentro de ese mes, según Pareto + criticidad.</div></div></div><div id="ic-cumplimiento-mensual" style="padding:10px;"></div></div>
             <div class="inv-section" style="margin-top:14px;"><div class="inv-section-head"><div class="inv-section-title">Próximo a contar (según Pareto + criticidad)</div></div><div class="inv-table-wrap" id="ic-tabla-cronograma"></div></div>
           </div>
 
@@ -6589,14 +6583,11 @@ async function editarConteoIc(celda) {
 async function consultarCronogramaIc() {
   const cedi = document.getElementById('ic-filtro-cedi').value;
   if (!cedi) { mostrarToast('Elige un CEDI primero.'); return; }
-  document.getElementById('ic-meta-mensual').dataset.cedi = cedi;
 
-  const [{ data: meta }, { data: cronograma, error: e1 }, { data: cumplimiento, error: e2 }] = await Promise.all([
-    sb.from('meta_conteo_mensual').select('meta_referencias').eq('cedi', cedi).maybeSingle(),
+  const [{ data: cronograma, error: e1 }, { data: cumplimiento, error: e2 }] = await Promise.all([
     sb.rpc('cronograma_ciclicos', { p_cedi: cedi }),
     sb.rpc('cumplimiento_meta_mensual', { p_cedi: cedi }),
   ]);
-  document.getElementById('ic-meta-mensual').value = meta?.meta_referencias ?? '';
   if (e1) { mostrarToast('Error cargando cronograma: ' + e1.message); return; }
   if (e2) console.error('Error cargando cumplimiento:', e2.message);
 
@@ -6604,16 +6595,6 @@ async function consultarCronogramaIc() {
   renderCumplimientoMensualIc(cumplimiento || []);
   renderTablaCronogramaIc();
 }
-
-document.getElementById('btn-ic-guardar-meta').addEventListener('click', async () => {
-  const cedi = document.getElementById('ic-filtro-cedi').value;
-  if (!cedi) { mostrarToast('Elige un CEDI primero.'); return; }
-  const meta = parseInt(document.getElementById('ic-meta-mensual').value, 10) || 0;
-  const { error } = await sb.from('meta_conteo_mensual').upsert({ cedi, meta_referencias: meta, actualizado_en: new Date().toISOString() }, { onConflict: 'cedi' });
-  if (error) { mostrarToast('Error al guardar la meta: ' + error.message); return; }
-  mostrarToast('Meta guardada.');
-  consultarCronogramaIc();
-});
 
 function renderCumplimientoMensualIc(filas) {
   const cont = document.getElementById('ic-cumplimiento-mensual');
@@ -6628,24 +6609,132 @@ function renderCumplimientoMensualIc(filas) {
   }</tbody></table>`;
 }
 
+let CRONO_SELECCIONADOS = new Set();
+let CRONO_AGRUPAR_PROVEEDOR = false;
+
+function filasCronogramaFiltradas() {
+  const texto = (document.getElementById('crono-filtro-texto')?.value || '').trim().toLowerCase();
+  if (!texto) return IC_CRONOGRAMA_CACHE;
+  return IC_CRONOGRAMA_CACHE.filter(r =>
+    (r.referencia || '').toLowerCase().includes(texto) ||
+    (r.producto || '').toLowerCase().includes(texto) ||
+    (r.proveedor || '').toLowerCase().includes(texto)
+  );
+}
+
+function alternarAgruparProveedorCrono() {
+  CRONO_AGRUPAR_PROVEEDOR = !CRONO_AGRUPAR_PROVEEDOR;
+  renderTablaCronogramaIc();
+}
+
+function toggleCronoSeleccionado(clave) {
+  if (CRONO_SELECCIONADOS.has(clave)) CRONO_SELECCIONADOS.delete(clave);
+  else CRONO_SELECCIONADOS.add(clave);
+  renderTablaCronogramaIc();
+}
+
+async function generarCiclicoDesdeCronograma() {
+  const items = Array.from(CRONO_SELECCIONADOS).map(clave => {
+    const [referencia, cedi] = clave.split('|');
+    const fila = IC_CRONOGRAMA_CACHE.find(f => f.referencia === referencia && f.cedi === cedi);
+    return { referencia, cedi, producto: fila?.producto || null };
+  });
+  if (!items.length) { mostrarToast('Selecciona al menos una referencia.'); return; }
+  const cedi = items[0].cedi;
+
+  const { data: ciclosAbiertos } = await sb.from('ciclos_activos').select('id,creado_en').eq('cedi', cedi).eq('estado', 'en_elaboracion').order('creado_en', { ascending: false });
+  document.getElementById('ic-modal-contenido').innerHTML = `
+    <h3 style="margin-top:0;">Generar cíclico -- ${tEsc(cedi)}</h3>
+    <p style="font-size:12px;color:var(--modern-muted);">${items.length} referencia(s) seleccionada(s) desde el cronograma.</p>
+    <label style="font-size:12px;font-weight:600;display:block;margin-top:8px;">¿A cuál ciclo van?</label>
+    <select id="crono-ciclico-destino" style="width:100%;padding:8px;border-radius:8px;border:1px solid #dbe2ea;margin-top:4px;">
+      <option value="__nuevo__">+ Nuevo ciclo</option>
+      ${(ciclosAbiertos || []).map(c => `<option value="${c.id}">Ciclo #${c.id} -- abierto ${new Date(c.creado_en).toLocaleDateString('es-CO')}</option>`).join('')}
+    </select>
+    <div style="display:flex;gap:8px;margin-top:16px;">
+      <button class="btn ghost" id="btn-crono-ciclico-cancelar" style="flex:1;">Cancelar</button>
+      <button class="btn" id="btn-crono-ciclico-confirmar" style="flex:1;">Generar</button>
+    </div>
+  `;
+  document.getElementById('ic-modal-backdrop').classList.remove('hidden');
+  document.getElementById('btn-crono-ciclico-cancelar').addEventListener('click', () => document.getElementById('ic-modal-backdrop').classList.add('hidden'));
+  document.getElementById('btn-crono-ciclico-confirmar').addEventListener('click', async () => {
+    const destino = document.getElementById('crono-ciclico-destino').value;
+    let cicloId = destino === '__nuevo__' ? null : Number(destino);
+    if (!cicloId) {
+      const { data: nuevoId, error: errorCiclo } = await sb.rpc('crear_ciclo_activo', { p_cedi: cedi });
+      if (errorCiclo) { mostrarToast('Error al crear el ciclo: ' + errorCiclo.message); return; }
+      cicloId = nuevoId;
+    }
+    const { error } = await sb.from('conteos_ciclicos').upsert(
+      items.map(i => ({ referencia: i.referencia, cedi: i.cedi, producto: i.producto, origen: 'cronograma', ciclo_id: cicloId })),
+      { onConflict: 'referencia,cedi,ciclo_id', ignoreDuplicates: true }
+    );
+    document.getElementById('ic-modal-backdrop').classList.add('hidden');
+    if (error) { mostrarToast('Error al generar el cíclico: ' + error.message); return; }
+    alert(`Listo -- ${items.length} referencia(s) agregadas al Ciclo #${cicloId} de ${cedi}.`);
+    CRONO_SELECCIONADOS.clear();
+    renderTablaCronogramaIc();
+  });
+}
+
 function renderTablaCronogramaIc() {
   const cont = document.getElementById('ic-tabla-cronograma');
   if (!IC_CRONOGRAMA_CACHE.length) { cont.innerHTML = '<div class="inv-empty">No hay referencias con inventario teórico (Principal + Diferencias) para este CEDI.</div>'; return; }
+  const filas = filasCronogramaFiltradas();
   const colorCriticidad = { 'Crítico': '#dc2626', 'Atención': '#d97706', 'Estable': '#16a34a' };
-  cont.innerHTML = `<table class="inv-table"><thead><tr>
-      <th>Código</th><th>Producto</th><th>Clase</th><th>Criticidad</th><th>Frecuencia</th><th>Última vez contado</th><th>Próxima fecha sugerida</th><th></th>
-    </tr></thead><tbody>${
-    IC_CRONOGRAMA_CACHE.slice(0, 200).map(r => `<tr style="${r.atrasado ? 'background:#fef2f2;' : ''}">
-      <td>${tEsc(r.referencia)}</td>
-      <td class="inv-product">${tEsc(r.producto || '—')}</td>
-      <td>${tEsc(r.clase_pareto)}</td>
-      <td><span class="inv-risk" style="background:${colorCriticidad[r.criticidad]}1a;color:${colorCriticidad[r.criticidad]};">${tEsc(r.criticidad)}</span></td>
-      <td>cada ${r.frecuencia_dias} días</td>
-      <td>${r.ultima_fecha_contado ? new Date(r.ultima_fecha_contado).toLocaleDateString('es-CO') : 'Nunca'}</td>
-      <td>${new Date(r.proxima_fecha_sugerida).toLocaleDateString('es-CO')}</td>
-      <td>${r.atrasado ? '<span style="color:#dc2626;font-weight:700;">⚠ Atrasado</span>' : ''}</td>
-    </tr>`).join('')
-  }</tbody></table><p style="font-size:11px;color:var(--modern-muted);padding:8px;">Mostrando las primeras 200 de ${IC_CRONOGRAMA_CACHE.length.toLocaleString('es-CO')} referencias, ordenadas por atraso.</p>`;
+
+  const barra = `<div style="display:flex;gap:8px;align-items:center;margin-bottom:10px;flex-wrap:wrap;">
+    <input type="text" id="crono-filtro-texto" placeholder="Buscar código, producto o proveedor..." style="flex:1;min-width:200px;padding:8px;border-radius:8px;border:1px solid #dbe2ea;font-size:12px;" value="${tEsc(document.getElementById('crono-filtro-texto')?.value || '')}">
+    <button class="btn ghost" onclick="alternarAgruparProveedorCrono()">${CRONO_AGRUPAR_PROVEEDOR ? '📋 Ver detalle' : '📦 Agrupar por proveedor'}</button>
+    <span style="font-size:11px;color:var(--modern-muted);">${CRONO_SELECCIONADOS.size} seleccionada(s)</span>
+    <button class="btn" ${CRONO_SELECCIONADOS.size ? '' : 'disabled'} onclick="generarCiclicoDesdeCronograma()">Generar cíclico</button>
+  </div>`;
+
+  if (CRONO_AGRUPAR_PROVEEDOR) {
+    const porProveedor = new Map();
+    filas.forEach(r => {
+      const clave = r.proveedor || 'Sin proveedor';
+      if (!porProveedor.has(clave)) porProveedor.set(clave, { referencias: 0, atrasadas: 0, valor: 0 });
+      const g = porProveedor.get(clave);
+      g.referencias++; if (r.atrasado) g.atrasadas++; g.valor += Number(r.valor_teorico || 0);
+    });
+    const filasProveedor = [...porProveedor.entries()].sort((a, b) => b[1].referencias - a[1].referencias);
+    cont.innerHTML = barra + `<table class="inv-table"><thead><tr><th>Proveedor</th><th>Referencias pendientes</th><th>Atrasadas</th><th>Valor teórico</th></tr></thead><tbody>${
+      filasProveedor.map(([prov, g]) => `<tr style="cursor:pointer;" onclick='filtrarCronogramaPorProveedor(${JSON.stringify(prov)})'>
+        <td>${tEsc(prov)}</td><td>${g.referencias}</td>
+        <td style="color:${g.atrasadas ? '#dc2626' : 'inherit'};font-weight:${g.atrasadas ? '700' : '400'}">${g.atrasadas}</td>
+        <td>${formatoCOP(g.valor)}</td>
+      </tr>`).join('')
+    }</tbody></table>`;
+  } else {
+    cont.innerHTML = barra + `<table class="inv-table"><thead><tr>
+        <th></th><th>Código</th><th>Producto</th><th>Proveedor</th><th>Clase</th><th>Criticidad</th><th>Frecuencia</th><th>Última vez contado</th><th>Próxima fecha sugerida</th><th></th>
+      </tr></thead><tbody>${
+      filas.map(r => { const clave = r.referencia + '|' + r.cedi; return `<tr style="${r.atrasado ? 'background:#fef2f2;' : ''}">
+        <td><input type="checkbox" ${CRONO_SELECCIONADOS.has(clave) ? 'checked' : ''} onchange='toggleCronoSeleccionado(${JSON.stringify(clave)})'></td>
+        <td>${tEsc(r.referencia)}</td>
+        <td class="inv-product">${tEsc(r.producto || '—')}</td>
+        <td style="font-size:11px;">${tEsc(r.proveedor || '—')}</td>
+        <td>${tEsc(r.clase_pareto)}</td>
+        <td><span class="inv-risk" style="background:${colorCriticidad[r.criticidad]}1a;color:${colorCriticidad[r.criticidad]};">${tEsc(r.criticidad)}</span></td>
+        <td>cada ${r.frecuencia_dias} días</td>
+        <td>${r.ultima_fecha_contado ? new Date(r.ultima_fecha_contado).toLocaleDateString('es-CO') : 'Nunca'}</td>
+        <td>${new Date(r.proxima_fecha_sugerida).toLocaleDateString('es-CO')}</td>
+        <td>${r.atrasado ? '<span style="color:#dc2626;font-weight:700;">⚠ Atrasado</span>' : ''}</td>
+      </tr>`; }).join('')
+    }</tbody></table><p style="font-size:11px;color:var(--modern-muted);padding:8px;">Mostrando las ${filas.length.toLocaleString('es-CO')} referencia(s), ordenadas por atraso.</p>`;
+  }
+
+  const inputTexto = document.getElementById('crono-filtro-texto');
+  if (inputTexto) inputTexto.addEventListener('input', renderTablaCronogramaIc);
+}
+
+function filtrarCronogramaPorProveedor(proveedor) {
+  CRONO_AGRUPAR_PROVEEDOR = false;
+  document.getElementById('ic-tabla-cronograma').dataset.filtroProveedorPendiente = proveedor;
+  renderTablaCronogramaIc();
+  setTimeout(() => { const input = document.getElementById('crono-filtro-texto'); if (input) { input.value = proveedor; renderTablaCronogramaIc(); } }, 0);
 }
 
 // ---------- Importar conteo ----------
