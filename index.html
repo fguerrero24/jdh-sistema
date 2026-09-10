@@ -5665,15 +5665,38 @@ document.getElementById('btn-imp-confirmar').addEventListener('click', async () 
   // (no hay clave única -- puede haber varias filas por referencia+CEDI). ----------
   if (tipoId === 'inventario_siesa') {
     boton.disabled = true;
-    estado.textContent = 'Borrando inventario SIESA anterior...';
-    const { error: errorBorrar } = await sb.from('inventario_siesa').delete().neq('id', 0);
+
+    // Si no puedes ver todos los CEDIs, solo puedes tocar el tuyo -- se
+    // filtra el archivo a solo tu CEDI, ignorando cualquier otro que traiga
+    // mezclado, para no arriesgarte a pisar el trabajo de otro CEDI.
+    let filasAImportar = IMPORTACION_FILAS_PROCESADAS;
+    if (!puedeVerTodosLosCedis()) {
+      const propias = filasAImportar.filter(r => r.cedi === SESION.cedi);
+      const descartadas = filasAImportar.length - propias.length;
+      if (descartadas > 0) {
+        mostrarToast(`Se importó solo tu CEDI (${SESION.cedi}) -- se ignoraron ${descartadas} fila(s) de otros CEDIs que traía el archivo.`);
+      }
+      filasAImportar = propias;
+    }
+    if (!filasAImportar.length) {
+      estado.textContent = 'No hay filas de tu CEDI en este archivo -- no se importó nada.';
+      boton.disabled = false;
+      return;
+    }
+
+    // Se borra SOLO lo que ya había de los CEDIs que trae este archivo (no
+    // toda la tabla) -- así un CEDI no se lleva por delante los datos de
+    // otro CEDI que no está en este archivo.
+    const cedisDelArchivo = [...new Set(filasAImportar.map(r => r.cedi))];
+    estado.textContent = `Borrando inventario SIESA anterior de: ${cedisDelArchivo.join(', ')}...`;
+    const { error: errorBorrar } = await sb.from('inventario_siesa').delete().in('cedi', cedisDelArchivo);
     if (errorBorrar) { estado.textContent = 'Error al borrar lo anterior: ' + errorBorrar.message; boton.disabled = false; return; }
 
     const TAM_LOTE = 1000;
     let importados = 0;
-    const total = IMPORTACION_FILAS_PROCESADAS.length;
+    const total = filasAImportar.length;
     for (let i = 0; i < total; i += TAM_LOTE) {
-      const lote = IMPORTACION_FILAS_PROCESADAS.slice(i, i + TAM_LOTE).map(r => ({
+      const lote = filasAImportar.slice(i, i + TAM_LOTE).map(r => ({
         ...r, actualizado_en: new Date().toISOString(), actualizado_por: SESION.id
       }));
       const { error } = await sb.from('inventario_siesa').insert(lote);
@@ -5682,7 +5705,7 @@ document.getElementById('btn-imp-confirmar').addEventListener('click', async () 
       estado.textContent = `Importando... ${importados}/${total}`;
     }
     boton.disabled = false;
-    estado.textContent = `Listo -- ${importados} fila(s) de inventario SIESA importadas (reemplazó todo lo anterior). Actualizando la conciliación...`;
+    estado.textContent = `Listo -- ${importados} fila(s) de inventario SIESA importadas para ${cedisDelArchivo.join(', ')} (no afectó otros CEDIs). Actualizando la conciliación...`;
     const { error: errorRefrescoSvw } = await sb.rpc('refrescar_siesa_vs_wms');
     if (errorRefrescoSvw) {
       estado.textContent += ` (Nota: la conciliación no se pudo refrescar automáticamente -- entra a SIESA vs WMS y dale a "Consultar" para intentarlo de nuevo.)`;
