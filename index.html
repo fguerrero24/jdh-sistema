@@ -1323,6 +1323,7 @@ input:focus,select:focus,textarea:focus{outline:none!important;border-color:#176
               <div class="inv-sync" style="display:flex;gap:8px;">
                 <button class="btn ghost" id="btn-ic-importar-conteo"><i class="ti ti-upload"></i> Importar conteo</button>
                 <button class="btn ghost" id="btn-ic-limpiar-ciclo" style="color:#dc2626;"><i class="ti ti-trash"></i> Limpiar ciclo</button>
+                <button class="btn ghost" id="btn-ic-eliminar-ciclo-actual" style="color:#dc2626;"><i class="ti ti-x"></i> Eliminar este ciclo</button>
                 <button class="btn" id="btn-ic-cerrar-ciclo"><i class="ti ti-lock"></i> Cerrar ciclo</button>
               </div>
             </div>
@@ -6419,6 +6420,22 @@ document.getElementById('btn-ic-limpiar-ciclo').addEventListener('click', async 
   if (error) { mostrarToast('Error al limpiar: ' + error.message); return; }
   mostrarToast('Ciclo limpiado -- puedes empezar de nuevo.');
   consultarCiclicos();
+});
+
+document.getElementById('btn-ic-eliminar-ciclo-actual').addEventListener('click', async () => {
+  const cedi = document.getElementById('ic-filtro-cedi').value;
+  if (!cedi || !IC_CICLO_ACTUAL) { mostrarToast('Consulta un ciclo primero.'); return; }
+  const cantidad = IC_ANALISIS_CACHE.length;
+  if (!confirm(`¿Eliminar el Ciclo #${IC_CICLO_ACTUAL} por completo (no solo vaciarlo)? ${cantidad ? `Se van a perder los ${cantidad} conteo(s) que tenga. ` : ''}Esto no se puede deshacer.`)) return;
+  const { error } = await sb.rpc('eliminar_ciclo_activo', { p_ciclo_id: IC_CICLO_ACTUAL });
+  if (error) { mostrarToast('Error al eliminar el ciclo: ' + error.message); return; }
+  mostrarToast(`Ciclo #${IC_CICLO_ACTUAL} eliminado.`);
+  IC_CICLO_ACTUAL = null;
+  IC_ANALISIS_CACHE = [];
+  document.getElementById('ic-tabla-analisis').innerHTML = '';
+  document.getElementById('ic-kpis').innerHTML = '';
+  document.getElementById('ic-status').textContent = 'Elige un CEDI y un ciclo, y dale clic a Consultar.';
+  await poblarSelectorCiclosIc(cedi);
 });
 
 async function eliminarItemIc(referencia, cedi) {
