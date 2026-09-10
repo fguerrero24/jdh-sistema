@@ -1321,14 +1321,16 @@ input:focus,select:focus,textarea:focus{outline:none!important;border-color:#176
               <div><div class="inv-eyebrow">JDH · Inventory Control Tower</div><div class="inv-title">Inventarios Cíclicos</div><div class="inv-subtitle">Conteo físico contra el teórico de SIESA -- información, excepción, decisión, acción.</div></div>
               <div class="inv-sync" style="display:flex;gap:8px;">
                 <button class="btn ghost" id="btn-ic-importar-conteo"><i class="ti ti-upload"></i> Importar conteo</button>
+                <button class="btn ghost" id="btn-ic-limpiar-ciclo" style="color:#dc2626;"><i class="ti ti-trash"></i> Limpiar ciclo</button>
                 <button class="btn" id="btn-ic-cerrar-ciclo"><i class="ti ti-lock"></i> Cerrar ciclo</button>
               </div>
             </div>
           </div>
 
           <div class="inv-filterbar">
-            <div class="inv-filter-row" style="grid-template-columns:1fr auto;">
+            <div class="inv-filter-row" style="grid-template-columns:1fr 1.2fr auto;">
               <div class="inv-filter"><label>CEDI</label><select id="ic-filtro-cedi"><option value="">Elige un CEDI...</option></select></div>
+              <div class="inv-filter"><label>Ciclo</label><select id="ic-filtro-ciclo"><option value="">Elige un CEDI primero...</option></select></div>
               <button class="btn" id="btn-ic-consultar">Consultar</button>
             </div>
           </div>
@@ -1338,13 +1340,33 @@ input:focus,select:focus,textarea:focus{outline:none!important;border-color:#176
 
           <div style="display:flex;gap:8px;margin:12px 0;justify-content:center;">
             <button class="btn ghost admin-tab active" id="tab-ic-analisis" style="display:flex;align-items:center;justify-content:center;text-align:center;">Análisis</button>
+            <button class="btn ghost admin-tab" id="tab-ic-elaboracion" style="display:flex;align-items:center;justify-content:center;text-align:center;">Ciclos en elaboración</button>
             <button class="btn ghost admin-tab" id="tab-ic-cronograma" style="display:flex;align-items:center;justify-content:center;text-align:center;">Cronograma</button>
             <button class="btn ghost admin-tab" id="tab-ic-historico" style="display:flex;align-items:center;justify-content:center;text-align:center;">Histórico de cierres</button>
           </div>
 
           <div id="panel-ic-analisis">
-            <div class="inv-filter svw-autocomplete-wrap" style="margin-bottom:10px;"><label>Buscar por código o producto</label><input type="text" id="ic-filtro-texto" placeholder="Escribe para buscar..." autocomplete="off"></div>
+            <div class="inv-filter-row" style="grid-template-columns:1.6fr 1fr;margin-bottom:10px;">
+              <div class="inv-filter svw-autocomplete-wrap"><label>Buscar por código, producto o proveedor</label><input type="text" id="ic-filtro-texto" placeholder="Escribe para buscar..." autocomplete="off"></div>
+              <div class="inv-filter svw-multiselect-wrap">
+                <label>Estado</label>
+                <button type="button" class="svw-multiselect-btn" id="ic-btn-estado">Todos</button>
+                <div class="svw-multiselect-panel hidden" id="ic-panel-estado">
+                  <label style="font-weight:700;border-bottom:1px solid #e5e9f0;margin-bottom:4px;"><input type="checkbox" data-ic-estado-todos> Seleccionar todos</label>
+                  <label><input type="checkbox" data-ic-estado="ok_conteo1"> OK (conteo 1)</label>
+                  <label><input type="checkbox" data-ic-estado="ok_conteo2"> OK (conteo 2)</label>
+                  <label><input type="checkbox" data-ic-estado="ok_conteo3"> Cerrado (conteo 3)</label>
+                  <label><input type="checkbox" data-ic-estado="pendiente_conteo2"> Falta conteo 2</label>
+                  <label><input type="checkbox" data-ic-estado="pendiente_conteo3"> Falta conteo 3</label>
+                  <label><input type="checkbox" data-ic-estado="sin_contar"> Sin contar</label>
+                </div>
+              </div>
+            </div>
             <div class="inv-section"><div class="inv-table-wrap" id="ic-tabla-analisis"></div></div>
+          </div>
+
+          <div id="panel-ic-elaboracion" class="hidden">
+            <div class="inv-section"><div class="inv-table-wrap" id="ic-tabla-elaboracion"></div></div>
           </div>
 
           <div id="panel-ic-cronograma" class="hidden">
@@ -6179,12 +6201,14 @@ function renderSvwTabla(contId, filas) {
     });
     const cedis = new Set(items.map(i => i.cedi));
     if (cedis.size > 1) { mostrarToast('Selecciona referencias de un solo CEDI a la vez para generar el cíclico.'); return; }
+    const { data: nuevoCicloId, error: errorCiclo } = await sb.rpc('crear_ciclo_activo', { p_cedi: items[0].cedi });
+    if (errorCiclo) { mostrarToast('Error al crear el ciclo: ' + errorCiclo.message); return; }
     const { error } = await sb.from('conteos_ciclicos').upsert(
-      items.map(i => ({ referencia: i.referencia, cedi: i.cedi, producto: i.producto, origen: 'siesa_vs_wms' })),
-      { onConflict: 'referencia,cedi', ignoreDuplicates: true }
+      items.map(i => ({ referencia: i.referencia, cedi: i.cedi, producto: i.producto, origen: 'siesa_vs_wms', ciclo_id: nuevoCicloId })),
+      { onConflict: 'referencia,cedi,ciclo_id', ignoreDuplicates: true }
     );
     if (error) { mostrarToast('Error al generar el cíclico: ' + error.message); return; }
-    mostrarToast(`${items.length} referencia(s) agregadas a Inventarios Cíclicos, pendientes de contar.`);
+    mostrarToast(`Ciclo #${nuevoCicloId} creado con ${items.length} referencia(s), pendientes de contar en Inventarios Cíclicos.`);
     SVW_SELECCIONADOS_CICLICO.clear();
     renderSvwTodo();
   });
@@ -6244,42 +6268,125 @@ let IC_ANALISIS_CACHE = [];
 let IC_CRONOGRAMA_CACHE = [];
 let IC_INDICADORES_CACHE = null;
 let IC_CIERRE_DETALLE = new Map(); // referencia -> { causal, accion_correctiva }
+let IC_ESTADOS_ACTIVOS = new Set();
+let IC_CICLO_ACTUAL = null; // id del ciclo que se está viendo/editando ahora mismo
 
 async function cargarModuloInventariosCiclicos() {
   const sel = document.getElementById('ic-filtro-cedi');
   if (sel.options.length <= 1) CEDIS_VALIDOS.forEach(c => sel.insertAdjacentHTML('beforeend', `<option value="${c}">${c}</option>`));
   if (!puedeVerTodosLosCedis() && SESION.cedi) sel.value = SESION.cedi;
+  if (sel.value) await poblarSelectorCiclosIc(sel.value);
   cambiarTabIc('analisis');
-  document.getElementById('ic-status').textContent = 'Elige un CEDI y dale clic a Consultar.';
+  document.getElementById('ic-status').textContent = 'Elige un CEDI y un ciclo, y dale clic a Consultar.';
+}
+
+document.getElementById('ic-filtro-cedi').addEventListener('change', (e) => poblarSelectorCiclosIc(e.target.value));
+
+async function poblarSelectorCiclosIc(cedi) {
+  const sel = document.getElementById('ic-filtro-ciclo');
+  if (!cedi) { sel.innerHTML = '<option value="">Elige un CEDI primero...</option>'; return; }
+  sel.innerHTML = '<option value="">Cargando...</option>';
+  const { data, error } = await sb.from('ciclos_activos').select('id,creado_en').eq('cedi', cedi).eq('estado', 'en_elaboracion').order('creado_en', { ascending: false });
+  if (error) { sel.innerHTML = '<option value="">Error al cargar</option>'; return; }
+  sel.innerHTML = '<option value="__nuevo__">+ Nuevo ciclo</option>' +
+    (data || []).map(c => `<option value="${c.id}">Ciclo #${c.id} -- abierto ${new Date(c.creado_en).toLocaleDateString('es-CO')}</option>`).join('');
+  if (data && data.length) sel.value = data[0].id;
 }
 
 document.getElementById('tab-ic-analisis').addEventListener('click', () => cambiarTabIc('analisis'));
+document.getElementById('tab-ic-elaboracion').addEventListener('click', () => { cambiarTabIc('elaboracion'); consultarCiclosEnElaboracion(); });
 document.getElementById('tab-ic-cronograma').addEventListener('click', () => { cambiarTabIc('cronograma'); consultarCronogramaIc(); });
+inicializarMultiselectSvw('ic-btn-estado', 'ic-panel-estado', 'data-ic-estado', IC_ESTADOS_ACTIVOS, 'Todos', renderTablaAnalisisIc);
 document.getElementById('tab-ic-historico').addEventListener('click', () => { cambiarTabIc('historico'); consultarHistoricoIc(); });
 function cambiarTabIc(cual) {
-  ['analisis', 'cronograma', 'historico'].forEach(t => document.getElementById('panel-ic-' + t).classList.toggle('hidden', t !== cual));
+  ['analisis', 'elaboracion', 'cronograma', 'historico'].forEach(t => document.getElementById('panel-ic-' + t).classList.toggle('hidden', t !== cual));
   document.querySelectorAll('#view-inventarios-ciclicos .admin-tab').forEach(b => b.classList.remove('active'));
   document.getElementById('tab-ic-' + cual).classList.add('active');
 }
 
+// ---------- Ciclos en elaboración (todos los CEDIs que puedas ver) ----------
+async function consultarCiclosEnElaboracion() {
+  const cont = document.getElementById('ic-tabla-elaboracion');
+  cont.innerHTML = '<div class="inv-empty">Cargando...</div>';
+  const { data, error } = await sb.rpc('listar_ciclos_en_elaboracion');
+  if (error) { cont.innerHTML = `<div class="inv-empty">Error: ${tEsc(error.message)}</div>`; return; }
+  if (!data || !data.length) { cont.innerHTML = '<div class="inv-empty">No hay ciclos en elaboración ahora mismo.</div>'; return; }
+  cont.innerHTML = `<table class="inv-table"><thead><tr><th>Ciclo</th><th>CEDI</th><th>Abierto por</th><th>Abierto el</th><th>Referencias</th><th>Pendientes por resolver</th><th></th></tr></thead><tbody>${
+    data.map(c => `<tr>
+      <td>#${c.ciclo_id}</td>
+      <td>${tEsc(c.cedi)}</td>
+      <td>${tEsc(c.creado_por_nombre)}</td>
+      <td>${new Date(c.creado_en).toLocaleString('es-CO')}</td>
+      <td>${c.referencias_en_ciclo}</td>
+      <td style="font-weight:700;color:${c.pendientes_por_resolver > 0 ? '#dc2626' : '#16a34a'}">${c.pendientes_por_resolver}</td>
+      <td><button class="btn ghost" onclick='irAlCicloIc(${JSON.stringify(c.cedi)}, ${c.ciclo_id})'>Retomar →</button></td>
+    </tr>`).join('')
+  }</tbody></table>`;
+}
+
+async function irAlCicloIc(cedi, cicloId) {
+  document.getElementById('ic-filtro-cedi').value = cedi;
+  await poblarSelectorCiclosIc(cedi);
+  document.getElementById('ic-filtro-ciclo').value = cicloId;
+  cambiarTabIc('analisis');
+  await consultarCiclicos();
+}
+
 document.getElementById('btn-ic-consultar').addEventListener('click', consultarCiclicos);
+
+document.getElementById('btn-ic-limpiar-ciclo').addEventListener('click', async () => {
+  const cedi = document.getElementById('ic-filtro-cedi').value;
+  if (!cedi || !IC_CICLO_ACTUAL) { mostrarToast('Consulta un ciclo primero.'); return; }
+  if (!confirm(`¿Seguro que quieres borrar TODOS los conteos del Ciclo #${IC_CICLO_ACTUAL} (${cedi})? Esto no se puede deshacer (y es distinto de "Cerrar ciclo" -- aquí no queda ningún registro, ni en el histórico). El ciclo en sí queda abierto y vacío.`)) return;
+  const { error } = await sb.from('conteos_ciclicos').delete().eq('ciclo_id', IC_CICLO_ACTUAL);
+  if (error) { mostrarToast('Error al limpiar: ' + error.message); return; }
+  mostrarToast('Ciclo limpiado -- puedes empezar de nuevo.');
+  consultarCiclicos();
+});
+
+async function eliminarItemIc(referencia, cedi) {
+  if (!confirm(`¿Quitar "${referencia}" de este ciclo? No se va a contar.`)) return;
+  const { error } = await sb.from('conteos_ciclicos').delete().eq('referencia', referencia).eq('cedi', cedi).eq('ciclo_id', IC_CICLO_ACTUAL);
+  if (error) { mostrarToast('Error al quitar: ' + error.message); return; }
+  mostrarToast('Referencia quitada del ciclo.');
+  consultarCiclicos();
+}
+
+// Devuelve el ciclo_id a usar -- si el selector dice "__nuevo__", crea uno
+// nuevo primero y lo deja seleccionado.
+async function obtenerOCrearCicloIc(cedi) {
+  const sel = document.getElementById('ic-filtro-ciclo');
+  if (sel.value === '__nuevo__' || !sel.value) {
+    const { data, error } = await sb.rpc('crear_ciclo_activo', { p_cedi: cedi });
+    if (error) { mostrarToast('Error al crear el ciclo: ' + error.message); return null; }
+    await poblarSelectorCiclosIc(cedi);
+    sel.value = data;
+    return data;
+  }
+  return Number(sel.value);
+}
 
 async function consultarCiclicos() {
   const cedi = document.getElementById('ic-filtro-cedi').value;
+  const cicloSel = document.getElementById('ic-filtro-ciclo').value;
   const estado = document.getElementById('ic-status');
   if (!cedi) { mostrarToast('Elige un CEDI primero.'); return; }
+  if (!cicloSel) { mostrarToast('Elige un ciclo primero (o crea uno nuevo).'); return; }
+  const cicloId = cicloSel === '__nuevo__' ? await obtenerOCrearCicloIc(cedi) : Number(cicloSel);
+  if (!cicloId) return;
+  IC_CICLO_ACTUAL = cicloId;
   estado.textContent = 'Consultando...';
 
   const [{ data: analisis, error: e1 }, { data: indicadores, error: e2 }] = await Promise.all([
-    sb.rpc('analisis_ciclicos', { p_cedi: cedi }),
-    sb.rpc('indicadores_ciclicos', { p_cedi: cedi }),
+    sb.rpc('analisis_ciclicos', { p_cedi: cedi, p_ciclo_id: cicloId }),
+    sb.rpc('indicadores_ciclicos', { p_cedi: cedi, p_ciclo_id: cicloId }),
   ]);
   if (e1) { estado.textContent = 'Error: ' + e1.message; return; }
   if (e2) console.error('Error trayendo indicadores:', e2.message);
 
   IC_ANALISIS_CACHE = analisis || [];
   IC_INDICADORES_CACHE = (indicadores && indicadores[0]) || null;
-  estado.textContent = `${IC_ANALISIS_CACHE.length.toLocaleString('es-CO')} referencia(s) en conteo para ${cedi}.`;
+  estado.textContent = `Ciclo #${cicloId} -- ${IC_ANALISIS_CACHE.length.toLocaleString('es-CO')} referencia(s) en conteo para ${cedi}.`;
   renderKpisIc();
   renderTablaAnalisisIc();
 }
@@ -6302,27 +6409,58 @@ function renderKpisIc() {
 
 document.getElementById('ic-filtro-texto').addEventListener('input', renderTablaAnalisisIc);
 
-function renderTablaAnalisisIc() {
+function filasAnalisisIcFiltradas() {
   const texto = document.getElementById('ic-filtro-texto').value.trim().toLowerCase();
-  const filas = IC_ANALISIS_CACHE.filter(r => !texto || (r.referencia || '').toLowerCase().includes(texto) || (r.producto || '').toLowerCase().includes(texto));
+  return IC_ANALISIS_CACHE.filter(r => {
+    const textoOk = !texto || (r.referencia || '').toLowerCase().includes(texto) || (r.producto || '').toLowerCase().includes(texto) || (r.proveedor || '').toLowerCase().includes(texto);
+    const estadoOk = IC_ESTADOS_ACTIVOS.size === 0 || IC_ESTADOS_ACTIVOS.has(r.estado_conteo);
+    return textoOk && estadoOk;
+  });
+}
+
+const ETIQUETA_ESTADO_IC = { ok_conteo1: 'OK (conteo 1)', ok_conteo2: 'OK (conteo 2)', ok_conteo3: 'Cerrado (conteo 3)', pendiente_conteo2: 'Falta conteo 2', pendiente_conteo3: 'Falta conteo 3', sin_contar: 'Sin contar', sin_resolver: 'Sin resolver' };
+const COLOR_ESTADO_IC = { ok_conteo1: '#16a34a', ok_conteo2: '#16a34a', ok_conteo3: '#2563eb', pendiente_conteo2: '#d97706', pendiente_conteo3: '#dc2626', sin_contar: '#94a3b8', sin_resolver: '#dc2626' };
+
+function renderTablaAnalisisIc() {
+  const filas = filasAnalisisIcFiltradas();
   const cont = document.getElementById('ic-tabla-analisis');
   if (!filas.length) { cont.innerHTML = '<div class="inv-empty">Sin resultados. Importa un conteo o ajusta el filtro.</div>'; return; }
-  const etiquetaEstado = { ok_conteo1: 'OK (conteo 1)', ok_conteo2: 'OK (conteo 2)', ok_conteo3: 'Cerrado (conteo 3)', pendiente_conteo2: 'Falta conteo 2', pendiente_conteo3: 'Falta conteo 3 (desempate)', sin_contar: 'Sin contar', sin_resolver: 'Sin resolver' };
-  const colorEstado = { ok_conteo1: '#16a34a', ok_conteo2: '#16a34a', ok_conteo3: '#2563eb', pendiente_conteo2: '#d97706', pendiente_conteo3: '#dc2626', sin_contar: '#94a3b8', sin_resolver: '#dc2626' };
-  cont.innerHTML = `<table class="inv-table"><thead><tr>
-      <th>Código</th><th>Producto</th><th>Conteo 1</th><th>Conteo 2</th><th>Conteo 3</th><th>Contado</th><th>Teórico</th><th>Diferencia</th><th>Costo dif.</th><th>Estado</th>
+  cont.innerHTML = `<div style="overflow-x:auto;"><table class="inv-table" style="font-size:10.5px;white-space:nowrap;"><thead><tr>
+      <th></th><th>Código</th><th>Producto</th><th>Proveedor</th><th>B. Principal</th><th>B. Diferencias</th><th>B. No conforme</th><th>C1</th><th>C2</th><th>C3</th><th>Contado</th><th>Teórico</th><th>Diferencia</th><th>Costo dif.</th><th>Estado</th>
     </tr></thead><tbody>${
     filas.map(r => `<tr>
+      <td><button title="Quitar del ciclo" onclick='eliminarItemIc(${JSON.stringify(r.referencia)}, ${JSON.stringify(r.cedi)})' style="border:none;background:none;color:#dc2626;cursor:pointer;font-weight:700;">✕</button></td>
       <td>${tEsc(r.referencia)}</td>
-      <td class="inv-product">${tEsc(r.producto || '—')}</td>
-      <td>${r.conteo1 ?? '—'}</td><td>${r.conteo2 ?? '—'}</td><td>${r.conteo3 ?? '—'}</td>
-      <td style="font-weight:700;">${r.inventario_contado ?? '—'}</td>
+      <td class="inv-product" style="max-width:140px;white-space:normal;overflow-wrap:break-word;">${tEsc(r.producto || '—')}</td>
+      <td style="max-width:110px;white-space:normal;">${tEsc(r.proveedor || '—')}</td>
+      <td>${Number(r.bodega_principal || 0).toLocaleString('es-CO')}</td>
+      <td>${Number(r.bodega_diferencias || 0).toLocaleString('es-CO')}</td>
+      <td>${Number(r.bodega_no_conforme || 0).toLocaleString('es-CO')}</td>
+      <td contenteditable="true" data-ref="${tEsc(r.referencia)}" data-slot="1" onblur="editarConteoIc(this)" style="cursor:text;background:#f8fafc;">${r.conteo1 ?? ''}</td>
+      <td contenteditable="true" data-ref="${tEsc(r.referencia)}" data-slot="2" onblur="editarConteoIc(this)" style="cursor:text;background:#f8fafc;">${r.conteo2 ?? ''}</td>
+      <td contenteditable="true" data-ref="${tEsc(r.referencia)}" data-slot="3" onblur="editarConteoIc(this)" style="cursor:text;background:#f8fafc;">${r.conteo3 ?? ''}</td>
+      <td style="font-weight:700;">${r.inventario_contado ?? '—'}${!r.confirmado && r.diferencia_unidades != null ? ' <small style="color:#d97706;">(prelim.)</small>' : ''}</td>
       <td>${Number(r.inventario_teorico).toLocaleString('es-CO')}</td>
       <td style="font-weight:700;color:${r.diferencia_unidades ? (r.diferencia_unidades > 0 ? '#2563eb' : '#dc2626') : 'inherit'}">${r.diferencia_unidades ?? '—'}</td>
       <td>${r.costo_diferencia != null ? formatoCOP(r.costo_diferencia) : '—'}</td>
-      <td><span class="inv-risk" style="background:${colorEstado[r.estado_conteo]}1a;color:${colorEstado[r.estado_conteo]};">${etiquetaEstado[r.estado_conteo] || r.estado_conteo}</span></td>
+      <td><span class="inv-risk" style="background:${COLOR_ESTADO_IC[r.estado_conteo]}1a;color:${COLOR_ESTADO_IC[r.estado_conteo]};">${ETIQUETA_ESTADO_IC[r.estado_conteo] || r.estado_conteo}</span></td>
     </tr>`).join('')
-  }</tbody></table>`;
+  }</tbody></table></div>`;
+}
+
+async function editarConteoIc(celda) {
+  const referencia = celda.dataset.ref;
+  const slot = celda.dataset.slot;
+  const cedi = document.getElementById('ic-filtro-cedi').value;
+  const valorTexto = celda.textContent.trim();
+  const valor = valorTexto === '' ? null : Number(valorTexto);
+  if (valorTexto !== '' && Number.isNaN(valor)) { mostrarToast('Ese valor no es un número válido.'); renderTablaAnalisisIc(); return; }
+
+  const campoConteo = 'conteo' + slot, campoFecha = 'conteo' + slot + '_en', campoPor = 'conteo' + slot + '_por';
+  const { error } = await sb.from('conteos_ciclicos').update({ [campoConteo]: valor, [campoFecha]: new Date().toISOString(), [campoPor]: SESION.id }).eq('referencia', referencia).eq('cedi', cedi).eq('ciclo_id', IC_CICLO_ACTUAL);
+  if (error) { mostrarToast('Error al guardar: ' + error.message); return; }
+  mostrarToast('Conteo actualizado.');
+  await consultarCiclicos();
 }
 
 // ---------- Cronograma ----------
@@ -6389,11 +6527,13 @@ function renderTablaCronogramaIc() {
 }
 
 // ---------- Importar conteo ----------
-document.getElementById('btn-ic-importar-conteo').addEventListener('click', () => {
+document.getElementById('btn-ic-importar-conteo').addEventListener('click', async () => {
   const cedi = document.getElementById('ic-filtro-cedi').value || SESION.cedi;
   document.getElementById('ic-modal-contenido').innerHTML = `
     <h3 style="margin-top:0;">Importar conteo -- ${tEsc(cedi || 'sin CEDI')}</h3>
     <p style="font-size:12px;color:var(--modern-muted);">El CEDI se toma de tu sesión (${tEsc(cedi || '—')}). Si varios CEDIs están contando al mismo tiempo, cada quien importa el suyo por separado.</p>
+    <label style="font-size:12px;font-weight:600;display:block;margin-top:10px;">¿A cuál ciclo va este archivo?</label>
+    <select id="ic-import-ciclo" style="width:100%;padding:8px;border-radius:8px;border:1px solid #dbe2ea;margin-top:4px;"><option>Cargando...</option></select>
     <label style="font-size:12px;font-weight:600;display:block;margin-top:10px;">¿A cuál conteo va este archivo?</label>
     <select id="ic-slot-conteo" style="width:100%;padding:8px;border-radius:8px;border:1px solid #dbe2ea;margin-top:4px;">
       <option value="1">Conteo 1 (primer conteo)</option>
@@ -6411,12 +6551,31 @@ document.getElementById('btn-ic-importar-conteo').addEventListener('click', () =
   document.getElementById('ic-modal-backdrop').classList.remove('hidden');
   document.getElementById('btn-ic-cancelar-import').addEventListener('click', () => document.getElementById('ic-modal-backdrop').classList.add('hidden'));
 
+  // Poblar el selector de ciclo (mismos ciclos abiertos de este CEDI)
+  const selCiclo = document.getElementById('ic-import-ciclo');
+  if (cedi) {
+    const { data: ciclos } = await sb.from('ciclos_activos').select('id,creado_en').eq('cedi', cedi).eq('estado', 'en_elaboracion').order('creado_en', { ascending: false });
+    selCiclo.innerHTML = '<option value="__nuevo__">+ Nuevo ciclo</option>' +
+      (ciclos || []).map(c => `<option value="${c.id}">Ciclo #${c.id} -- abierto ${new Date(c.creado_en).toLocaleDateString('es-CO')}</option>`).join('');
+    if (IC_CICLO_ACTUAL) selCiclo.value = String(IC_CICLO_ACTUAL);
+  } else {
+    selCiclo.innerHTML = '<option value="">Sin CEDI detectado</option>';
+  }
+
   document.getElementById('btn-ic-confirmar-import').addEventListener('click', async () => {
     const estado = document.getElementById('ic-import-status');
     const archivo = document.getElementById('ic-archivo-conteo').files[0];
     const slot = document.getElementById('ic-slot-conteo').value;
     if (!archivo) { estado.textContent = 'Selecciona un archivo.'; return; }
     if (!cedi) { estado.textContent = 'No se detectó tu CEDI -- no se puede importar.'; return; }
+    const cicloSel = document.getElementById('ic-import-ciclo').value;
+    if (!cicloSel) { estado.textContent = 'Elige a cuál ciclo va este archivo.'; return; }
+    let cicloId = cicloSel === '__nuevo__' ? null : Number(cicloSel);
+    if (!cicloId) {
+      const { data: nuevoId, error: errorCiclo } = await sb.rpc('crear_ciclo_activo', { p_cedi: cedi });
+      if (errorCiclo) { estado.textContent = 'Error al crear el ciclo: ' + errorCiclo.message; return; }
+      cicloId = nuevoId;
+    }
 
     estado.textContent = 'Leyendo archivo...';
     const buffer = await archivo.arrayBuffer();
@@ -6434,19 +6593,22 @@ document.getElementById('btn-ic-importar-conteo').addEventListener('click', () =
       .map(f => ({ referencia: String(f[claveRef] ?? '').trim(), cantidad: Number(f[claveCant]) }))
       .filter(r => r.referencia && !Number.isNaN(r.cantidad));
 
-    estado.textContent = `Guardando ${registros.length} conteo(s)...`;
+    estado.textContent = `Guardando ${registros.length} conteo(s) en el Ciclo #${cicloId}...`;
     const campoConteo = 'conteo' + slot, campoFecha = 'conteo' + slot + '_en', campoPor = 'conteo' + slot + '_por';
     let guardados = 0;
     for (const r of registros) {
       const { error } = await sb.from('conteos_ciclicos').upsert({
-        referencia: r.referencia, cedi,
+        referencia: r.referencia, cedi, ciclo_id: cicloId,
         [campoConteo]: r.cantidad, [campoFecha]: new Date().toISOString(), [campoPor]: SESION.id,
-      }, { onConflict: 'referencia,cedi', ignoreDuplicates: false });
+      }, { onConflict: 'referencia,cedi,ciclo_id', ignoreDuplicates: false });
       if (!error) guardados++;
     }
-    estado.textContent = `Listo -- ${guardados}/${registros.length} conteo(s) guardados en Conteo ${slot}.`;
+    estado.textContent = `Listo -- ${guardados}/${registros.length} conteo(s) guardados en Conteo ${slot} del Ciclo #${cicloId}.`;
     mostrarToast('Conteo importado.');
     document.getElementById('ic-modal-backdrop').classList.add('hidden');
+    document.getElementById('ic-filtro-cedi').value = cedi;
+    await poblarSelectorCiclosIc(cedi);
+    document.getElementById('ic-filtro-ciclo').value = cicloId;
     consultarCiclicos();
   });
 });
@@ -6514,17 +6676,22 @@ document.getElementById('btn-ic-cerrar-ciclo').addEventListener('click', () => {
     }));
 
     estado.textContent = 'Cerrando ciclo...';
-    const { data: cicloId, error } = await sb.rpc('cerrar_ciclo_conteo', {
-      p_cedi: cedi, p_numero_ajuste_siesa: numeroAjuste,
+    const { data: cierreId, error } = await sb.rpc('cerrar_ciclo_conteo', {
+      p_cedi: cedi, p_ciclo_id: IC_CICLO_ACTUAL, p_numero_ajuste_siesa: numeroAjuste,
       p_nombre_solicitante: solicitante, p_cargo_solicitante: cargo, p_nombre_director: director,
       p_detalle: detalle,
     });
     if (error) { estado.textContent = 'Error al cerrar el ciclo: ' + error.message; return; }
 
-    generarActaXlsx(cedi, numeroAjuste, solicitante, cargo, director, cicloId, IC_INDICADORES_CACHE, detalle);
+    generarActaXlsx(cedi, numeroAjuste, solicitante, cargo, director, cierreId, IC_INDICADORES_CACHE, detalle);
     mostrarToast('Ciclo cerrado y acta generada.');
     document.getElementById('ic-modal-backdrop').classList.add('hidden');
-    consultarCiclicos();
+    IC_CICLO_ACTUAL = null;
+    IC_ANALISIS_CACHE = [];
+    document.getElementById('ic-status').textContent = 'Ciclo cerrado. Elige otro ciclo, o crea uno nuevo.';
+    document.getElementById('ic-tabla-analisis').innerHTML = '';
+    document.getElementById('ic-kpis').innerHTML = '';
+    await poblarSelectorCiclosIc(cedi);
   });
 });
 
