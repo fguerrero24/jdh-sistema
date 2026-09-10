@@ -6592,21 +6592,34 @@ async function consultarCronogramaIc() {
   if (e2) console.error('Error cargando cumplimiento:', e2.message);
 
   IC_CRONOGRAMA_CACHE = cronograma || [];
-  renderCumplimientoMensualIc(cumplimiento || []);
+  IC_CUMPLIMIENTO_CACHE = cumplimiento || [];
+  renderCumplimientoMensualIc(IC_CUMPLIMIENTO_CACHE);
   renderTablaCronogramaIc();
 }
+
+let IC_CUMPLIMIENTO_CACHE = [];
 
 function renderCumplimientoMensualIc(filas) {
   const cont = document.getElementById('ic-cumplimiento-mensual');
   if (!filas.length) { cont.innerHTML = '<div class="inv-empty">Todavía no hay ciclos cerrados para calcular el cumplimiento.</div>'; return; }
-  cont.innerHTML = `<table class="inv-table"><thead><tr><th>Mes</th><th>Referencias contadas</th><th>Meta</th><th>% Cumplimiento</th></tr></thead><tbody>${
-    filas.map(f => `<tr>
-      <td>${new Date(f.mes).toLocaleDateString('es-CO', { month: 'long', year: 'numeric' })}</td>
+  const mesActualIso = new Date().toISOString().slice(0, 7);
+  cont.innerHTML = `<table class="inv-table"><thead><tr><th>Mes</th><th>Referencias contadas</th><th>Meta</th><th>% Cumplimiento</th><th></th></tr></thead><tbody>${
+    filas.map(f => { const esMesActual = f.mes.slice(0, 7) === mesActualIso; const activo = CRONO_MES_ACTIVO === f.mes; return `<tr style="cursor:pointer;${activo ? 'background:#eff6ff;' : ''}" onclick='filtrarCronogramaPorMes(${JSON.stringify(f.mes)})'>
+      <td>${new Date(f.mes + 'T00:00:00').toLocaleDateString('es-CO', { month: 'long', year: 'numeric' })}${esMesActual ? ' <span style="color:#2563eb;font-weight:700;">(actual)</span>' : ''}</td>
       <td>${f.referencias_contadas}</td>
       <td>${f.meta || '—'}</td>
       <td style="font-weight:700;color:${f.pct_cumplimiento >= 100 ? '#16a34a' : f.pct_cumplimiento >= 70 ? '#d97706' : '#dc2626'}">${f.pct_cumplimiento != null ? f.pct_cumplimiento + '%' : '—'}</td>
-    </tr>`).join('')
+      <td>${activo ? '<span style="color:#2563eb;">▼ filtrando</span>' : '👁 ver'}</td>
+    </tr>`; }).join('')
   }</tbody></table>`;
+}
+
+let CRONO_MES_ACTIVO = null; // 'YYYY-MM-01' o null
+function filtrarCronogramaPorMes(mesIso) {
+  CRONO_MES_ACTIVO = CRONO_MES_ACTIVO === mesIso ? null : mesIso;
+  IC_CUMPLIMIENTO_CACHE && renderCumplimientoMensualIc(IC_CUMPLIMIENTO_CACHE);
+  renderTablaCronogramaIc();
+  document.getElementById('ic-tabla-cronograma')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 }
 
 let CRONO_SELECCIONADOS = new Set();
@@ -6614,8 +6627,13 @@ let CRONO_AGRUPAR_PROVEEDOR = false;
 
 function filasCronogramaFiltradas() {
   const texto = (document.getElementById('crono-filtro-texto')?.value || '').trim().toLowerCase();
-  if (!texto) return IC_CRONOGRAMA_CACHE;
-  return IC_CRONOGRAMA_CACHE.filter(r =>
+  let filas = IC_CRONOGRAMA_CACHE;
+  if (CRONO_MES_ACTIVO) {
+    const mesActivoIso = CRONO_MES_ACTIVO.slice(0, 7);
+    filas = filas.filter(r => (r.proxima_fecha_sugerida || '').slice(0, 7) === mesActivoIso);
+  }
+  if (!texto) return filas;
+  return filas.filter(r =>
     (r.referencia || '').toLowerCase().includes(texto) ||
     (r.producto || '').toLowerCase().includes(texto) ||
     (r.proveedor || '').toLowerCase().includes(texto)
@@ -6686,6 +6704,7 @@ function renderTablaCronogramaIc() {
 
   const barra = `<div style="display:flex;gap:8px;align-items:center;margin-bottom:10px;flex-wrap:wrap;">
     <input type="text" id="crono-filtro-texto" placeholder="Buscar código, producto o proveedor..." style="flex:1;min-width:200px;padding:8px;border-radius:8px;border:1px solid #dbe2ea;font-size:12px;" value="${tEsc(document.getElementById('crono-filtro-texto')?.value || '')}">
+    ${CRONO_MES_ACTIVO ? `<span style="font-size:11px;background:#eff6ff;color:#2563eb;padding:6px 10px;border-radius:8px;font-weight:700;">📅 ${new Date(CRONO_MES_ACTIVO + 'T00:00:00').toLocaleDateString('es-CO', { month: 'long', year: 'numeric' })} <span style="cursor:pointer;" onclick="filtrarCronogramaPorMes(null)">✕</span></span>` : ''}
     <button class="btn ghost" onclick="alternarAgruparProveedorCrono()">${CRONO_AGRUPAR_PROVEEDOR ? '📋 Ver detalle' : '📦 Agrupar por proveedor'}</button>
     <span style="font-size:11px;color:var(--modern-muted);">${CRONO_SELECCIONADOS.size} seleccionada(s)</span>
     <button class="btn" ${CRONO_SELECCIONADOS.size ? '' : 'disabled'} onclick="generarCiclicoDesdeCronograma()">Generar cíclico</button>
@@ -6714,13 +6733,13 @@ function renderTablaCronogramaIc() {
       filas.map(r => { const clave = r.referencia + '|' + r.cedi; return `<tr style="${r.atrasado ? 'background:#fef2f2;' : ''}">
         <td><input type="checkbox" ${CRONO_SELECCIONADOS.has(clave) ? 'checked' : ''} onchange='toggleCronoSeleccionado(${JSON.stringify(clave)})'></td>
         <td>${tEsc(r.referencia)}</td>
-        <td class="inv-product">${tEsc(r.producto || '—')}</td>
-        <td style="font-size:11px;">${tEsc(r.proveedor || '—')}</td>
+        <td class="inv-product" style="max-width:150px;white-space:normal;overflow-wrap:break-word;word-break:break-word;">${tEsc(r.producto || '—')}</td>
+        <td style="font-size:11px;max-width:110px;white-space:normal;overflow-wrap:break-word;">${tEsc(r.proveedor || '—')}</td>
         <td>${tEsc(r.clase_pareto)}</td>
         <td><span class="inv-risk" style="background:${colorCriticidad[r.criticidad]}1a;color:${colorCriticidad[r.criticidad]};">${tEsc(r.criticidad)}</span></td>
         <td>cada ${r.frecuencia_dias} días</td>
-        <td>${r.ultima_fecha_contado ? new Date(r.ultima_fecha_contado).toLocaleDateString('es-CO') : 'Nunca'}</td>
-        <td>${new Date(r.proxima_fecha_sugerida).toLocaleDateString('es-CO')}</td>
+        <td>${r.ultima_fecha_contado ? new Date(r.ultima_fecha_contado + 'T00:00:00').toLocaleDateString('es-CO') : 'Nunca'}</td>
+        <td>${new Date(r.proxima_fecha_sugerida + 'T00:00:00').toLocaleDateString('es-CO')}</td>
         <td>${r.atrasado ? '<span style="color:#dc2626;font-weight:700;">⚠ Atrasado</span>' : ''}</td>
       </tr>`; }).join('')
     }</tbody></table><p style="font-size:11px;color:var(--modern-muted);padding:8px;">Mostrando las ${filas.length.toLocaleString('es-CO')} referencia(s), ordenadas por atraso.</p>`;
@@ -7040,9 +7059,24 @@ async function consultarHistoricoIc() {
         ${c.acta_generada_url ? `<button class="btn ghost" onclick='descargarDocumentoIc(${JSON.stringify(c.acta_generada_url)}, "Acta_${c.no_documento}.pdf")'>Ver acta</button>` : ''}
         ${!c.documentacion_completa ? `<button class="btn" onclick='abrirModalDocumentacionIc(${c.id})'>Subir documentos</button>` : ''}
         ${c.documentacion_completa ? `<button class="btn ghost" onclick='descargarDocumentoIc(${JSON.stringify(c.acta_firmada_url)}, "Acta_firmada_${c.no_documento}.pdf")'>Acta firmada</button><button class="btn ghost" onclick='descargarDocumentoIc(${JSON.stringify(c.documento_ajuste_siesa_url)}, "Ajuste_SIESA_${c.no_documento}.pdf")'>Ajuste SIESA</button>` : ''}
+        ${(SESION.rol === 'admin' || SESION.rol === 'director_nacional') ? `<button class="btn ghost" style="color:#dc2626;" onclick='eliminarCicloCerradoIc(${c.id}, ${c.no_documento})'>🗑 Eliminar</button>` : ''}
       </td>
     </tr>`).join('')
   }</tbody></table><p style="font-size:11px;color:var(--modern-muted);padding:8px;">Dale clic a una fila para ver el detalle de referencias de ese cierre.</p>`;
+}
+
+async function eliminarCicloCerradoIc(cicloCerradoId, noDocumento) {
+  if (!confirm(`¿Eliminar por completo el cierre No. documento ${noDocumento}? Esto borra el registro, su detalle, el histórico ligado a él, y TODOS los documentos cargados (acta generada, acta firmada, ajuste SIESA). No se puede deshacer.`)) return;
+  const { data, error } = await sb.rpc('eliminar_ciclo_cerrado', { p_ciclo_cerrado_id: cicloCerradoId });
+  if (error) { mostrarToast('Error al eliminar: ' + error.message); return; }
+  const rutas = (data && data[0]) || {};
+  const archivos = [rutas.acta_generada_url, rutas.acta_firmada_url, rutas.documento_ajuste_siesa_url].filter(Boolean);
+  if (archivos.length) {
+    const { error: errorStorage } = await sb.storage.from('documentos-ciclicos').remove(archivos);
+    if (errorStorage) console.warn('El registro se borró, pero algún archivo no se pudo eliminar del almacenamiento:', errorStorage.message);
+  }
+  mostrarToast(`Cierre No. documento ${noDocumento} eliminado por completo.`);
+  consultarHistoricoIc();
 }
 
 async function verDetalleCierreIc(ciclocerradoId, noDocumento) {
