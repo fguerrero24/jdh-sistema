@@ -7,6 +7,7 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/apexcharts@3.45.1/dist/apexcharts.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/dist/tabler-icons.min.css">
 <style>
   :root {
@@ -1361,7 +1362,7 @@ input:focus,select:focus,textarea:focus{outline:none!important;border-color:#176
               </div>
             </div>
             <div style="display:flex;justify-content:flex-end;margin-bottom:8px;">
-              <button class="btn ghost" id="btn-ic-exportar">📤 Exportar (lo filtrado)</button>
+              <button class="btn ghost" id="btn-ic-exportar">📤 Exportar </button>
             </div>
             <div class="inv-section"><div class="inv-table-wrap" id="ic-tabla-analisis"></div></div>
           </div>
@@ -1382,6 +1383,17 @@ input:focus,select:focus,textarea:focus{outline:none!important;border-color:#176
           </div>
 
           <div id="panel-ic-historico" class="hidden">
+            <div class="inv-filterbar">
+              <div class="inv-filter-row" style="grid-template-columns:1fr 1fr 1fr 1fr auto;">
+                <div class="inv-filter"><label>Desde</label><input type="date" id="ic-hist-desde"></div>
+                <div class="inv-filter"><label>Hasta</label><input type="date" id="ic-hist-hasta"></div>
+                <div class="inv-filter"><label>Estado documentación</label>
+                  <select id="ic-hist-estado"><option value="">Todos</option><option value="pendiente">Pendiente</option><option value="completo">Completo</option></select>
+                </div>
+                <div class="inv-filter"><label>No. de ajuste SIESA</label><input type="text" id="ic-hist-ajuste" placeholder="Buscar..."></div>
+                <button class="btn" id="btn-ic-hist-consultar">Filtrar</button>
+              </div>
+            </div>
             <div class="inv-section"><div class="inv-table-wrap" id="ic-tabla-historico"></div></div>
           </div>
 
@@ -6793,7 +6805,7 @@ document.getElementById('btn-ic-cerrar-ciclo').addEventListener('click', () => {
       accion_correctiva: document.querySelector(`[data-accion-ref="${CSS.escape(r.referencia)}"]`)?.value || '',
     }));
 
-    estado.textContent = 'Cerrando ciclo...';
+    estado.textContent = 'Cerrando conteo...';
     const { data: cierreId, error } = await sb.rpc('cerrar_ciclo_conteo', {
       p_cedi: cedi, p_ciclo_id: IC_CICLO_ACTUAL, p_numero_ajuste_siesa: numeroAjuste,
       p_nombre_solicitante: solicitante, p_cargo_solicitante: cargo, p_nombre_director: director,
@@ -6801,67 +6813,223 @@ document.getElementById('btn-ic-cerrar-ciclo').addEventListener('click', () => {
     });
     if (error) { estado.textContent = 'Error al cerrar el ciclo: ' + error.message; return; }
 
-    generarActaXlsx(cedi, numeroAjuste, solicitante, cargo, director, cierreId, IC_INDICADORES_CACHE, detalle);
-    mostrarToast('Ciclo cerrado y acta generada.');
+    estado.textContent = 'Generando el acta en PDF...';
+    const pdfBlob = await generarActaPdf(cedi, numeroAjuste, solicitante, cargo, director, cierreId, IC_INDICADORES_CACHE, detalle);
+    const rutaActa = `actas/${cedi}_ciclo${cierreId}_${fechaColombiaHoy()}.pdf`;
+    const { error: errorSubida } = await sb.storage.from('documentos-ciclicos').upload(rutaActa, pdfBlob, { contentType: 'application/pdf', upsert: true });
+    if (!errorSubida) await sb.from('ciclos_cerrados').update({ acta_generada_url: rutaActa }).eq('id', cierreId);
+
+    // Se descarga también localmente, para imprimir y firmar de una vez.
+    const enlace = document.createElement('a');
+    enlace.href = URL.createObjectURL(pdfBlob);
+    enlace.download = `Acta_Ciclico_${cedi}_${fechaColombiaHoy()}.pdf`;
+    enlace.click();
+
     document.getElementById('ic-modal-backdrop').classList.add('hidden');
     IC_CICLO_ACTUAL = null;
     IC_ANALISIS_CACHE = [];
-    document.getElementById('ic-status').textContent = 'Ciclo cerrado. Elige otro ciclo, o crea uno nuevo.';
+    document.getElementById('ic-status').textContent = 'Conteo cerrado -- queda PENDIENTE POR DOCUMENTACIÓN hasta subir el acta firmada y el documento de ajuste SIESA.';
     document.getElementById('ic-tabla-analisis').innerHTML = '';
     document.getElementById('ic-kpis').innerHTML = '';
     await poblarSelectorCiclosIc(cedi);
+    alert(`Conteo cerrado. Se descargó el acta en PDF -- imprímela, fírmala, y súbela (junto con el documento de ajuste de SIESA) en la pestaña "Histórico de cierres" para completar el cierre.`);
+    cambiarTabIc('historico');
+    consultarHistoricoIc();
   });
 });
 
-function generarActaXlsx(cedi, numeroAjuste, solicitante, cargo, director, cicloId, indicadores, detalle) {
-  const wb = XLSX.utils.book_new();
+async function generarActaPdf(cedi, numeroAjuste, solicitante, cargo, director, cicloId, indicadores, detalle) {
+  const { PDFDocument, StandardFonts, rgb } = PDFLib;
+  const doc = await PDFDocument.create();
+  const fuente = await doc.embedFont(StandardFonts.Helvetica);
+  const fuenteNegrita = await doc.embedFont(StandardFonts.HelveticaBold);
   const k = indicadores || {};
-  const filasEncabezado = [
-    ['ACTA DE INVENTARIO CICLICO'],
-    [],
-    ['Fecha del documento', fechaColombiaHoy()],
-    ['No. de documento', cicloId],
-    ['Centro de Distribución', cedi],
-    ['Nombre del Director', director],
-    ['Nombre Solicitante', solicitante],
-    ['Cargo del Solicitante', cargo],
-    ['Número de ajuste de inventario realizado en ERP', numeroAjuste],
-    [],
-    ['Reporte de resultados'],
-    ['', 'Referencias', 'Cantidad', 'Valor', 'Indicador', ''],
-    ['Mercancía inventariada', k.referencias_contadas, '', k.valor_total_contado, 'Ira Abs Sku', k.ira_abs_sku],
-    ['Total diferencia', detalle.length, '', '', 'Ira Abs Unds', k.ira_abs_unds],
-    ['', '', '', '', 'Ira Abs Valor', k.ira_abs_valor],
-    ['', '', '', '', 'Ira Neto Unds', k.ira_neto_unds],
-    ['', '', '', '', 'Ira Neto Valor', k.ira_neto_valor],
-    ['', '', '', '', 'Exactitud', k.exactitud],
-    [],
-    ['Productos con diferencia de inventario'],
-    ['Código', 'Descripción', 'Teórico', 'Físico', 'Diferencia', 'Costo', 'Causal', 'Acción Correctiva'],
-    ...detalle.map(d => [d.referencia, d.producto, d.teorico, d.fisico, d.diferencia, d.costo, d.causal, d.accion_correctiva]),
+  const M = 40; // margen
+  const ANCHO = 595.28, ALTO = 841.89; // A4 en puntos
+  let pagina = doc.addPage([ANCHO, ALTO]);
+  let y = ALTO - M;
+
+  function nuevaPaginaSiHaceFalta(espacioNecesario) {
+    if (y - espacioNecesario < M + 60) { pagina = doc.addPage([ANCHO, ALTO]); y = ALTO - M; }
+  }
+  function texto(t, x, tam, negrita, color) {
+    pagina.drawText(String(t ?? ''), { x, y, size: tam, font: negrita ? fuenteNegrita : fuente, color: color || rgb(0.1, 0.15, 0.2) });
+  }
+  function linea() {
+    pagina.drawLine({ start: { x: M, y }, end: { x: ANCHO - M, y }, thickness: 0.5, color: rgb(0.8, 0.83, 0.87) });
+  }
+
+  texto('SISTEMA INTEGRADO DE GESTIÓN', M, 9, true, rgb(0.4, 0.45, 0.5));
+  y -= 18;
+  texto('ACTA DE INVENTARIO CÍCLICO', M, 17, true);
+  y -= 24; linea(); y -= 20;
+
+  const campo = (etiqueta, valor) => { texto(etiqueta + ':', M, 10, true); texto(String(valor ?? '—'), M + 210, 10, false); y -= 16; };
+  campo('Fecha del documento', fechaColombiaHoy());
+  campo('No. de documento', cicloId);
+  campo('Centro de Distribución', cedi);
+  campo('Nombre del Director', director);
+  campo('Nombre Solicitante', solicitante);
+  campo('Cargo del Solicitante', cargo);
+  campo('No. de ajuste de inventario realizado en ERP (SIESA)', numeroAjuste);
+  y -= 12; linea(); y -= 20;
+
+  texto('Reporte de resultados', M, 12, true); y -= 20;
+  const filasIndicadores = [
+    ['Referencias contadas', k.referencias_contadas ?? '—'],
+    ['Valor teórico', formatoCOP(k.valor_total_teorico)],
+    ['Valor contado', formatoCOP(k.valor_total_contado)],
+    ['IRA Absoluto -- SKU', (k.ira_abs_sku ?? '—') + '%'],
+    ['IRA Absoluto -- Unidades', (k.ira_abs_unds ?? '—') + '%'],
+    ['IRA Absoluto -- Valor', (k.ira_abs_valor ?? '—') + '%'],
+    ['IRA Neto -- Unidades', (k.ira_neto_unds ?? '—') + '%'],
+    ['IRA Neto -- Valor', (k.ira_neto_valor ?? '—') + '%'],
+    ['Exactitud (promedio IRA Absoluto)', (k.exactitud ?? '—') + '%'],
   ];
-  const hoja = XLSX.utils.aoa_to_sheet(filasEncabezado);
-  XLSX.utils.book_append_sheet(wb, hoja, 'Acta');
-  XLSX.writeFile(wb, `Acta_Ciclico_${cedi}_${fechaColombiaHoy()}.xlsx`);
+  filasIndicadores.forEach(([etiqueta, valor]) => { texto(etiqueta, M, 10); texto(String(valor), M + 260, 10, true); y -= 15; });
+  y -= 10; linea(); y -= 20;
+
+  texto(`Productos con diferencia de inventario (${detalle.length})`, M, 12, true); y -= 18;
+  const colX = [M, M + 55, M + 230, M + 275, M + 315, M + 360, M + 410, M + 500];
+  const encabezados = ['Código', 'Descripción', 'Teórico', 'Físico', 'Diferencia', 'Costo', 'Causal', 'Acción correctiva'];
+  function encabezadoTabla() {
+    encabezados.forEach((h, i) => texto(h, colX[i], 8, true, rgb(0.3, 0.35, 0.4)));
+    y -= 12; linea(); y -= 10;
+  }
+  encabezadoTabla();
+  detalle.forEach(d => {
+    nuevaPaginaSiHaceFalta(30);
+    if (y === ALTO - M) encabezadoTabla(); // si saltó de página, repite encabezado
+    const valores = [d.referencia, (d.producto || '').slice(0, 32), d.teorico, d.fisico, d.diferencia, d.costo != null ? Math.round(d.costo) : '—', (d.causal || '—').slice(0, 20), (d.accion_correctiva || '—').slice(0, 22)];
+    valores.forEach((v, i) => texto(v, colX[i], 7.5));
+    y -= 13;
+  });
+
+  y -= 30;
+  nuevaPaginaSiHaceFalta(80);
+  linea(); y -= 40;
+  texto('_________________________________', M, 10); texto('_________________________________', M + 280, 10);
+  y -= 14;
+  texto(solicitante || 'Firma del Solicitante', M, 9, true); texto(director || 'Firma del Director', M + 280, 9, true);
+  y -= 12;
+  texto(cargo || '', M, 8, false, rgb(0.4, 0.45, 0.5));
+
+  const bytes = await doc.save();
+  return new Blob([bytes], { type: 'application/pdf' });
 }
 
 // ---------- Histórico de cierres ----------
+document.getElementById('btn-ic-hist-consultar').addEventListener('click', consultarHistoricoIc);
+
 async function consultarHistoricoIc() {
   const cedi = document.getElementById('ic-filtro-cedi').value;
   const cont = document.getElementById('ic-tabla-historico');
   if (!cedi) { cont.innerHTML = '<div class="inv-empty">Elige un CEDI primero.</div>'; return; }
-  const { data, error } = await sb.from('ciclos_cerrados').select('*').eq('cedi', cedi).order('fecha_cierre', { ascending: false });
+  const desde = document.getElementById('ic-hist-desde').value || null;
+  const hasta = document.getElementById('ic-hist-hasta').value || null;
+  const estadoDoc = document.getElementById('ic-hist-estado').value || null;
+  const ajuste = document.getElementById('ic-hist-ajuste').value.trim() || null;
+
+  const { data, error } = await sb.rpc('consultar_historico_ciclos', {
+    p_cedi: cedi, p_desde: desde, p_hasta: hasta, p_estado_documentacion: estadoDoc, p_numero_ajuste: ajuste,
+  });
   if (error) { cont.innerHTML = `<div class="inv-empty">Error: ${tEsc(error.message)}</div>`; return; }
-  if (!data || !data.length) { cont.innerHTML = '<div class="inv-empty">Todavía no hay ciclos cerrados para este CEDI.</div>'; return; }
-  cont.innerHTML = `<table class="inv-table"><thead><tr><th>Fecha de cierre</th><th>No. documento</th><th>Ajuste SIESA</th><th>Referencias</th><th>Exactitud</th></tr></thead><tbody>${
-    data.map(c => `<tr>
+  if (!data || !data.length) { cont.innerHTML = '<div class="inv-empty">No hay ciclos cerrados con este filtro.</div>'; return; }
+
+  cont.innerHTML = `<table class="inv-table"><thead><tr><th></th><th>Fecha de cierre</th><th>No. documento</th><th>Ajuste SIESA</th><th>Referencias</th><th>Exactitud</th><th>Documentación</th><th></th></tr></thead><tbody>${
+    data.map(c => `<tr style="cursor:pointer;" onclick='verDetalleCierreIc(${c.id}, ${c.no_documento})'>
+      <td>🔍</td>
       <td>${new Date(c.fecha_cierre).toLocaleString('es-CO')}</td>
       <td>${c.no_documento}</td>
       <td>${tEsc(c.numero_ajuste_siesa)}</td>
-      <td>${c.totales?.referencias_contadas ?? '—'}</td>
-      <td>${c.indicadores?.exactitud != null ? c.indicadores.exactitud + '%' : '—'}</td>
+      <td>${c.referencias_contadas ?? '—'}</td>
+      <td>${c.exactitud != null ? c.exactitud + '%' : '—'}</td>
+      <td>${c.documentacion_completa
+        ? '<span style="color:#16a34a;font-weight:700;">✓ Completa</span>'
+        : '<span style="color:#d97706;font-weight:700;">⚠ Pendiente</span>'}</td>
+      <td style="display:flex;gap:4px;flex-wrap:wrap;" onclick="event.stopPropagation()">
+        ${c.acta_generada_url ? `<button class="btn ghost" onclick='descargarDocumentoIc(${JSON.stringify(c.acta_generada_url)}, "Acta_${c.no_documento}.pdf")'>Ver acta</button>` : ''}
+        ${!c.documentacion_completa ? `<button class="btn" onclick='abrirModalDocumentacionIc(${c.id})'>Subir documentos</button>` : ''}
+        ${c.documentacion_completa ? `<button class="btn ghost" onclick='descargarDocumentoIc(${JSON.stringify(c.acta_firmada_url)}, "Acta_firmada_${c.no_documento}.pdf")'>Acta firmada</button><button class="btn ghost" onclick='descargarDocumentoIc(${JSON.stringify(c.documento_ajuste_siesa_url)}, "Ajuste_SIESA_${c.no_documento}.pdf")'>Ajuste SIESA</button>` : ''}
+      </td>
     </tr>`).join('')
-  }</tbody></table>`;
+  }</tbody></table><p style="font-size:11px;color:var(--modern-muted);padding:8px;">Dale clic a una fila para ver el detalle de referencias de ese cierre.</p>`;
+}
+
+async function verDetalleCierreIc(ciclocerradoId, noDocumento) {
+  const { data, error } = await sb.from('ciclos_cerrados_detalle').select('*').eq('ciclo_id', ciclocerradoId).order('referencia');
+  if (error) { mostrarToast('Error al traer el detalle: ' + error.message); return; }
+  document.getElementById('ic-modal-contenido').innerHTML = `
+    <h3 style="margin-top:0;">Detalle del cierre -- No. documento ${noDocumento}</h3>
+    ${!data || !data.length
+      ? '<p style="font-size:12px;color:var(--modern-muted);">Este cierre no tuvo ninguna referencia con diferencia (todo coincidió con el teórico).</p>'
+      : `<div style="max-height:400px;overflow-y:auto;"><table class="inv-table" style="font-size:11px;"><thead><tr><th>Código</th><th>Producto</th><th>Teórico</th><th>Físico</th><th>Diferencia</th><th>Costo</th><th>Causal</th><th>Acción correctiva</th></tr></thead><tbody>${
+        data.map(d => `<tr>
+          <td>${tEsc(d.referencia)}</td>
+          <td class="inv-product">${tEsc(d.producto || '—')}</td>
+          <td>${d.teorico}</td><td>${d.fisico}</td>
+          <td style="font-weight:700;color:${d.diferencia > 0 ? '#2563eb' : '#dc2626'}">${d.diferencia}</td>
+          <td>${d.costo != null ? formatoCOP(d.costo) : '—'}</td>
+          <td>${tEsc(d.causal || '—')}</td>
+          <td>${tEsc(d.accion_correctiva || '—')}</td>
+        </tr>`).join('')
+      }</tbody></table></div>`
+    }
+    <div style="display:flex;gap:8px;margin-top:16px;">
+      <button class="btn" id="btn-ic-detalle-cerrar" style="flex:1;">Cerrar</button>
+    </div>
+  `;
+  document.getElementById('ic-modal-backdrop').classList.remove('hidden');
+  document.getElementById('btn-ic-detalle-cerrar').addEventListener('click', () => document.getElementById('ic-modal-backdrop').classList.add('hidden'));
+}
+
+async function descargarDocumentoIc(ruta, nombreArchivo) {
+  const { data, error } = await sb.storage.from('documentos-ciclicos').createSignedUrl(ruta, 300);
+  if (error) { mostrarToast('Error al abrir el documento: ' + error.message); return; }
+  window.open(data.signedUrl, '_blank');
+}
+
+function abrirModalDocumentacionIc(ciclocerradoId) {
+  document.getElementById('ic-modal-contenido').innerHTML = `
+    <h3 style="margin-top:0;">Completar documentación</h3>
+    <p style="font-size:12px;color:var(--modern-muted);">Sube los 2 documentos para cerrar este ciclo definitivamente.</p>
+    <label style="font-size:12px;font-weight:600;display:block;margin-top:10px;">Acta firmada (PDF escaneado)</label>
+    <input type="file" id="ic-doc-acta-firmada" accept=".pdf" style="margin-top:4px;">
+    <label style="font-size:12px;font-weight:600;display:block;margin-top:10px;">Documento de ajuste en SIESA</label>
+    <input type="file" id="ic-doc-ajuste-siesa" accept=".pdf,.png,.jpg,.jpeg" style="margin-top:4px;">
+    <div id="ic-doc-status" style="font-size:12px;color:var(--modern-muted);margin-top:10px;"></div>
+    <div style="display:flex;gap:8px;margin-top:16px;">
+      <button class="btn ghost" id="btn-ic-doc-cancelar" style="flex:1;">Cancelar</button>
+      <button class="btn" id="btn-ic-doc-confirmar" style="flex:1;">Subir y cerrar</button>
+    </div>
+  `;
+  document.getElementById('ic-modal-backdrop').classList.remove('hidden');
+  document.getElementById('btn-ic-doc-cancelar').addEventListener('click', () => document.getElementById('ic-modal-backdrop').classList.add('hidden'));
+  document.getElementById('btn-ic-doc-confirmar').addEventListener('click', async () => {
+    const estado = document.getElementById('ic-doc-status');
+    const archivoActa = document.getElementById('ic-doc-acta-firmada').files[0];
+    const archivoAjuste = document.getElementById('ic-doc-ajuste-siesa').files[0];
+    if (!archivoActa || !archivoAjuste) { estado.textContent = 'Sube los 2 archivos.'; return; }
+
+    estado.textContent = 'Subiendo documentos...';
+    const rutaActa = `actas-firmadas/${ciclocerradoId}_${Date.now()}_${archivoActa.name}`;
+    const rutaAjuste = `ajustes-siesa/${ciclocerradoId}_${Date.now()}_${archivoAjuste.name}`;
+    const [subActa, subAjuste] = await Promise.all([
+      sb.storage.from('documentos-ciclicos').upload(rutaActa, archivoActa),
+      sb.storage.from('documentos-ciclicos').upload(rutaAjuste, archivoAjuste),
+    ]);
+    if (subActa.error) { estado.textContent = 'Error subiendo el acta: ' + subActa.error.message; return; }
+    if (subAjuste.error) { estado.textContent = 'Error subiendo el ajuste: ' + subAjuste.error.message; return; }
+
+    const { error } = await sb.rpc('completar_documentacion_ciclo', {
+      p_ciclo_cerrado_id: ciclocerradoId, p_acta_firmada_url: rutaActa, p_documento_ajuste_url: rutaAjuste,
+    });
+    if (error) { estado.textContent = 'Error al completar el cierre: ' + error.message; return; }
+
+    mostrarToast('Documentación completa -- ciclo cerrado definitivamente.');
+    document.getElementById('ic-modal-backdrop').classList.add('hidden');
+    consultarHistoricoIc();
+  });
 }
 
 // ============================================================
