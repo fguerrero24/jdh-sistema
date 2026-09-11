@@ -2084,6 +2084,25 @@ function parsearHoras(texto) {
 // Algunos archivos traen varias hojas (ej. un resumen/tabla dinámica antes de
 // los datos reales). En vez de asumir que los datos están en la primera,
 // se elige la hoja con más filas -- casi siempre es la que tiene los datos.
+// Lee un archivo CSV como TEXTO PLANO, sin pasar por SheetJS -- para casos
+// donde SheetJS "adivina" mal el tipo de una columna (por ejemplo, convierte
+// una fecha de texto "29/01/2026" a un número de serie de Excel con un
+// pequeño error de precisión, que a veces cae en el día/mes equivocado).
+// Cada valor queda como el texto exacto del archivo, sin ninguna conversión.
+async function leerCsvComoTexto(archivo) {
+  const texto = await archivo.text();
+  const lineas = texto.split(/\r\n|\n|\r/).filter(l => l.trim() !== '');
+  if (!lineas.length) return [];
+  const delimitador = lineas[0].includes(';') ? ';' : ',';
+  const encabezados = lineas[0].split(delimitador).map(h => h.trim());
+  return lineas.slice(1).map(linea => {
+    const valores = linea.split(delimitador);
+    const fila = {};
+    encabezados.forEach((h, i) => { fila[h] = (valores[i] ?? '').trim(); });
+    return fila;
+  });
+}
+
 function hojaConMasFilas(wb, raw) {
   // raw=false (por defecto) -- IMPORTANTE para archivos CSV con formato
   // colombiano: sin esto, SheetJS intenta adivinar qué celdas son números y
@@ -6019,9 +6038,7 @@ document.getElementById('btn-imp-procesar').addEventListener('click', async () =
   // ---------- Caso especial: Salidas y Ajustes (SAI/AJI) para Mermas ----------
   if (tipoId === 'mermas_sai_aji') {
     estado.textContent = 'Leyendo archivo...';
-    const buffer = await archivo.arrayBuffer();
-    const wb = XLSX.read(buffer, { type: 'array' });
-    const filasArchivo = hojaConMasFilas(wb, true);
+    const filasArchivo = await leerCsvComoTexto(archivo); // texto plano -- evita que SheetJS adivine mal las fechas
     if (!filasArchivo.length) { estado.textContent = 'El archivo está vacío o no se pudo leer.'; return; }
 
     const filasProcesadas = [];
@@ -6068,9 +6085,7 @@ document.getElementById('btn-imp-procesar').addEventListener('click', async () =
   // ---------- Caso especial: Donaciones para Mermas ----------
   if (tipoId === 'mermas_donaciones') {
     estado.textContent = 'Leyendo archivo...';
-    const buffer = await archivo.arrayBuffer();
-    const wb = XLSX.read(buffer, { type: 'array' });
-    const filasArchivo = hojaConMasFilas(wb, true);
+    const filasArchivo = await leerCsvComoTexto(archivo); // texto plano -- evita que SheetJS adivine mal las fechas
     if (!filasArchivo.length) { estado.textContent = 'El archivo está vacío o no se pudo leer.'; return; }
 
     const filasProcesadas = [];
@@ -6116,9 +6131,7 @@ document.getElementById('btn-imp-procesar').addEventListener('click', async () =
   // ---------- Caso especial: Ventas mensuales consolidadas para Mermas ----------
   if (tipoId === 'mermas_ventas') {
     estado.textContent = 'Leyendo archivo...';
-    const buffer = await archivo.arrayBuffer();
-    const wb = XLSX.read(buffer, { type: 'array' });
-    const filasArchivo = hojaConMasFilas(wb, true);
+    const filasArchivo = await leerCsvComoTexto(archivo); // texto plano -- evita que SheetJS adivine mal las fechas
     if (!filasArchivo.length) { estado.textContent = 'El archivo está vacío o no se pudo leer.'; return; }
 
     const filasProcesadas = [];
