@@ -6029,8 +6029,7 @@ document.getElementById('btn-imp-procesar').addEventListener('click', async () =
     filasArchivo.forEach(fila => {
       const codigoCo = normalizarCodigoCo(valorPorColumna(fila, ['C.O. docto.']));
       const cedi = MAPA_CO_MERMAS[codigoCo] || null;
-      const fechaTexto = String(valorPorColumna(fila, ['Fecha']) ?? '').trim();
-      const fecha = parsearFechaDDMMYYYY(fechaTexto);
+      const fecha = parsearFechaDDMMYYYY(valorPorColumna(fila, ['Fecha'])); // sin pasar por String() -- necesita el tipo original (número o texto)
       const tipo_docto = String(valorPorColumna(fila, ['Tipo docto.']) ?? '').trim().toUpperCase();
       const referencia = String(valorPorColumna(fila, ['Referencia']) ?? '').trim();
       const valorTexto = String(valorPorColumna(fila, ['Costo neto (prom.)']) ?? '').trim();
@@ -6077,9 +6076,9 @@ document.getElementById('btn-imp-procesar').addEventListener('click', async () =
     const filasProcesadas = [];
     let sinDatos = 0, cosDesconocidos = new Set();
     filasArchivo.forEach(fila => {
-      const fechaTexto = String(valorPorColumna(fila, ['Fecha']) ?? '').trim();
-      if (fechaTexto.toLowerCase().includes('gran total')) return; // fila de totales del archivo
-      const fecha = parsearFechaDDMMYYYY(fechaTexto);
+      const fechaCruda = valorPorColumna(fila, ['Fecha']);
+      if (String(fechaCruda ?? '').toLowerCase().includes('gran total')) return; // fila de totales del archivo
+      const fecha = parsearFechaDDMMYYYY(fechaCruda); // sin pasar por String() -- necesita el tipo original
       const codigoCo = normalizarCodigoCo(valorPorColumna(fila, ['C.O.']));
       const cedi = MAPA_CO_MERMAS[codigoCo] || null;
       const referencia = String(valorPorColumna(fila, ['Referencia']) ?? '').trim();
@@ -6125,8 +6124,7 @@ document.getElementById('btn-imp-procesar').addEventListener('click', async () =
     const filasProcesadas = [];
     let sinDatos = 0, cosDesconocidos = new Set();
     filasArchivo.forEach(fila => {
-      const fechaTexto = String(valorPorColumna(fila, ['fecha', 'Fecha']) ?? '').trim();
-      const mes = parsearFechaFlexibleMes(fechaTexto); // acepta "abr-2026" o fechas día-mes-año
+      const mes = parsearFechaFlexibleMes(valorPorColumna(fila, ['fecha', 'Fecha'])); // sin pasar por String() -- necesita el tipo original
       const codigoCo = normalizarCodigoCo(valorPorColumna(fila, ['C.O.']));
       const cedi = MAPA_CO_MERMAS[codigoCo] || null;
       const valorTexto = String(valorPorColumna(fila, ['Valor subtotal']) ?? '').trim();
