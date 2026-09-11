@@ -1436,10 +1436,6 @@ input:focus,select:focus,textarea:focus{outline:none!important;border-color:#176
             </div>
             <div class="inv-section"><div class="inv-table-wrap" id="ic-tabla-historico"></div></div>
           </div>
-
-          <div id="ic-modal-backdrop" class="hidden" style="position:fixed;inset:0;background:rgba(15,23,42,.5);z-index:9600;display:flex;align-items:center;justify-content:center;">
-            <div id="ic-modal-contenido" style="background:var(--modern-panel);border-radius:16px;padding:24px;max-width:520px;width:92%;max-height:85vh;overflow-y:auto;"></div>
-          </div>
         </div>
 
         <div id="view-locked" class="hidden">
@@ -8710,6 +8706,14 @@ async function enviarPreguntaIaFlotante() {
 document.getElementById('ia-flotante-enviar').addEventListener('click', enviarPreguntaIaFlotante);
 document.getElementById('ia-flotante-input').addEventListener('keydown', (e) => { if (e.key === 'Enter') enviarPreguntaIaFlotante(); });
 </script>
+
+<!-- Modal compartido de Inventarios Cíclicos -- vive fuera de cualquier
+     "view-*" para que funcione sin importar qué pantalla esté activa
+     (lo usan tanto Inventarios Cíclicos como el puente desde SIESA vs WMS
+     y desde el Cronograma). -->
+<div id="ic-modal-backdrop" class="hidden" style="position:fixed;inset:0;background:rgba(15,23,42,.5);z-index:9600;display:flex;align-items:center;justify-content:center;">
+  <div id="ic-modal-contenido" style="background:var(--modern-panel);border-radius:16px;padding:24px;max-width:520px;width:92%;max-height:85vh;overflow-y:auto;"></div>
+</div>
 
 </body>
 </html>F
