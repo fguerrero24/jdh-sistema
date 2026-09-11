@@ -1095,6 +1095,7 @@ input:focus,select:focus,textarea:focus{outline:none!important;border-color:#176
           <div style="display:flex;gap:8px;margin-bottom:14px;">
             <button class="btn ghost admin-tab active" id="tab-ind-personales" style="display:flex;align-items:center;justify-content:center;text-align:center;">Mis indicadores</button>
             <button class="btn ghost admin-tab" id="tab-ind-inventarios" style="display:flex;align-items:center;justify-content:center;text-align:center;">📦 Inventarios (RA$)</button>
+            <button class="btn ghost admin-tab" id="tab-ind-mermas" style="display:flex;align-items:center;justify-content:center;text-align:center;">🗑️ Mermas</button>
           </div>
 
           <div id="panel-ind-personales">
@@ -1138,6 +1139,53 @@ input:focus,select:focus,textarea:focus{outline:none!important;border-color:#176
               </div>
               <div id="ra-cedi-hero" style="display:flex;gap:18px;flex-wrap:wrap;margin:0 10px 18px;"></div>
               <div id="ra-cedi-chart" style="padding:10px;"></div>
+            </div>
+          </div>
+
+          <div id="panel-ind-mermas" class="hidden">
+            <div class="inv-hero" style="background:linear-gradient(135deg,#7c2d12,#9a3412);">
+              <div class="inv-hero-top">
+                <div><div class="inv-eyebrow" style="color:#fed7aa;">JDH · Control de Mermas</div><div class="inv-title" style="color:#fff;">Logística Mensual Mermas</div><div class="inv-subtitle" style="color:#fef3e2;">(Salidas + Donaciones + Ajustes por diferencia de inventario) ÷ Venta total del mes. Meta: &lt; 0.3% -- minimizar la merma en pro de una mayor utilidad neta.</div></div>
+              </div>
+            </div>
+
+            <div id="merma-global-hero" style="display:flex;gap:18px;flex-wrap:wrap;margin:18px 0;"></div>
+
+            <div class="inv-filterbar">
+              <div class="inv-filter-row" style="grid-template-columns:1fr auto;">
+                <div class="inv-filter"><label>Rango de tiempo</label>
+                  <select id="merma-rango-meses">
+                    <option value="3">Últimos 3 meses</option>
+                    <option value="6">Últimos 6 meses</option>
+                    <option value="12" selected>Últimos 12 meses</option>
+                    <option value="24">Últimos 24 meses</option>
+                  </select>
+                </div>
+                <button class="btn" id="btn-merma-aplicar-rango">Aplicar</button>
+              </div>
+            </div>
+
+            <div class="inv-section" style="margin-top:16px;"><div class="inv-section-head"><div><div class="inv-section-title">Matriz mensual — % Merma/Ventas, todos los CEDIs</div><div class="inv-section-note">Verde = cumple la meta (&lt;0.3%) · Rojo = no la cumple</div></div></div><div id="merma-matriz-tabla" style="padding:10px;overflow-x:auto;"></div></div>
+
+            <div class="inv-section" style="margin-top:16px;"><div class="inv-section-head"><div><div class="inv-section-title">Cargar Ventas e Inventario del mes (manual)</div><div class="inv-section-note">Cifras grandes de otro sistema -- se cargan a mano, una vez por CEDI y mes.</div></div></div>
+              <div style="padding:14px;display:flex;gap:10px;flex-wrap:wrap;align-items:end;">
+                <div class="inv-filter"><label>CEDI</label><select id="merma-manual-cedi"></select></div>
+                <div class="inv-filter"><label>Mes</label><input type="month" id="merma-manual-mes"></div>
+                <div class="inv-filter"><label>Ventas del mes</label><input type="number" id="merma-manual-ventas" placeholder="$"></div>
+                <div class="inv-filter"><label>Inventario del mes</label><input type="number" id="merma-manual-inventario" placeholder="$"></div>
+                <button class="btn" id="btn-merma-manual-guardar">Guardar</button>
+              </div>
+              <div id="merma-manual-status" style="font-size:11px;color:var(--modern-muted);padding:0 14px 10px;"></div>
+            </div>
+
+            <div class="inv-section" style="margin-top:16px;"><div class="inv-section-head"><div><div class="inv-section-title">Detalle por CEDI</div></div></div>
+              <div class="inv-filterbar" style="margin:0 10px 10px;">
+                <div class="inv-filter-row" style="grid-template-columns:1fr;">
+                  <div class="inv-filter"><label>CEDI</label><select id="merma-filtro-cedi"><option value="">Elige un CEDI...</option></select></div>
+                </div>
+              </div>
+              <div id="merma-cedi-hero" style="display:flex;gap:18px;flex-wrap:wrap;margin:0 10px 18px;"></div>
+              <div id="merma-cedi-tabla" style="padding:10px;"></div>
             </div>
           </div>
         </div>
@@ -1273,6 +1321,9 @@ input:focus,select:focus,textarea:focus{outline:none!important;border-color:#176
                 <option value="maestra_articulos_siesa">Maestra de Artículos (SIESA)</option>
                 <option value="inventario_siesa">Inventario SIESA (existencias por CEDI)</option>
                 <option value="maestro_bodegas">Maestro de Bodegas (Inventarios Cíclicos)</option>
+                <option value="mermas_sai_aji">Salidas y Ajustes (SAI/AJI) -- Mermas</option>
+                <option value="mermas_donaciones">Donaciones -- Mermas</option>
+                <option value="mermas_ventas">Ventas mensuales (consolidado) -- Mermas</option>
               </select>
             </div>
             <div class="indicator-field"><label>Archivo (.xlsx o .csv)</label><input type="file" id="imp-archivo" accept=".xlsx,.xls,.csv"></div>
@@ -2674,6 +2725,7 @@ let RA_GLOBAL_CHART = null, RA_CEDI_CHART = null, RA_COMPARATIVO_CHART = null;
 function inicializarModuloIndicadores() {
   document.getElementById('tab-ind-personales').addEventListener('click', () => cambiarTabIndicadores('personales'));
   document.getElementById('tab-ind-inventarios').addEventListener('click', () => { cambiarTabIndicadores('inventarios'); cargarPanelRaCompleto(); });
+  document.getElementById('tab-ind-mermas').addEventListener('click', () => { cambiarTabIndicadores('mermas'); cargarPanelMermasCompleto(); });
 
   const selCedi = document.getElementById('ra-filtro-cedi');
   CEDIS_VALIDOS.forEach(c => selCedi.insertAdjacentHTML('beforeend', `<option value="${c}">${c}</option>`));
@@ -2681,13 +2733,25 @@ function inicializarModuloIndicadores() {
   selCedi.addEventListener('change', cargarRaCedi);
 
   document.getElementById('btn-ra-aplicar-rango').addEventListener('click', cargarRaMatriz);
+
+  const selCediMerma = document.getElementById('merma-filtro-cedi');
+  CEDIS_MERMAS.forEach(c => selCediMerma.insertAdjacentHTML('beforeend', `<option value="${c}">${c}</option>`));
+  if (!puedeVerTodosLosCedis() && SESION.cedi) selCediMerma.value = SESION.cedi;
+  selCediMerma.addEventListener('change', cargarMermaCedi);
+  document.getElementById('btn-merma-aplicar-rango').addEventListener('click', cargarMermaMatriz);
+
+  const selCediManual = document.getElementById('merma-manual-cedi');
+  CEDIS_MERMAS.forEach(c => selCediManual.insertAdjacentHTML('beforeend', `<option value="${c}">${c}</option>`));
+  document.getElementById('btn-merma-manual-guardar').addEventListener('click', guardarMermaManual);
 }
 
 function cambiarTabIndicadores(cual) {
   document.getElementById('panel-ind-personales').classList.toggle('hidden', cual !== 'personales');
   document.getElementById('panel-ind-inventarios').classList.toggle('hidden', cual !== 'inventarios');
+  document.getElementById('panel-ind-mermas').classList.toggle('hidden', cual !== 'mermas');
   document.getElementById('tab-ind-personales').classList.toggle('active', cual === 'personales');
   document.getElementById('tab-ind-inventarios').classList.toggle('active', cual === 'inventarios');
+  document.getElementById('tab-ind-mermas').classList.toggle('active', cual === 'mermas');
 }
 
 let RA_YA_CARGADO = false;
@@ -2826,6 +2890,126 @@ async function cargarRaMatriz() {
       </tr>`;
     }).join('')
   }</tbody></table>`;
+}
+
+// ============================================================
+// MÓDULO MERMAS (Salidas + Donaciones + Ajustes)
+// ============================================================
+function tarjetaHeroMerma(mesTexto, merma, pctVentas, pctInventario, salidas, donaciones, ajustes) {
+  const cumple = pctVentas != null && pctVentas < 0.3;
+  const color = pctVentas == null ? '#94a3b8' : cumple ? '#16a34a' : '#dc2626';
+  return `
+    <div style="flex:1;min-width:260px;background:linear-gradient(135deg, ${color}12, ${color}03);border:1px solid ${color}33;border-radius:18px;padding:22px;">
+      <div style="font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--modern-muted);font-weight:700;">Logística Mensual Mermas -- ${tEsc(mesTexto)}</div>
+      <div style="font-size:44px;font-weight:800;color:${color};line-height:1.1;margin-top:6px;">${pctVentas != null ? pctVentas + '%' : 'Sin datos'}</div>
+      <div style="font-size:12px;color:var(--modern-muted);margin-top:6px;">Meta &lt; 0.3% ${pctVentas != null ? (cumple ? '· <span style="color:#16a34a;font-weight:700;">✓ cumple</span>' : '· <span style="color:#dc2626;font-weight:700;">✗ no cumple</span>') : ''}</div>
+      <div style="font-size:13px;margin-top:10px;color:var(--modern-muted);">% sobre Inventario: <strong>${pctInventario != null ? pctInventario + '%' : '—'}</strong></div>
+    </div>
+    <div style="flex:1;min-width:260px;background:var(--surface-1);border-radius:18px;padding:22px;">
+      <div style="font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--modern-muted);font-weight:700;">Merma total (Salidas + Donaciones + Ajustes)</div>
+      <div style="font-size:28px;font-weight:800;color:#dc2626;margin-top:6px;">${formatoCOP(merma)}</div>
+      <div style="display:flex;justify-content:space-between;margin-top:14px;font-size:13px;"><span>Salidas</span><strong>${formatoCOP(salidas)}</strong></div>
+      <div style="display:flex;justify-content:space-between;margin-top:6px;font-size:13px;"><span>Donaciones</span><strong>${formatoCOP(donaciones)}</strong></div>
+      <div style="display:flex;justify-content:space-between;margin-top:6px;font-size:13px;"><span>Ajustes por diferencia de inventario</span><strong>${formatoCOP(ajustes)}</strong></div>
+    </div>`;
+}
+
+async function cargarMermaGlobal() {
+  const { data, error } = await sb.rpc('indicador_mermas', { p_cedi: null, p_meses: 12 });
+  const hero = document.getElementById('merma-global-hero');
+  if (error) { hero.innerHTML = `<div class="inv-empty">Error: ${tEsc(error.message)}</div>`; return; }
+  const filas = (data || []).filter(f => f.ventas != null || f.merma > 0);
+  if (!filas.length) { hero.innerHTML = '<div class="inv-empty">Todavía no hay datos de mermas.</div>'; return; }
+  const ultimo = filas[filas.length - 1];
+  const mesTexto = new Date(ultimo.mes + 'T00:00:00').toLocaleDateString('es-CO', { month: 'long', year: 'numeric' });
+  hero.innerHTML = tarjetaHeroMerma('Global · ' + mesTexto, ultimo.merma, ultimo.pct_merma_ventas, ultimo.pct_merma_inventario, ultimo.salidas, ultimo.donaciones, ultimo.ajustes);
+}
+
+async function cargarMermaMatriz() {
+  const rangoMeses = parseInt(document.getElementById('merma-rango-meses')?.value || '12', 10);
+  const cont = document.getElementById('merma-matriz-tabla');
+  // Se trae todos los CEDIs a la vez pidiendo con p_cedi null por cada uno
+  // (la función agrega a __GLOBAL__ si p_cedi es null, así que aquí se pide
+  // uno por uno para tener la matriz por CEDI real).
+  const resultados = await Promise.all(CEDIS_MERMAS.map(cedi => sb.rpc('indicador_mermas', { p_cedi: cedi, p_meses: rangoMeses })));
+  const filas = [];
+  resultados.forEach(r => { if (!r.error && r.data) filas.push(...r.data); });
+  const filasConDatos = filas.filter(f => f.pct_merma_ventas != null);
+  if (!filasConDatos.length) { cont.innerHTML = '<div class="inv-empty">Todavía no hay suficientes datos (movimientos + ventas cargadas) para armar la matriz.</div>'; return; }
+
+  const meses = [...new Set(filasConDatos.map(f => f.mes))].sort();
+  const cedis = [...new Set(filasConDatos.map(f => f.cedi))].sort();
+  const buscar = (cedi, mes) => filasConDatos.find(f => f.cedi === cedi && f.mes === mes);
+
+  cont.innerHTML = `<table class="inv-table" style="text-align:center;"><thead><tr>
+      <th style="text-align:left;">CEDI</th>
+      ${meses.map(m => `<th>${new Date(m + 'T00:00:00').toLocaleDateString('es-CO', { month: 'short', year: '2-digit' })}</th>`).join('')}
+    </tr></thead><tbody>${
+    cedis.map(cedi => `<tr>
+        <td style="text-align:left;font-weight:700;">${tEsc(cedi)}</td>
+        ${meses.map(m => {
+          const f = buscar(cedi, m);
+          if (!f || f.pct_merma_ventas == null) return `<td style="color:#cbd5e1;">—</td>`;
+          const pct = f.pct_merma_ventas;
+          const color = pct < 0.3 ? '#16a34a' : '#dc2626';
+          return `<td><span style="display:inline-block;min-width:56px;padding:4px 8px;border-radius:8px;font-weight:700;font-size:11px;background:${color}1a;color:${color};">${pct.toFixed(2)}%</span></td>`;
+        }).join('')}
+      </tr>`).join('')
+  }</tbody></table>`;
+}
+
+async function cargarMermaCedi() {
+  const cedi = document.getElementById('merma-filtro-cedi').value;
+  const hero = document.getElementById('merma-cedi-hero');
+  const cont = document.getElementById('merma-cedi-tabla');
+  if (!cedi) { hero.innerHTML = ''; cont.innerHTML = ''; return; }
+  const { data, error } = await sb.rpc('indicador_mermas', { p_cedi: cedi, p_meses: 12 });
+  if (error) { hero.innerHTML = `<div class="inv-empty">Error: ${tEsc(error.message)}</div>`; return; }
+  const filas = data || [];
+  const filasConDatos = filas.filter(f => f.merma > 0 || f.ventas != null);
+  if (!filasConDatos.length) { hero.innerHTML = `<div class="inv-empty">Todavía no hay datos para ${tEsc(cedi)}.</div>`; cont.innerHTML = ''; return; }
+  const ultimo = filasConDatos[filasConDatos.length - 1];
+  const mesTexto = new Date(ultimo.mes + 'T00:00:00').toLocaleDateString('es-CO', { month: 'long', year: 'numeric' });
+  hero.innerHTML = tarjetaHeroMerma(`${cedi} · ${mesTexto}`, ultimo.merma, ultimo.pct_merma_ventas, ultimo.pct_merma_inventario, ultimo.salidas, ultimo.donaciones, ultimo.ajustes);
+
+  cont.innerHTML = `<table class="inv-table"><thead><tr><th>Mes</th><th>Salidas</th><th>Donaciones</th><th>Ajustes</th><th>Merma</th><th>Ventas</th><th>Inventario</th><th>% Ventas</th><th>% Inventario</th></tr></thead><tbody>${
+    filasConDatos.slice().reverse().map(f => `<tr>
+      <td>${new Date(f.mes + 'T00:00:00').toLocaleDateString('es-CO', { month: 'short', year: 'numeric' })}</td>
+      <td>${formatoCOP(f.salidas)}</td><td>${formatoCOP(f.donaciones)}</td><td>${formatoCOP(f.ajustes)}</td>
+      <td style="font-weight:700;">${formatoCOP(f.merma)}</td>
+      <td>${f.ventas != null ? formatoCOP(f.ventas) : '—'}</td>
+      <td>${f.inventario != null ? formatoCOP(f.inventario) : '—'}</td>
+      <td style="font-weight:700;">${f.pct_merma_ventas != null ? f.pct_merma_ventas + '%' : '—'}</td>
+      <td style="font-weight:700;">${f.pct_merma_inventario != null ? f.pct_merma_inventario + '%' : '—'}</td>
+    </tr>`).join('')
+  }</tbody></table>`;
+}
+
+async function guardarMermaManual() {
+  const cedi = document.getElementById('merma-manual-cedi').value;
+  const mesInput = document.getElementById('merma-manual-mes').value; // "YYYY-MM"
+  const ventas = document.getElementById('merma-manual-ventas').value;
+  const inventario = document.getElementById('merma-manual-inventario').value;
+  const estado = document.getElementById('merma-manual-status');
+  if (!cedi || !mesInput) { estado.textContent = 'Elige el CEDI y el mes.'; return; }
+  const mes = mesInput + '-01';
+  const { error } = await sb.from('mermas_manual').upsert({
+    cedi, mes,
+    ventas: ventas ? Number(ventas) : null,
+    inventario: inventario ? Number(inventario) : null,
+    actualizado_en: new Date().toISOString(), actualizado_por: SESION.id,
+  }, { onConflict: 'cedi,mes' });
+  if (error) { estado.textContent = 'Error al guardar: ' + error.message; return; }
+  estado.textContent = `Guardado -- ${cedi}, ${mesInput}.`;
+  mostrarToast('Ventas/Inventario guardados.');
+  cargarPanelMermasCompleto();
+}
+
+function cargarPanelMermasCompleto() {
+  cargarMermaGlobal();
+  cargarMermaMatriz();
+  const selCedi = document.getElementById('merma-filtro-cedi');
+  if (selCedi.value) cargarMermaCedi();
 }
 
 async function guardarRegistro(indicadorId) {
@@ -3954,6 +4138,55 @@ document.getElementById('btn-importar-reloj').addEventListener('click', importar
 
 function normalizarNombre(s) {
   return String(s || '').replace(/\u00a0/g, ' ').replace(/\s+/g, ' ').trim().toUpperCase();
+}
+
+// Convierte "29/01/2026" (texto, como vienen los CSV de SIESA) a "2026-01-29"
+// (formato que espera Postgres). También acepta que ya venga como fecha real
+// (Date de JS) o como número de serie de Excel, por si el archivo es XLSX.
+function parsearFechaDDMMYYYY(valor) {
+  if (valor == null || valor === '') return null;
+  if (valor instanceof Date) return valor.toISOString().slice(0, 10);
+  if (typeof valor === 'number') {
+    // Número de serie de Excel (días desde 1899-12-30).
+    const fecha = new Date(Math.round((valor - 25569) * 86400 * 1000));
+    return Number.isNaN(fecha.getTime()) ? null : fecha.toISOString().slice(0, 10);
+  }
+  const texto = String(valor).trim();
+  const m = texto.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if (!m) return null;
+  const [, dia, mes, anio] = m;
+  return `${anio}-${mes.padStart(2, '0')}-${dia.padStart(2, '0')}`;
+}
+
+const MESES_ABREV_ES = { ene: '01', feb: '02', mar: '03', abr: '04', may: '05', jun: '06', jul: '07', ago: '08', sep: '09', oct: '10', nov: '11', dic: '12' };
+
+// Más flexible que parsearFechaDDMMYYYY -- además de DD/MM/YYYY y DD-MM-YYYY,
+// también entiende "abr-2026" (mes en texto + año, sin día -- se asume el
+// día 1 del mes).
+function parsearFechaFlexibleMes(valor) {
+  if (valor == null || valor === '') return null;
+  if (valor instanceof Date) return valor.toISOString().slice(0, 10);
+  if (typeof valor === 'number') {
+    const fecha = new Date(Math.round((valor - 25569) * 86400 * 1000));
+    return Number.isNaN(fecha.getTime()) ? null : fecha.toISOString().slice(0, 10);
+  }
+  const texto = String(valor).trim().toLowerCase();
+
+  // "abr-2026" o "abr/2026"
+  const mMes = texto.match(/^([a-záéíóú]{3})[-/](\d{4})$/);
+  if (mMes) {
+    const mes = MESES_ABREV_ES[mMes[1]];
+    if (mes) return `${mMes[2]}-${mes}-01`;
+  }
+
+  // "29/01/2026" o "29-01-2026"
+  const mDia = texto.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})$/);
+  if (mDia) {
+    const [, dia, mes, anio] = mDia;
+    return `${anio}-${mes.padStart(2, '0')}-${dia.padStart(2, '0')}`;
+  }
+
+  return null;
 }
 
 function parsearFechaReloj(texto) {
@@ -5622,6 +5855,10 @@ async function cargarDestinatarios() {
 // del archivo -> columnas de la base de datos. Agregar un tipo nuevo más
 // adelante es agregar una entrada aquí, sin tocar el resto del módulo.
 const MAPA_CO_BODEGA_CEDI = { '1': 'COP', '2': 'PER', '3': 'BOG', '4': 'CTG', '5': 'BGA', '9': 'BAQ' };
+// Extendido solo para Mermas -- incluye sedes que ya no operan (Urabá,
+// Market Urabá, Market Valledupar), pero cuyo histórico se debe conservar.
+const MAPA_CO_MERMAS = { ...MAPA_CO_BODEGA_CEDI, '7': 'URB', '200': 'MUR', '201': 'MVL' };
+const CEDIS_MERMAS = [...CEDIS_VALIDOS, 'URB', 'MUR', 'MVL'];
 // El código puede llegar con ceros a la izquierda ("001") o sin ellos ("1")
 // según el reporte -- esta función normaliza ambos formatos antes de buscar.
 function normalizarCodigoCo(valor) {
@@ -5774,6 +6011,143 @@ document.getElementById('btn-imp-procesar').addEventListener('click', async () =
       <p style="font-size:12px;color:var(--text-secondary);">Vista previa (primeras 10 filas). Esta importación reemplaza TODO el maestro de bodegas anterior, no lo acumula.</p>
       <table class="hist-table open"><tr><th>Código</th><th>Descripción</th><th>Clasificación</th><th>CEDI</th><th>Activo</th></tr>${
         filasProcesadas.slice(0, 10).map(r => `<tr><td>${tEsc(r.codigo_bodega)}</td><td>${tEsc(r.descripcion || '—')}</td><td>${tEsc(r.clasificacion || '—')}</td><td>${tEsc(r.cedi || '—')}</td><td>${r.activo ? 'Sí' : 'No'}</td></tr>`).join('')
+      }</table>`;
+    document.getElementById('btn-imp-confirmar').classList.toggle('hidden', filasProcesadas.length === 0);
+    return;
+  }
+
+  // ---------- Caso especial: Salidas y Ajustes (SAI/AJI) para Mermas ----------
+  if (tipoId === 'mermas_sai_aji') {
+    estado.textContent = 'Leyendo archivo...';
+    const buffer = await archivo.arrayBuffer();
+    const wb = XLSX.read(buffer, { type: 'array' });
+    const filasArchivo = hojaConMasFilas(wb, true);
+    if (!filasArchivo.length) { estado.textContent = 'El archivo está vacío o no se pudo leer.'; return; }
+
+    const filasProcesadas = [];
+    let sinDatos = 0, cosDesconocidos = new Set();
+    filasArchivo.forEach(fila => {
+      const codigoCo = normalizarCodigoCo(valorPorColumna(fila, ['C.O. docto.']));
+      const cedi = MAPA_CO_MERMAS[codigoCo] || null;
+      const fechaTexto = String(valorPorColumna(fila, ['Fecha']) ?? '').trim();
+      const fecha = parsearFechaDDMMYYYY(fechaTexto);
+      const tipo_docto = String(valorPorColumna(fila, ['Tipo docto.']) ?? '').trim().toUpperCase();
+      const referencia = String(valorPorColumna(fila, ['Referencia']) ?? '').trim();
+      const valorTexto = String(valorPorColumna(fila, ['Costo neto (prom.)']) ?? '').trim();
+      const valor = parsearMonedaFlexible(valorTexto);
+      if (!fecha || !cedi || !referencia || (tipo_docto !== 'SAI' && tipo_docto !== 'AJI')) {
+        sinDatos++;
+        if (codigoCo && !cedi) cosDesconocidos.add(codigoCo);
+        return;
+      }
+      filasProcesadas.push({
+        fecha, cedi, tipo_docto, referencia,
+        documento: String(valorPorColumna(fila, ['Documento']) ?? '').trim() || null,
+        proveedor: String(valorPorColumna(fila, ['PROVEEDOR']) ?? '').trim() || null,
+        descripcion: String(valorPorColumna(fila, ['Desc. item']) ?? '').trim() || null,
+        cantidad: Number(valorPorColumna(fila, ['Neto (inv.)'])) || null,
+        valor: Number.isNaN(valor) ? null : valor,
+        motivo: String(valorPorColumna(fila, ['Desc. motivo']) ?? '').trim() || null,
+        bodega: String(valorPorColumna(fila, ['Bodega']) ?? '').trim() || null,
+      });
+    });
+
+    IMPORTACION_FILAS_PROCESADAS = filasProcesadas;
+    estado.textContent = `${filasProcesadas.length.toLocaleString('es-CO')} movimiento(s) listos para importar.` +
+      (sinDatos ? ` ${sinDatos} fila(s) se ignoraron por datos incompletos.` : '') +
+      (cosDesconocidos.size ? ` ⚠️ C.O. desconocidos: ${[...cosDesconocidos].join(', ')} -- avísame para agregarlos al mapeo.` : '');
+
+    document.getElementById('imp-preview').innerHTML = `
+      <p style="font-size:12px;color:var(--text-secondary);">Vista previa (primeras 10 filas). Esta importación se ACUMULA (no borra lo anterior) -- no reimportes el mismo archivo dos veces, o quedarán movimientos duplicados.</p>
+      <table class="hist-table open"><tr><th>Fecha</th><th>CEDI</th><th>Tipo</th><th>Referencia</th><th>Valor</th><th>Motivo</th></tr>${
+        filasProcesadas.slice(0, 10).map(r => `<tr><td>${tEsc(r.fecha)}</td><td>${tEsc(r.cedi)}</td><td>${tEsc(r.tipo_docto)}</td><td>${tEsc(r.referencia)}</td><td>${r.valor != null ? formatoCOP(r.valor) : '—'}</td><td>${tEsc(r.motivo || '—')}</td></tr>`).join('')
+      }</table>`;
+    document.getElementById('btn-imp-confirmar').classList.toggle('hidden', filasProcesadas.length === 0);
+    return;
+  }
+
+  // ---------- Caso especial: Donaciones para Mermas ----------
+  if (tipoId === 'mermas_donaciones') {
+    estado.textContent = 'Leyendo archivo...';
+    const buffer = await archivo.arrayBuffer();
+    const wb = XLSX.read(buffer, { type: 'array' });
+    const filasArchivo = hojaConMasFilas(wb, true);
+    if (!filasArchivo.length) { estado.textContent = 'El archivo está vacío o no se pudo leer.'; return; }
+
+    const filasProcesadas = [];
+    let sinDatos = 0, cosDesconocidos = new Set();
+    filasArchivo.forEach(fila => {
+      const fechaTexto = String(valorPorColumna(fila, ['Fecha']) ?? '').trim();
+      if (fechaTexto.toLowerCase().includes('gran total')) return; // fila de totales del archivo
+      const fecha = parsearFechaDDMMYYYY(fechaTexto);
+      const codigoCo = normalizarCodigoCo(valorPorColumna(fila, ['C.O.']));
+      const cedi = MAPA_CO_MERMAS[codigoCo] || null;
+      const referencia = String(valorPorColumna(fila, ['Referencia']) ?? '').trim();
+      const valorTexto = String(valorPorColumna(fila, ['Costo promedio total']) ?? '').trim();
+      const valor = parsearMonedaFlexible(valorTexto);
+      if (!fecha || !cedi || !referencia) {
+        sinDatos++;
+        if (codigoCo && !cedi) cosDesconocidos.add(codigoCo);
+        return;
+      }
+      filasProcesadas.push({
+        fecha, cedi, referencia,
+        descripcion: String(valorPorColumna(fila, ['Desc. item']) ?? '').trim() || null,
+        cantidad: Number(valorPorColumna(fila, ['Cantidad'])) || null,
+        valor: Number.isNaN(valor) ? null : valor,
+        motivo: String(valorPorColumna(fila, ['Desc. motivo']) ?? '').trim() || null,
+        bodega: String(valorPorColumna(fila, ['Bodega']) ?? '').trim() || null,
+      });
+    });
+
+    IMPORTACION_FILAS_PROCESADAS = filasProcesadas;
+    estado.textContent = `${filasProcesadas.length.toLocaleString('es-CO')} donación(es) listas para importar.` +
+      (sinDatos ? ` ${sinDatos} fila(s) se ignoraron por datos incompletos.` : '') +
+      (cosDesconocidos.size ? ` ⚠️ C.O. desconocidos: ${[...cosDesconocidos].join(', ')} -- avísame para agregarlos al mapeo.` : '');
+
+    document.getElementById('imp-preview').innerHTML = `
+      <p style="font-size:12px;color:var(--text-secondary);">Vista previa (primeras 10 filas). Esta importación se ACUMULA (no borra lo anterior) -- no reimportes el mismo archivo dos veces, o quedarán donaciones duplicadas.</p>
+      <table class="hist-table open"><tr><th>Fecha</th><th>CEDI</th><th>Referencia</th><th>Valor</th></tr>${
+        filasProcesadas.slice(0, 10).map(r => `<tr><td>${tEsc(r.fecha)}</td><td>${tEsc(r.cedi)}</td><td>${tEsc(r.referencia)}</td><td>${r.valor != null ? formatoCOP(r.valor) : '—'}</td></tr>`).join('')
+      }</table>`;
+    document.getElementById('btn-imp-confirmar').classList.toggle('hidden', filasProcesadas.length === 0);
+    return;
+  }
+
+  // ---------- Caso especial: Ventas mensuales consolidadas para Mermas ----------
+  if (tipoId === 'mermas_ventas') {
+    estado.textContent = 'Leyendo archivo...';
+    const buffer = await archivo.arrayBuffer();
+    const wb = XLSX.read(buffer, { type: 'array' });
+    const filasArchivo = hojaConMasFilas(wb, true);
+    if (!filasArchivo.length) { estado.textContent = 'El archivo está vacío o no se pudo leer.'; return; }
+
+    const filasProcesadas = [];
+    let sinDatos = 0, cosDesconocidos = new Set();
+    filasArchivo.forEach(fila => {
+      const fechaTexto = String(valorPorColumna(fila, ['fecha', 'Fecha']) ?? '').trim();
+      const mes = parsearFechaFlexibleMes(fechaTexto); // acepta "abr-2026" o fechas día-mes-año
+      const codigoCo = normalizarCodigoCo(valorPorColumna(fila, ['C.O.']));
+      const cedi = MAPA_CO_MERMAS[codigoCo] || null;
+      const valorTexto = String(valorPorColumna(fila, ['Valor subtotal']) ?? '').trim();
+      const ventas = parsearMonedaFlexible(valorTexto);
+      if (!mes || !cedi || ventas == null || Number.isNaN(ventas)) {
+        sinDatos++;
+        if (codigoCo && !cedi) cosDesconocidos.add(codigoCo);
+        return;
+      }
+      filasProcesadas.push({ cedi, mes, ventas });
+    });
+
+    IMPORTACION_FILAS_PROCESADAS = filasProcesadas;
+    estado.textContent = `${filasProcesadas.length.toLocaleString('es-CO')} registro(s) de ventas listos para importar.` +
+      (sinDatos ? ` ${sinDatos} fila(s) se ignoraron por datos incompletos.` : '') +
+      (cosDesconocidos.size ? ` ⚠️ C.O. desconocidos (se ignoraron): ${[...cosDesconocidos].join(', ')}.` : '');
+
+    document.getElementById('imp-preview').innerHTML = `
+      <p style="font-size:12px;color:var(--text-secondary);">Vista previa (primeras 10 filas). Actualiza SOLO las ventas de cada CEDI/mes -- no toca el inventario que ya hayas cargado para ese mes.</p>
+      <table class="hist-table open"><tr><th>Mes</th><th>CEDI</th><th>Ventas</th></tr>${
+        filasProcesadas.slice(0, 10).map(r => `<tr><td>${tEsc(r.mes)}</td><td>${tEsc(r.cedi)}</td><td>${formatoCOP(r.ventas)}</td></tr>`).join('')
       }</table>`;
     document.getElementById('btn-imp-confirmar').classList.toggle('hidden', filasProcesadas.length === 0);
     return;
@@ -5949,6 +6323,50 @@ document.getElementById('btn-imp-confirmar').addEventListener('click', async () 
     }
     boton.disabled = false;
     estado.textContent = `Listo -- ${importados} bodega(s) importadas (reemplazó todo lo anterior).`;
+    mostrarToast('Importación completada.');
+    document.getElementById('btn-imp-confirmar').classList.add('hidden');
+    return;
+  }
+
+  // ---------- Mermas: SAI/AJI y Donaciones -- se acumulan, no reemplazan ----------
+  if (tipoId === 'mermas_sai_aji' || tipoId === 'mermas_donaciones') {
+    boton.disabled = true;
+    const tabla = tipoId === 'mermas_sai_aji' ? 'mermas_movimientos' : 'mermas_donaciones';
+    const TAM_LOTE = 500;
+    let importados = 0;
+    const total = IMPORTACION_FILAS_PROCESADAS.length;
+    for (let i = 0; i < total; i += TAM_LOTE) {
+      const lote = IMPORTACION_FILAS_PROCESADAS.slice(i, i + TAM_LOTE);
+      const { error } = await sb.from(tabla).insert(lote);
+      if (error) { estado.textContent = `Error en el lote ${i}-${i + TAM_LOTE}: ${error.message}`; boton.disabled = false; return; }
+      importados += lote.length;
+      estado.textContent = `Importando... ${importados}/${total}`;
+    }
+    boton.disabled = false;
+    estado.textContent = `Listo -- ${importados} registro(s) importados en "${tabla}".`;
+    mostrarToast('Importación completada.');
+    document.getElementById('btn-imp-confirmar').classList.add('hidden');
+    return;
+  }
+
+  // ---------- Ventas mensuales consolidadas -- upsert, solo toca "ventas" ----------
+  if (tipoId === 'mermas_ventas') {
+    boton.disabled = true;
+    const TAM_LOTE = 200;
+    let importados = 0;
+    const total = IMPORTACION_FILAS_PROCESADAS.length;
+    for (let i = 0; i < total; i += TAM_LOTE) {
+      const lote = IMPORTACION_FILAS_PROCESADAS.slice(i, i + TAM_LOTE).map(r => ({
+        cedi: r.cedi, mes: r.mes, ventas: r.ventas,
+        actualizado_en: new Date().toISOString(), actualizado_por: SESION.id,
+      }));
+      const { error } = await sb.from('mermas_manual').upsert(lote, { onConflict: 'cedi,mes' });
+      if (error) { estado.textContent = `Error en el lote ${i}-${i + TAM_LOTE}: ${error.message}`; boton.disabled = false; return; }
+      importados += lote.length;
+      estado.textContent = `Importando... ${importados}/${total}`;
+    }
+    boton.disabled = false;
+    estado.textContent = `Listo -- ${importados} registro(s) de ventas importados (el inventario que ya tuvieras cargado no se tocó).`;
     mostrarToast('Importación completada.');
     document.getElementById('btn-imp-confirmar').classList.add('hidden');
     return;
