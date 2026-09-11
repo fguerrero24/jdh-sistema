@@ -1092,9 +1092,49 @@ input:focus,select:focus,textarea:focus{outline:none!important;border-color:#176
         </div>
 
         <div id="view-indicadores" class="hidden">
-          <div class="note-banner">Los indicadores diarios y semanales se acumulan para obtener el resultado mensual. En indicadores de porcentaje y ratio se acumulan numeradores y denominadores; no se promedian porcentajes diarios.</div>
-          <div class="indicator-list" id="indicator-list"></div>
-          <div class="empty-state hidden" id="empty-indicadores">No tienes indicadores asignados a tu cargo todavía.</div>
+          <div style="display:flex;gap:8px;margin-bottom:14px;">
+            <button class="btn ghost admin-tab active" id="tab-ind-personales" style="display:flex;align-items:center;justify-content:center;text-align:center;">Mis indicadores</button>
+            <button class="btn ghost admin-tab" id="tab-ind-inventarios" style="display:flex;align-items:center;justify-content:center;text-align:center;">📦 Inventarios (RA$)</button>
+          </div>
+
+          <div id="panel-ind-personales">
+            <div class="note-banner">Los indicadores diarios y semanales se acumulan para obtener el resultado mensual. En indicadores de porcentaje y ratio se acumulan numeradores y denominadores; no se promedian porcentajes diarios.</div>
+            <div class="indicator-list" id="indicator-list"></div>
+            <div class="empty-state hidden" id="empty-indicadores">No tienes indicadores asignados a tu cargo todavía.</div>
+          </div>
+
+          <div id="panel-ind-inventarios" class="hidden">
+            <div class="inv-hero">
+              <div class="inv-hero-top">
+                <div><div class="inv-eyebrow">JDH · Control de Inventarios</div><div class="inv-title">RA$ — Exactitud del Registro de Inventario</div><div class="inv-subtitle">Qué tan confiable es el inventario contra lo que dicen los libros, medido en valor. Meta: ≥ 98.5%</div></div>
+              </div>
+            </div>
+
+            <div style="display:flex;gap:8px;margin:14px 0;justify-content:center;">
+              <button class="btn ghost admin-tab active" id="tab-ra-global" style="display:flex;align-items:center;justify-content:center;text-align:center;">🌎 Global</button>
+              <button class="btn ghost admin-tab" id="tab-ra-cedi" style="display:flex;align-items:center;justify-content:center;text-align:center;">🏢 Por CEDI</button>
+              <button class="btn ghost admin-tab" id="tab-ra-comparativo" style="display:flex;align-items:center;justify-content:center;text-align:center;">⚖️ Comparativo</button>
+            </div>
+
+            <div id="panel-ra-global">
+              <div id="ra-global-hero" style="display:flex;gap:18px;flex-wrap:wrap;margin-bottom:18px;"></div>
+              <div class="inv-section"><div class="inv-section-head"><div class="inv-section-title">Evolución mes a mes</div></div><div id="ra-global-chart" style="padding:10px;"></div></div>
+            </div>
+
+            <div id="panel-ra-cedi" class="hidden">
+              <div class="inv-filterbar">
+                <div class="inv-filter-row" style="grid-template-columns:1fr;">
+                  <div class="inv-filter"><label>CEDI</label><select id="ra-filtro-cedi"><option value="">Elige un CEDI...</option></select></div>
+                </div>
+              </div>
+              <div id="ra-cedi-hero" style="display:flex;gap:18px;flex-wrap:wrap;margin-bottom:18px;"></div>
+              <div class="inv-section"><div class="inv-section-head"><div class="inv-section-title">Evolución mes a mes</div></div><div id="ra-cedi-chart" style="padding:10px;"></div></div>
+            </div>
+
+            <div id="panel-ra-comparativo" class="hidden">
+              <div class="inv-section"><div class="inv-section-head"><div class="inv-section-title">RA$ del mes más reciente, por CEDI</div></div><div id="ra-comparativo-chart" style="padding:10px;"></div></div>
+            </div>
+          </div>
         </div>
 
         <div id="view-inventario" class="hidden">
@@ -2234,7 +2274,7 @@ function cambiarModulo(modulo) {
     return;
   }
   if (modulo === 'torre') cargarTorreControl();
-  if (modulo === 'indicadores') cargarIndicadores();
+  if (modulo === 'indicadores') { cargarIndicadores(); if (!RA_TABS_LISTOS) { inicializarModuloIndicadores(); RA_TABS_LISTOS = true; } }
   if (modulo === 'recepcion-rutas') {
     const inputVista = document.getElementById('rutas-fecha-vista');
     if (!inputVista.value) inputVista.value = fechaColombiaHoy();
@@ -2623,6 +2663,132 @@ function renderIndicadores(indicadores) {
   });
 }
 
+
+// ============================================================
+// MÓDULO RA$ (Inventory Record Accuracy — Exactitud de Inventario)
+// ============================================================
+let RA_TABS_LISTOS = false;
+let RA_GLOBAL_CHART = null, RA_CEDI_CHART = null, RA_COMPARATIVO_CHART = null;
+
+function inicializarModuloIndicadores() {
+  document.getElementById('tab-ind-personales').addEventListener('click', () => cambiarTabIndicadores('personales'));
+  document.getElementById('tab-ind-inventarios').addEventListener('click', () => { cambiarTabIndicadores('inventarios'); cargarRaGlobal(); });
+  document.getElementById('tab-ra-global').addEventListener('click', () => { cambiarTabRa('global'); cargarRaGlobal(); });
+  document.getElementById('tab-ra-cedi').addEventListener('click', () => cambiarTabRa('cedi'));
+  document.getElementById('tab-ra-comparativo').addEventListener('click', () => { cambiarTabRa('comparativo'); cargarRaComparativo(); });
+
+  const selCedi = document.getElementById('ra-filtro-cedi');
+  CEDIS_VALIDOS.forEach(c => selCedi.insertAdjacentHTML('beforeend', `<option value="${c}">${c}</option>`));
+  if (!puedeVerTodosLosCedis() && SESION.cedi) selCedi.value = SESION.cedi;
+  selCedi.addEventListener('change', cargarRaCedi);
+  if (selCedi.value) cargarRaCedi();
+}
+
+function cambiarTabIndicadores(cual) {
+  document.getElementById('panel-ind-personales').classList.toggle('hidden', cual !== 'personales');
+  document.getElementById('panel-ind-inventarios').classList.toggle('hidden', cual !== 'inventarios');
+  document.getElementById('tab-ind-personales').classList.toggle('active', cual === 'personales');
+  document.getElementById('tab-ind-inventarios').classList.toggle('active', cual === 'inventarios');
+}
+function cambiarTabRa(cual) {
+  ['global', 'cedi', 'comparativo'].forEach(t => document.getElementById('panel-ra-' + t).classList.toggle('hidden', t !== cual));
+  document.querySelectorAll('#panel-ind-inventarios .admin-tab').forEach(b => b.classList.remove('active'));
+  document.getElementById('tab-ra-' + cual).classList.add('active');
+}
+
+function tarjetaHeroRa(mesTexto, ra, variacion, valorContado, valorAjustes) {
+  const cumple = ra != null && ra >= 98.5;
+  const color = ra == null ? '#94a3b8' : cumple ? '#16a34a' : '#dc2626';
+  const flecha = variacion == null ? '' : variacion > 0 ? `<span style="color:#16a34a;">▲ +${variacion}%</span>` : variacion < 0 ? `<span style="color:#dc2626;">▼ ${variacion}%</span>` : `<span style="color:#94a3b8;">■ sin cambio</span>`;
+  return `
+    <div style="flex:1;min-width:260px;background:linear-gradient(135deg, ${color}12, ${color}03);border:1px solid ${color}33;border-radius:18px;padding:22px;">
+      <div style="font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--modern-muted);font-weight:700;">RA$ -- ${tEsc(mesTexto)}</div>
+      <div style="font-size:44px;font-weight:800;color:${color};line-height:1.1;margin-top:6px;">${ra != null ? ra + '%' : 'Sin datos'}</div>
+      <div style="font-size:12px;color:var(--modern-muted);margin-top:6px;">Meta ≥ 98.5% ${ra != null ? (cumple ? '· <span style="color:#16a34a;font-weight:700;">✓ cumple</span>' : '· <span style="color:#dc2626;font-weight:700;">✗ no cumple</span>') : ''}</div>
+      <div style="font-size:13px;margin-top:8px;">${flecha} <span style="color:var(--modern-muted);">vs. mes anterior</span></div>
+    </div>
+    <div style="flex:1;min-width:220px;background:var(--surface-1);border-radius:18px;padding:22px;">
+      <div style="font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--modern-muted);font-weight:700;">Valor contado</div>
+      <div style="font-size:24px;font-weight:700;margin-top:6px;">${formatoCOP(valorContado)}</div>
+      <div style="font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--modern-muted);font-weight:700;margin-top:14px;">Valor en ajustes (absoluto)</div>
+      <div style="font-size:24px;font-weight:700;margin-top:6px;color:#dc2626;">${formatoCOP(valorAjustes)}</div>
+    </div>`;
+}
+
+function dibujarChartRa(elementId, filas, tituloSerie) {
+  const cont = document.getElementById(elementId);
+  if (!filas.length) { cont.innerHTML = '<div class="inv-empty">Todavía no hay histórico suficiente para graficar la evolución.</div>'; return null; }
+  const categorias = filas.map(f => new Date(f.mes + 'T00:00:00').toLocaleDateString('es-CO', { month: 'short', year: '2-digit' }));
+  const valores = filas.map(f => f.ra_valor);
+  const opciones = {
+    chart: { type: 'line', height: 300, toolbar: { show: false }, fontFamily: 'inherit' },
+    series: [{ name: tituloSerie, data: valores }],
+    xaxis: { categories: categorias },
+    yaxis: { min: Math.min(90, ...valores.filter(v => v != null)) - 2, max: 100, labels: { formatter: v => v.toFixed(1) + '%' } },
+    colors: ['#2563eb'],
+    stroke: { curve: 'smooth', width: 3 },
+    markers: { size: 5 },
+    annotations: { yaxis: [{ y: 98.5, borderColor: '#16a34a', strokeDashArray: 6, label: { text: 'Meta 98.5%', style: { background: '#16a34a', color: '#fff' } } }] },
+    dataLabels: { enabled: true, formatter: v => v != null ? v.toFixed(1) + '%' : '' },
+    tooltip: { y: { formatter: v => v != null ? v.toFixed(2) + '%' : 'Sin datos' } },
+  };
+  cont.innerHTML = '';
+  const chart = new ApexCharts(cont, opciones);
+  chart.render();
+  return chart;
+}
+
+async function cargarRaGlobal() {
+  const { data, error } = await sb.rpc('indicador_ra_valor', { p_cedi: null, p_meses: 12 });
+  if (error) { mostrarToast('Error cargando RA$: ' + error.message); return; }
+  const filas = (data || []).filter(f => f.valor_contado > 0);
+  const hero = document.getElementById('ra-global-hero');
+  if (!filas.length) { hero.innerHTML = '<div class="inv-empty">Todavía no hay datos suficientes de inventario contado para calcular RA$.</div>'; document.getElementById('ra-global-chart').innerHTML = ''; return; }
+  const ultimo = filas[filas.length - 1];
+  const mesTexto = new Date(ultimo.mes + 'T00:00:00').toLocaleDateString('es-CO', { month: 'long', year: 'numeric' });
+  hero.innerHTML = tarjetaHeroRa(mesTexto, ultimo.ra_valor, ultimo.variacion_vs_mes_anterior, ultimo.valor_contado, ultimo.valor_ajustes_absoluto);
+  if (RA_GLOBAL_CHART) RA_GLOBAL_CHART.destroy();
+  RA_GLOBAL_CHART = dibujarChartRa('ra-global-chart', filas, 'RA$ Global');
+}
+
+async function cargarRaCedi() {
+  const cedi = document.getElementById('ra-filtro-cedi').value;
+  if (!cedi) { document.getElementById('ra-cedi-hero').innerHTML = ''; document.getElementById('ra-cedi-chart').innerHTML = ''; return; }
+  const { data, error } = await sb.rpc('indicador_ra_valor', { p_cedi: cedi, p_meses: 12 });
+  if (error) { mostrarToast('Error cargando RA$: ' + error.message); return; }
+  const filas = (data || []).filter(f => f.valor_contado > 0);
+  const hero = document.getElementById('ra-cedi-hero');
+  if (!filas.length) { hero.innerHTML = `<div class="inv-empty">Todavía no hay datos de inventario contado para ${tEsc(cedi)}.</div>`; document.getElementById('ra-cedi-chart').innerHTML = ''; return; }
+  const ultimo = filas[filas.length - 1];
+  const mesTexto = new Date(ultimo.mes + 'T00:00:00').toLocaleDateString('es-CO', { month: 'long', year: 'numeric' });
+  hero.innerHTML = tarjetaHeroRa(`${mesTexto} · ${cedi}`, ultimo.ra_valor, ultimo.variacion_vs_mes_anterior, ultimo.valor_contado, ultimo.valor_ajustes_absoluto);
+  if (RA_CEDI_CHART) RA_CEDI_CHART.destroy();
+  RA_CEDI_CHART = dibujarChartRa('ra-cedi-chart', filas, `RA$ ${cedi}`);
+}
+
+async function cargarRaComparativo() {
+  const { data, error } = await sb.rpc('indicador_ra_valor_comparativo_cedis');
+  if (error) { mostrarToast('Error cargando comparativo: ' + error.message); return; }
+  const cont = document.getElementById('ra-comparativo-chart');
+  const filas = (data || []).filter(f => f.valor_contado > 0);
+  if (!filas.length) { cont.innerHTML = '<div class="inv-empty">Todavía no hay datos suficientes para comparar CEDIs.</div>'; return; }
+  const opciones = {
+    chart: { type: 'bar', height: 340, toolbar: { show: false }, fontFamily: 'inherit' },
+    series: [{ name: 'RA$', data: filas.map(f => f.ra_valor) }],
+    xaxis: { categories: filas.map(f => f.cedi) },
+    yaxis: { min: 90, max: 100, labels: { formatter: v => v.toFixed(0) + '%' } },
+    plotOptions: { bar: { borderRadius: 6, columnWidth: '55%', distributed: true } },
+    colors: filas.map(f => f.cumple_meta ? '#16a34a' : '#dc2626'),
+    legend: { show: false },
+    annotations: { yaxis: [{ y: 98.5, borderColor: '#0f172a', strokeDashArray: 6, label: { text: 'Meta 98.5%', style: { background: '#0f172a', color: '#fff' } } }] },
+    dataLabels: { enabled: true, formatter: v => v.toFixed(1) + '%' },
+    tooltip: { y: { formatter: v => v.toFixed(2) + '%' } },
+  };
+  cont.innerHTML = '';
+  if (RA_COMPARATIVO_CHART) RA_COMPARATIVO_CHART.destroy();
+  RA_COMPARATIVO_CHART = new ApexCharts(cont, opciones);
+  RA_COMPARATIVO_CHART.render();
+}
 async function guardarRegistro(indicadorId) {
   const fecha = document.querySelector(`.fecha-field[data-ind="${CSS.escape(indicadorId)}"]`).value;
   if (!fecha) { mostrarToast('Selecciona la fecha.'); return; }
