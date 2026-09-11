@@ -1112,7 +1112,19 @@ input:focus,select:focus,textarea:focus{outline:none!important;border-color:#176
 
             <div id="ra-global-hero" style="display:flex;gap:18px;flex-wrap:wrap;margin:18px 0;"></div>
 
-            <div class="inv-section"><div class="inv-section-head"><div><div class="inv-section-title">Evolución mes a mes — todos los CEDIs</div><div class="inv-section-note">Cada línea es un CEDI. La línea punteada es la meta (98.5%).</div></div></div><div id="ra-evolucion-cedis-chart" style="padding:10px;"></div></div>
+            <div class="inv-filterbar">
+              <div class="inv-filter-row" style="grid-template-columns:1fr auto;">
+                <div class="inv-filter"><label>Rango de tiempo</label>
+                  <select id="ra-rango-meses">
+                    <option value="3">Últimos 3 meses</option>
+                    <option value="6">Últimos 6 meses</option>
+                    <option value="12" selected>Últimos 12 meses</option>
+                    <option value="24">Últimos 24 meses</option>
+                  </select>
+                </div>
+                <button class="btn" id="btn-ra-aplicar-rango">Aplicar</button>
+              </div>
+            </div>
 
             <div class="inv-section" style="margin-top:16px;"><div class="inv-section-head"><div><div class="inv-section-title">RA$ del mes más reciente, por CEDI</div></div></div><div id="ra-comparativo-chart" style="padding:10px;"></div></div>
 
@@ -2052,7 +2064,7 @@ function mostrarToast(msg) {
   setTimeout(() => t.classList.add('hidden'), 3500);
 }
 function puedeVerTodosLosCedis() {
-  return SESION && (SESION.rol === 'supply_chain' || SESION.rol === 'director_nacional');
+  return SESION && (SESION.rol === 'supply_chain' || SESION.rol === 'director_nacional' || SESION.rol === 'admin');
 }
 
 // ============================================================
@@ -2671,6 +2683,8 @@ function inicializarModuloIndicadores() {
   CEDIS_VALIDOS.forEach(c => selCedi.insertAdjacentHTML('beforeend', `<option value="${c}">${c}</option>`));
   if (!puedeVerTodosLosCedis() && SESION.cedi) selCedi.value = SESION.cedi;
   selCedi.addEventListener('change', cargarRaCedi);
+
+  document.getElementById('btn-ra-aplicar-rango').addEventListener('click', cargarRaMatriz);
 }
 
 function cambiarTabIndicadores(cual) {
@@ -2683,7 +2697,6 @@ function cambiarTabIndicadores(cual) {
 let RA_YA_CARGADO = false;
 function cargarPanelRaCompleto() {
   cargarRaGlobal();
-  cargarRaEvolucionTodosCedis();
   cargarRaComparativo();
   cargarRaMatriz();
   const selCedi = document.getElementById('ra-filtro-cedi');
@@ -2759,44 +2772,6 @@ async function cargarRaCedi() {
   RA_CEDI_CHART = dibujarChartRa('ra-cedi-chart', filas, `RA$ ${cedi}`);
 }
 
-let RA_EVOLUCION_CEDIS_CHART = null;
-const COLORES_CEDI_RA = { COP: '#2563eb', BOG: '#dc2626', BGA: '#16a34a', CTG: '#d97706', BAQ: '#7c3aed', PER: '#0891b2' };
-
-async function cargarRaEvolucionTodosCedis() {
-  const { data, error } = await sb.rpc('indicador_ra_valor_todos_cedis', { p_meses: 12 });
-  const cont = document.getElementById('ra-evolucion-cedis-chart');
-  if (error) { cont.innerHTML = `<div class="inv-empty">Error: ${tEsc(error.message)}</div>`; return; }
-  const filas = (data || []).filter(f => f.valor_contado > 0);
-  if (!filas.length) { cont.innerHTML = '<div class="inv-empty">Todavía no hay histórico suficiente para comparar la evolución.</div>'; return; }
-
-  const mesesOrdenados = [...new Set(filas.map(f => f.mes))].sort();
-  const cedisPresentes = [...new Set(filas.map(f => f.cedi))].sort();
-  const series = cedisPresentes.map(cedi => ({
-    name: cedi,
-    data: mesesOrdenados.map(mes => {
-      const fila = filas.find(f => f.cedi === cedi && f.mes === mes);
-      return fila ? fila.ra_valor : null;
-    }),
-  }));
-  const categorias = mesesOrdenados.map(m => new Date(m + 'T00:00:00').toLocaleDateString('es-CO', { month: 'short', year: '2-digit' }));
-
-  const opciones = {
-    chart: { type: 'line', height: 340, toolbar: { show: false }, fontFamily: 'inherit' },
-    series,
-    xaxis: { categories: categorias },
-    yaxis: { min: 90, max: 100, labels: { formatter: v => v.toFixed(0) + '%' } },
-    colors: cedisPresentes.map(c => COLORES_CEDI_RA[c] || '#64748b'),
-    stroke: { curve: 'smooth', width: 3 },
-    markers: { size: 4 },
-    annotations: { yaxis: [{ y: 98.5, borderColor: '#0f172a', strokeDashArray: 6, label: { text: 'Meta 98.5%', style: { background: '#0f172a', color: '#fff' } } }] },
-    legend: { position: 'top' },
-    tooltip: { y: { formatter: v => v != null ? v.toFixed(2) + '%' : 'Sin datos' } },
-  };
-  cont.innerHTML = '';
-  if (RA_EVOLUCION_CEDIS_CHART) RA_EVOLUCION_CEDIS_CHART.destroy();
-  RA_EVOLUCION_CEDIS_CHART = new ApexCharts(cont, opciones);
-  RA_EVOLUCION_CEDIS_CHART.render();
-}
 
 async function cargarRaComparativo() {
   const { data, error } = await sb.rpc('indicador_ra_valor_comparativo_cedis');
@@ -2824,7 +2799,8 @@ async function cargarRaComparativo() {
 }
 
 async function cargarRaMatriz() {
-  const { data, error } = await sb.rpc('indicador_ra_valor_todos_cedis', { p_meses: 12 });
+  const rangoMeses = parseInt(document.getElementById('ra-rango-meses')?.value || '12', 10);
+  const { data, error } = await sb.rpc('indicador_ra_valor_todos_cedis', { p_meses: rangoMeses });
   const cont = document.getElementById('ra-matriz-tabla');
   if (error) { cont.innerHTML = `<div class="inv-empty">Error: ${tEsc(error.message)}</div>`; return; }
   const filas = (data || []).filter(f => f.valor_contado > 0);
