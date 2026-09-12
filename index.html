@@ -1096,6 +1096,7 @@ input:focus,select:focus,textarea:focus{outline:none!important;border-color:#176
             <button class="btn ghost admin-tab active" id="tab-ind-personales" style="display:flex;align-items:center;justify-content:center;text-align:center;">Mis indicadores</button>
             <button class="btn ghost admin-tab" id="tab-ind-inventarios" style="display:flex;align-items:center;justify-content:center;text-align:center;">📦 Inventarios (RA$)</button>
             <button class="btn ghost admin-tab" id="tab-ind-mermas" style="display:flex;align-items:center;justify-content:center;text-align:center;">🗑️ Mermas</button>
+            <button class="btn ghost admin-tab" id="tab-ind-analisis-mov" style="display:flex;align-items:center;justify-content:center;text-align:center;">📤 Salidas y Ajustes</button>
           </div>
 
           <div id="panel-ind-personales">
@@ -1111,7 +1112,18 @@ input:focus,select:focus,textarea:focus{outline:none!important;border-color:#176
               </div>
             </div>
 
-            <div id="ra-global-hero" style="display:flex;gap:18px;flex-wrap:wrap;margin:18px 0;"></div>
+            <div style="display:flex;gap:8px;align-items:end;margin-top:10px;">
+              <div class="inv-filter" style="max-width:220px;"><label>Rango para las tarjetas</label>
+                <select id="ra-hero-rango">
+                  <option value="1">Último mes</option>
+                  <option value="3">Últimos 3 meses</option>
+                  <option value="6">Últimos 6 meses</option>
+                  <option value="12" selected>Últimos 12 meses</option>
+                </select>
+              </div>
+              <button class="btn ghost" id="btn-ra-hero-aplicar">Aplicar</button>
+            </div>
+            <div id="ra-global-hero" style="display:flex;gap:12px;flex-wrap:wrap;margin:12px 0;"></div>
 
             <div class="inv-filterbar">
               <div class="inv-filter-row" style="grid-template-columns:1fr auto;">
@@ -1149,7 +1161,18 @@ input:focus,select:focus,textarea:focus{outline:none!important;border-color:#176
               </div>
             </div>
 
-            <div id="merma-global-hero" style="display:flex;gap:18px;flex-wrap:wrap;margin:18px 0;"></div>
+            <div style="display:flex;gap:8px;align-items:end;margin-top:10px;">
+              <div class="inv-filter" style="max-width:220px;"><label>Rango para las tarjetas</label>
+                <select id="merma-hero-rango">
+                  <option value="1">Último mes</option>
+                  <option value="3">Últimos 3 meses</option>
+                  <option value="6">Últimos 6 meses</option>
+                  <option value="12" selected>Últimos 12 meses</option>
+                </select>
+              </div>
+              <button class="btn ghost" id="btn-merma-hero-aplicar">Aplicar</button>
+            </div>
+            <div id="merma-global-hero" style="display:flex;gap:12px;flex-wrap:wrap;margin:12px 0;"></div>
 
             <div class="inv-filterbar">
               <div class="inv-filter-row" style="grid-template-columns:1fr auto;">
@@ -1187,6 +1210,43 @@ input:focus,select:focus,textarea:focus{outline:none!important;border-color:#176
               <div id="merma-cedi-hero" style="display:flex;gap:18px;flex-wrap:wrap;margin:0 10px 18px;"></div>
               <div id="merma-cedi-tabla" style="padding:10px;"></div>
             </div>
+          </div>
+
+          <div id="panel-ind-analisis-mov" class="hidden">
+            <div class="inv-hero" style="background:linear-gradient(135deg,#1e3a8a,#1e40af);">
+              <div class="inv-hero-top">
+                <div><div class="inv-eyebrow" style="color:#bfdbfe;">JDH · Análisis de Movimientos</div><div class="inv-title" style="color:#fff;">Salidas y Ajustes de Inventario</div><div class="inv-subtitle" style="color:#dbeafe;">Por proveedor, producto y motivo -- unidades y costo.</div></div>
+              </div>
+            </div>
+
+            <div class="inv-filterbar">
+              <div class="inv-filter-row" style="grid-template-columns:1fr 1fr 1fr 1fr auto;">
+                <div class="inv-filter"><label>Tipo</label>
+                  <select id="mov-filtro-tipo"><option value="SAI">Salidas (SAI)</option><option value="AJI">Ajustes (AJI)</option></select>
+                </div>
+                <div class="inv-filter"><label>CEDI</label><select id="mov-filtro-cedi"><option value="">Todos</option></select></div>
+                <div class="inv-filter"><label>Desde</label><input type="date" id="mov-filtro-desde"></div>
+                <div class="inv-filter"><label>Hasta</label><input type="date" id="mov-filtro-hasta"></div>
+                <button class="btn" id="btn-mov-consultar">Consultar</button>
+              </div>
+            </div>
+
+            <div id="mov-kpis" class="inv-kpis" style="margin:14px 0;"></div>
+
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:6px;">
+              <div class="inv-section"><div class="inv-section-head"><div class="inv-section-title">Top proveedores por valor</div></div><div id="mov-chart-proveedor" style="padding:10px;"></div></div>
+              <div class="inv-section"><div class="inv-section-head"><div class="inv-section-title">Por motivo</div></div><div id="mov-chart-motivo" style="padding:10px;"></div></div>
+            </div>
+
+            <div class="inv-section" style="margin-top:16px;"><div class="inv-section-head"><div><div class="inv-section-title" id="mov-tabla-titulo">Proveedores -- % de participación</div><div class="inv-section-note">Haz clic en un proveedor para ver sus productos, ordenados por costo.</div></div></div>
+              <div class="inv-table-wrap" id="mov-tabla-proveedores"></div>
+            </div>
+
+            <div class="inv-section hidden" id="mov-seccion-detalle" style="margin-top:16px;"><div class="inv-section-head"><div><div class="inv-section-title" id="mov-detalle-titulo">Productos</div></div><button class="btn ghost" id="btn-mov-volver-proveedores">← Volver a proveedores</button></div>
+              <div class="inv-table-wrap" id="mov-tabla-detalle"></div>
+            </div>
+
+            <div class="inv-section" style="margin-top:16px;"><div class="inv-section-head"><div class="inv-section-title">Por área responsable</div></div><div id="mov-chart-area" style="padding:10px;"></div></div>
           </div>
         </div>
 
@@ -2745,6 +2805,9 @@ function inicializarModuloIndicadores() {
   document.getElementById('tab-ind-personales').addEventListener('click', () => cambiarTabIndicadores('personales'));
   document.getElementById('tab-ind-inventarios').addEventListener('click', () => { cambiarTabIndicadores('inventarios'); cargarPanelRaCompleto(); });
   document.getElementById('tab-ind-mermas').addEventListener('click', () => { cambiarTabIndicadores('mermas'); cargarPanelMermasCompleto(); });
+  document.getElementById('tab-ind-analisis-mov').addEventListener('click', () => { cambiarTabIndicadores('analisis-mov'); if (!MOV_CEDI_POBLADO) { const sel = document.getElementById('mov-filtro-cedi'); CEDIS_MERMAS.forEach(c => sel.insertAdjacentHTML('beforeend', `<option value="${c}">${c}</option>`)); if (!puedeVerTodosLosCedis() && SESION.cedi) sel.value = SESION.cedi; MOV_CEDI_POBLADO = true; } consultarMovimientosMermas(); });
+  document.getElementById('btn-mov-consultar').addEventListener('click', consultarMovimientosMermas);
+  document.getElementById('btn-mov-volver-proveedores').addEventListener('click', () => { document.getElementById('mov-seccion-detalle').classList.add('hidden'); });
 
   const selCedi = document.getElementById('ra-filtro-cedi');
   CEDIS_VALIDOS.forEach(c => selCedi.insertAdjacentHTML('beforeend', `<option value="${c}">${c}</option>`));
@@ -2752,6 +2815,8 @@ function inicializarModuloIndicadores() {
   selCedi.addEventListener('change', cargarRaCedi);
 
   document.getElementById('btn-ra-aplicar-rango').addEventListener('click', cargarRaMatriz);
+  document.getElementById('btn-ra-hero-aplicar').addEventListener('click', cargarRaGlobal);
+  document.getElementById('btn-merma-hero-aplicar').addEventListener('click', cargarMermaGlobal);
 
   const selCediMerma = document.getElementById('merma-filtro-cedi');
   CEDIS_MERMAS.forEach(c => selCediMerma.insertAdjacentHTML('beforeend', `<option value="${c}">${c}</option>`));
@@ -2763,14 +2828,17 @@ function inicializarModuloIndicadores() {
   CEDIS_MERMAS.forEach(c => selCediManual.insertAdjacentHTML('beforeend', `<option value="${c}">${c}</option>`));
   document.getElementById('btn-merma-manual-guardar').addEventListener('click', guardarMermaManual);
 }
+let MOV_CEDI_POBLADO = false;
 
 function cambiarTabIndicadores(cual) {
   document.getElementById('panel-ind-personales').classList.toggle('hidden', cual !== 'personales');
   document.getElementById('panel-ind-inventarios').classList.toggle('hidden', cual !== 'inventarios');
   document.getElementById('panel-ind-mermas').classList.toggle('hidden', cual !== 'mermas');
+  document.getElementById('panel-ind-analisis-mov').classList.toggle('hidden', cual !== 'analisis-mov');
   document.getElementById('tab-ind-personales').classList.toggle('active', cual === 'personales');
   document.getElementById('tab-ind-inventarios').classList.toggle('active', cual === 'inventarios');
   document.getElementById('tab-ind-mermas').classList.toggle('active', cual === 'mermas');
+  document.getElementById('tab-ind-analisis-mov').classList.toggle('active', cual === 'analisis-mov');
 }
 
 let RA_YA_CARGADO = false;
@@ -2788,17 +2856,17 @@ function tarjetaHeroRa(mesTexto, ra, variacion, valorContado, valorAjustes) {
   const color = ra == null ? '#94a3b8' : cumple ? '#16a34a' : '#dc2626';
   const flecha = variacion == null ? '' : variacion > 0 ? `<span style="color:#16a34a;">▲ +${variacion}%</span>` : variacion < 0 ? `<span style="color:#dc2626;">▼ ${variacion}%</span>` : `<span style="color:#94a3b8;">■ sin cambio</span>`;
   return `
-    <div style="flex:1;min-width:260px;background:linear-gradient(135deg, ${color}12, ${color}03);border:1px solid ${color}33;border-radius:18px;padding:22px;">
-      <div style="font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--modern-muted);font-weight:700;">RA$ -- ${tEsc(mesTexto)}</div>
-      <div style="font-size:44px;font-weight:800;color:${color};line-height:1.1;margin-top:6px;">${ra != null ? ra + '%' : 'Sin datos'}</div>
-      <div style="font-size:12px;color:var(--modern-muted);margin-top:6px;">Meta ≥ 98.5% ${ra != null ? (cumple ? '· <span style="color:#16a34a;font-weight:700;">✓ cumple</span>' : '· <span style="color:#dc2626;font-weight:700;">✗ no cumple</span>') : ''}</div>
-      <div style="font-size:13px;margin-top:8px;">${flecha} <span style="color:var(--modern-muted);">vs. mes anterior</span></div>
+    <div style="flex:1;min-width:200px;background:linear-gradient(135deg, ${color}12, ${color}03);border:1px solid ${color}33;border-radius:14px;padding:14px;">
+      <div style="font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--modern-muted);font-weight:700;">RA$ -- ${tEsc(mesTexto)}</div>
+      <div style="font-size:28px;font-weight:800;color:${color};line-height:1.1;margin-top:4px;">${ra != null ? ra + '%' : 'Sin datos'}</div>
+      <div style="font-size:11px;color:var(--modern-muted);margin-top:4px;">Meta ≥ 98.5% ${ra != null ? (cumple ? '· <span style="color:#16a34a;font-weight:700;">✓ cumple</span>' : '· <span style="color:#dc2626;font-weight:700;">✗ no cumple</span>') : ''}</div>
+      <div style="font-size:11px;margin-top:6px;">${flecha} <span style="color:var(--modern-muted);">vs. periodo anterior</span></div>
     </div>
-    <div style="flex:1;min-width:220px;background:var(--surface-1);border-radius:18px;padding:22px;">
-      <div style="font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--modern-muted);font-weight:700;">Valor contado</div>
-      <div style="font-size:24px;font-weight:700;margin-top:6px;">${formatoCOP(valorContado)}</div>
-      <div style="font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--modern-muted);font-weight:700;margin-top:14px;">Valor en ajustes (absoluto)</div>
-      <div style="font-size:24px;font-weight:700;margin-top:6px;color:#dc2626;">${formatoCOP(valorAjustes)}</div>
+    <div style="flex:1;min-width:180px;background:var(--surface-1);border-radius:14px;padding:14px;">
+      <div style="font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--modern-muted);font-weight:700;">Valor contado</div>
+      <div style="font-size:18px;font-weight:700;margin-top:4px;">${formatoCOP(valorContado)}</div>
+      <div style="font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--modern-muted);font-weight:700;margin-top:8px;">Valor en ajustes (absoluto)</div>
+      <div style="font-size:18px;font-weight:700;margin-top:4px;color:#dc2626;">${formatoCOP(valorAjustes)}</div>
     </div>`;
 }
 
@@ -2826,14 +2894,21 @@ function dibujarChartRa(elementId, filas, tituloSerie) {
 }
 
 async function cargarRaGlobal() {
+  const rango = parseInt(document.getElementById('ra-hero-rango')?.value || '1', 10);
   const { data, error } = await sb.rpc('indicador_ra_valor', { p_cedi: null, p_meses: 12 });
   if (error) { mostrarToast('Error cargando RA$: ' + error.message); return; }
   const filas = (data || []).filter(f => f.valor_contado > 0);
   const hero = document.getElementById('ra-global-hero');
   if (!filas.length) { hero.innerHTML = '<div class="inv-empty">Todavía no hay datos suficientes de inventario contado para calcular RA$.</div>'; return; }
-  const ultimo = filas[filas.length - 1];
-  const mesTexto = new Date(ultimo.mes + 'T00:00:00').toLocaleDateString('es-CO', { month: 'long', year: 'numeric' });
-  hero.innerHTML = tarjetaHeroRa('Global · ' + mesTexto, ultimo.ra_valor, ultimo.variacion_vs_mes_anterior, ultimo.valor_contado, ultimo.valor_ajustes_absoluto);
+
+  const filasRango = filas.slice(-rango);
+  const valorContado = filasRango.reduce((a, f) => a + Number(f.valor_contado || 0), 0);
+  const valorAjustes = filasRango.reduce((a, f) => a + Number(f.valor_ajustes_absoluto || 0), 0);
+  const ra = valorContado > 0 ? Math.round((1 - valorAjustes / valorContado) * 10000) / 100 : null;
+  const etiquetaRango = rango === 1
+    ? new Date(filasRango[filasRango.length - 1].mes + 'T00:00:00').toLocaleDateString('es-CO', { month: 'long', year: 'numeric' })
+    : `últimos ${filasRango.length} meses (${new Date(filasRango[0].mes + 'T00:00:00').toLocaleDateString('es-CO', { month: 'short', year: '2-digit' })} -- ${new Date(filasRango[filasRango.length - 1].mes + 'T00:00:00').toLocaleDateString('es-CO', { month: 'short', year: '2-digit' })})`;
+  hero.innerHTML = tarjetaHeroRa('Global · ' + etiquetaRango, ra, null, valorContado, valorAjustes);
 }
 
 async function cargarRaCedi() {
@@ -2918,30 +2993,42 @@ function tarjetaHeroMerma(mesTexto, merma, pctVentas, pctInventario, salidas, do
   const cumple = pctVentas != null && pctVentas < 0.3;
   const color = pctVentas == null ? '#94a3b8' : cumple ? '#16a34a' : '#dc2626';
   return `
-    <div style="flex:1;min-width:260px;background:linear-gradient(135deg, ${color}12, ${color}03);border:1px solid ${color}33;border-radius:18px;padding:22px;">
-      <div style="font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--modern-muted);font-weight:700;">Logística Mensual Mermas -- ${tEsc(mesTexto)}</div>
-      <div style="font-size:44px;font-weight:800;color:${color};line-height:1.1;margin-top:6px;">${pctVentas != null ? pctVentas + '%' : 'Sin datos'}</div>
-      <div style="font-size:12px;color:var(--modern-muted);margin-top:6px;">Meta &lt; 0.3% ${pctVentas != null ? (cumple ? '· <span style="color:#16a34a;font-weight:700;">✓ cumple</span>' : '· <span style="color:#dc2626;font-weight:700;">✗ no cumple</span>') : ''}</div>
-      <div style="font-size:13px;margin-top:10px;color:var(--modern-muted);">% sobre Inventario: <strong>${pctInventario != null ? pctInventario + '%' : '—'}</strong></div>
+    <div style="flex:1;min-width:200px;background:linear-gradient(135deg, ${color}12, ${color}03);border:1px solid ${color}33;border-radius:14px;padding:14px;">
+      <div style="font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--modern-muted);font-weight:700;">Logística Mensual Mermas -- ${tEsc(mesTexto)}</div>
+      <div style="font-size:28px;font-weight:800;color:${color};line-height:1.1;margin-top:4px;">${pctVentas != null ? pctVentas + '%' : 'Sin datos'}</div>
+      <div style="font-size:11px;color:var(--modern-muted);margin-top:4px;">Meta &lt; 0.3% ${pctVentas != null ? (cumple ? '· <span style="color:#16a34a;font-weight:700;">✓ cumple</span>' : '· <span style="color:#dc2626;font-weight:700;">✗ no cumple</span>') : ''}</div>
+      <div style="font-size:11px;margin-top:6px;color:var(--modern-muted);">% sobre Inventario: <strong>${pctInventario != null ? pctInventario + '%' : '—'}</strong></div>
     </div>
-    <div style="flex:1;min-width:260px;background:var(--surface-1);border-radius:18px;padding:22px;">
-      <div style="font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--modern-muted);font-weight:700;">Merma total (Salidas + Donaciones + Ajustes)</div>
-      <div style="font-size:28px;font-weight:800;color:#dc2626;margin-top:6px;">${formatoCOP(merma)}</div>
-      <div style="display:flex;justify-content:space-between;margin-top:14px;font-size:13px;"><span>Salidas</span><strong>${formatoCOP(salidas)}</strong></div>
-      <div style="display:flex;justify-content:space-between;margin-top:6px;font-size:13px;"><span>Donaciones</span><strong>${formatoCOP(donaciones)}</strong></div>
-      <div style="display:flex;justify-content:space-between;margin-top:6px;font-size:13px;"><span>Ajustes por diferencia de inventario</span><strong>${formatoCOP(ajustes)}</strong></div>
+    <div style="flex:1;min-width:200px;background:var(--surface-1);border-radius:14px;padding:14px;">
+      <div style="font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--modern-muted);font-weight:700;">Merma total (Salidas + Donaciones + Ajustes)</div>
+      <div style="font-size:20px;font-weight:800;color:#dc2626;margin-top:4px;">${formatoCOP(merma)}</div>
+      <div style="display:flex;justify-content:space-between;margin-top:8px;font-size:11px;"><span>Salidas</span><strong>${formatoCOP(salidas)}</strong></div>
+      <div style="display:flex;justify-content:space-between;margin-top:4px;font-size:11px;"><span>Donaciones</span><strong>${formatoCOP(donaciones)}</strong></div>
+      <div style="display:flex;justify-content:space-between;margin-top:4px;font-size:11px;"><span>Ajustes</span><strong>${formatoCOP(ajustes)}</strong></div>
     </div>`;
 }
 
 async function cargarMermaGlobal() {
+  const rango = parseInt(document.getElementById('merma-hero-rango')?.value || '1', 10);
   const { data, error } = await sb.rpc('indicador_mermas', { p_cedi: null, p_meses: 12 });
   const hero = document.getElementById('merma-global-hero');
   if (error) { hero.innerHTML = `<div class="inv-empty">Error: ${tEsc(error.message)}</div>`; return; }
   const filas = (data || []).filter(f => f.ventas != null || f.merma > 0);
   if (!filas.length) { hero.innerHTML = '<div class="inv-empty">Todavía no hay datos de mermas.</div>'; return; }
-  const ultimo = filas[filas.length - 1];
-  const mesTexto = new Date(ultimo.mes + 'T00:00:00').toLocaleDateString('es-CO', { month: 'long', year: 'numeric' });
-  hero.innerHTML = tarjetaHeroMerma('Global · ' + mesTexto, ultimo.merma, ultimo.pct_merma_ventas, ultimo.pct_merma_inventario, ultimo.salidas, ultimo.donaciones, ultimo.ajustes);
+
+  const filasRango = filas.slice(-rango);
+  const salidas = filasRango.reduce((a, f) => a + Number(f.salidas || 0), 0);
+  const donaciones = filasRango.reduce((a, f) => a + Number(f.donaciones || 0), 0);
+  const ajustes = filasRango.reduce((a, f) => a + Number(f.ajustes || 0), 0);
+  const merma = salidas + donaciones + ajustes;
+  const ventas = filasRango.reduce((a, f) => a + Number(f.ventas || 0), 0);
+  const inventario = filasRango.reduce((a, f) => a + Number(f.inventario || 0), 0);
+  const pctVentas = ventas > 0 ? Math.round((merma / ventas) * 10000) / 100 : null;
+  const pctInventario = inventario > 0 ? Math.round((merma / inventario) * 10000) / 100 : null;
+  const etiquetaRango = rango === 1
+    ? new Date(filasRango[filasRango.length - 1].mes + 'T00:00:00').toLocaleDateString('es-CO', { month: 'long', year: 'numeric' })
+    : `últimos ${filasRango.length} meses (${new Date(filasRango[0].mes + 'T00:00:00').toLocaleDateString('es-CO', { month: 'short', year: '2-digit' })} -- ${new Date(filasRango[filasRango.length - 1].mes + 'T00:00:00').toLocaleDateString('es-CO', { month: 'short', year: '2-digit' })})`;
+  hero.innerHTML = tarjetaHeroMerma('Global · ' + etiquetaRango, merma, pctVentas, pctInventario, salidas, donaciones, ajustes);
 }
 
 async function cargarMermaMatriz() {
@@ -3029,6 +3116,131 @@ function cargarPanelMermasCompleto() {
   cargarMermaMatriz();
   const selCedi = document.getElementById('merma-filtro-cedi');
   if (selCedi.value) cargarMermaCedi();
+}
+
+// ============================================================
+// MÓDULO: Análisis de Salidas y Ajustes (por proveedor/producto/motivo)
+// ============================================================
+let MOV_CACHE = [];
+let MOV_CHART_PROVEEDOR = null, MOV_CHART_MOTIVO = null;
+
+async function consultarMovimientosMermas() {
+  const tipo = document.getElementById('mov-filtro-tipo').value;
+  const cedi = document.getElementById('mov-filtro-cedi').value || null;
+  const desde = document.getElementById('mov-filtro-desde').value || null;
+  const hasta = document.getElementById('mov-filtro-hasta').value || null;
+
+  const { data, error } = await sb.rpc('analisis_movimientos_mermas', { p_cedi: cedi, p_tipo_docto: tipo, p_desde: desde, p_hasta: hasta });
+  if (error) { mostrarToast('Error: ' + error.message); return; }
+  MOV_CACHE = data || [];
+  document.getElementById('mov-seccion-detalle').classList.add('hidden');
+
+  const totalValor = MOV_CACHE.reduce((a, f) => a + Number(f.valor || 0), 0);
+  const totalUnidades = MOV_CACHE.reduce((a, f) => a + Number(f.cantidad || 0), 0);
+  const proveedoresUnicos = new Set(MOV_CACHE.map(f => f.proveedor)).size;
+  const etiquetaTipo = tipo === 'SAI' ? 'Salidas' : 'Ajustes';
+
+  document.getElementById('mov-kpis').innerHTML = `
+    <div class="inv-kpi" style="cursor:default"><div class="inv-kpi-label">Valor total (${etiquetaTipo})</div><div class="inv-kpi-value">${formatoCOP(totalValor)}</div></div>
+    <div class="inv-kpi" style="cursor:default"><div class="inv-kpi-label">Unidades totales</div><div class="inv-kpi-value">${totalUnidades.toLocaleString('es-CO')}</div></div>
+    <div class="inv-kpi" style="cursor:default"><div class="inv-kpi-label">Proveedores involucrados</div><div class="inv-kpi-value">${proveedoresUnicos}</div></div>
+    <div class="inv-kpi" style="cursor:default"><div class="inv-kpi-label">Referencias distintas</div><div class="inv-kpi-value">${MOV_CACHE.length}</div></div>
+  `;
+  document.getElementById('mov-tabla-titulo').textContent = `Proveedores -- ${etiquetaTipo}, % de participación`;
+
+  renderMovProveedores(totalValor);
+  renderMovMotivos(totalValor);
+  renderMovAreas(totalValor);
+}
+
+function agruparMov(campo) {
+  const mapa = new Map();
+  MOV_CACHE.forEach(f => {
+    const clave = f[campo] || 'Sin dato';
+    if (!mapa.has(clave)) mapa.set(clave, { cantidad: 0, valor: 0 });
+    const g = mapa.get(clave);
+    g.cantidad += Number(f.cantidad || 0);
+    g.valor += Number(f.valor || 0);
+  });
+  return [...mapa.entries()].sort((a, b) => b[1].valor - a[1].valor);
+}
+
+function renderMovProveedores(totalValor) {
+  const porProveedor = agruparMov('proveedor');
+  const cont = document.getElementById('mov-tabla-proveedores');
+  if (!porProveedor.length) { cont.innerHTML = '<div class="inv-empty">Sin resultados con este filtro.</div>'; return; }
+
+  cont.innerHTML = `<table class="inv-table"><thead><tr><th>Proveedor</th><th>Unidades</th><th>Valor</th><th>% Participación</th></tr></thead><tbody>${
+    porProveedor.slice(0, 30).map(([prov, g]) => `<tr style="cursor:pointer;" onclick='verDetalleProveedorMov(${JSON.stringify(prov)})'>
+      <td>${tEsc(prov)}</td>
+      <td>${g.cantidad.toLocaleString('es-CO')}</td>
+      <td style="font-weight:700;">${formatoCOP(g.valor)}</td>
+      <td>${totalValor > 0 ? (g.valor / totalValor * 100).toFixed(1) + '%' : '—'}</td>
+    </tr>`).join('')
+  }</tbody></table>`;
+
+  if (MOV_CHART_PROVEEDOR) MOV_CHART_PROVEEDOR.destroy();
+  const top10 = porProveedor.slice(0, 10);
+  MOV_CHART_PROVEEDOR = new ApexCharts(document.getElementById('mov-chart-proveedor'), {
+    chart: { type: 'bar', height: 300, toolbar: { show: false }, fontFamily: 'inherit' },
+    series: [{ name: 'Valor', data: top10.map(([, g]) => g.valor) }],
+    xaxis: { categories: top10.map(([prov]) => prov.length > 20 ? prov.slice(0, 20) + '…' : prov) },
+    plotOptions: { bar: { borderRadius: 4, horizontal: true } },
+    colors: ['#2563eb'],
+    dataLabels: { enabled: true, formatter: v => formatoCOP(v) },
+  });
+  MOV_CHART_PROVEEDOR.render();
+}
+
+function renderMovMotivos(totalValor) {
+  const porMotivo = agruparMov('motivo');
+  if (MOV_CHART_MOTIVO) MOV_CHART_MOTIVO.destroy();
+  const top8 = porMotivo.slice(0, 8);
+  if (!top8.length) { document.getElementById('mov-chart-motivo').innerHTML = '<div class="inv-empty">Sin datos.</div>'; return; }
+  MOV_CHART_MOTIVO = new ApexCharts(document.getElementById('mov-chart-motivo'), {
+    chart: { type: 'donut', height: 300, fontFamily: 'inherit' },
+    series: top8.map(([, g]) => g.valor),
+    labels: top8.map(([m]) => m),
+    legend: { position: 'bottom', fontSize: '11px' },
+    dataLabels: { enabled: true, formatter: v => v.toFixed(1) + '%' },
+  });
+  MOV_CHART_MOTIVO.render();
+}
+
+let MOV_CHART_AREA = null;
+function renderMovAreas(totalValor) {
+  const porArea = agruparMov('area_responsable');
+  if (MOV_CHART_AREA) MOV_CHART_AREA.destroy();
+  const top8 = porArea.slice(0, 8);
+  const cont = document.getElementById('mov-chart-area');
+  if (!top8.length) { cont.innerHTML = '<div class="inv-empty">Sin datos.</div>'; return; }
+  cont.innerHTML = '';
+  MOV_CHART_AREA = new ApexCharts(cont, {
+    chart: { type: 'bar', height: 280, toolbar: { show: false }, fontFamily: 'inherit' },
+    series: [{ name: 'Valor', data: top8.map(([, g]) => g.valor) }],
+    xaxis: { categories: top8.map(([area]) => area.length > 24 ? area.slice(0, 24) + '…' : area) },
+    plotOptions: { bar: { borderRadius: 4, horizontal: true } },
+    colors: ['#7c3aed'],
+    dataLabels: { enabled: true, formatter: v => formatoCOP(v) },
+  });
+  MOV_CHART_AREA.render();
+}
+
+function verDetalleProveedorMov(proveedor) {
+  const filas = MOV_CACHE.filter(f => (f.proveedor || 'Sin dato') === proveedor).sort((a, b) => Number(b.valor || 0) - Number(a.valor || 0));
+  document.getElementById('mov-detalle-titulo').textContent = `Productos -- ${proveedor}`;
+  document.getElementById('mov-seccion-detalle').classList.remove('hidden');
+  document.getElementById('mov-tabla-detalle').innerHTML = `<table class="inv-table"><thead><tr><th>Código</th><th>Producto</th><th>Motivo</th><th>Bodega</th><th>Unidades</th><th>Valor</th></tr></thead><tbody>${
+    filas.map(f => `<tr>
+      <td>${tEsc(f.referencia)}</td>
+      <td class="inv-product">${tEsc(f.descripcion || '—')}</td>
+      <td style="font-size:11px;">${tEsc(f.motivo)}</td>
+      <td style="font-size:11px;">${tEsc(f.bodega)}</td>
+      <td>${Number(f.cantidad).toLocaleString('es-CO')}</td>
+      <td style="font-weight:700;">${formatoCOP(f.valor)}</td>
+    </tr>`).join('')
+  }</tbody></table>`;
+  document.getElementById('mov-seccion-detalle').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 }
 
 async function guardarRegistro(indicadorId) {
@@ -6065,6 +6277,7 @@ document.getElementById('btn-imp-procesar').addEventListener('click', async () =
         valor: Number.isNaN(valor) ? null : valor,
         motivo: String(valorPorColumna(fila, ['Desc. motivo']) ?? '').trim() || null,
         bodega: String(valorPorColumna(fila, ['Bodega']) ?? '').trim() || null,
+        area_responsable: String(valorPorColumna(fila, ['Notas movimiento']) ?? '').trim() || null,
       });
     });
 
