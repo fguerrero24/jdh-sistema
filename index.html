@@ -1152,6 +1152,39 @@ input:focus,select:focus,textarea:focus{outline:none!important;border-color:#176
               <div id="ra-cedi-hero" style="display:flex;gap:18px;flex-wrap:wrap;margin:0 10px 18px;"></div>
               <div id="ra-cedi-chart" style="padding:10px;"></div>
             </div>
+
+            <div class="inv-hero" style="background:linear-gradient(135deg,#134e4a,#0f766e);margin-top:20px;">
+              <div class="inv-hero-top">
+                <div><div class="inv-eyebrow" style="color:#99f6e4;">JDH · Control de Inventarios</div><div class="inv-title" style="color:#fff;">IRA SKUs — Exactitud por Referencia</div><div class="inv-subtitle" style="color:#ccfbf1;">(SKUs con conteo exacto) ÷ (SKUs contados o auditados) × 100. Ubicación, cantidad, SKU y condición. Meta: ≥ 98.5%</div></div>
+              </div>
+            </div>
+
+            <div style="display:flex;gap:8px;align-items:end;margin-top:10px;">
+              <div class="inv-filter" style="max-width:220px;"><label>Rango para la tarjeta</label>
+                <select id="irasku-hero-rango">
+                  <option value="1">Último mes</option>
+                  <option value="3">Últimos 3 meses</option>
+                  <option value="6">Últimos 6 meses</option>
+                  <option value="12" selected>Últimos 12 meses</option>
+                </select>
+              </div>
+              <button class="btn ghost" id="btn-irasku-hero-aplicar">Aplicar</button>
+            </div>
+            <div id="irasku-global-hero" style="display:flex;gap:12px;flex-wrap:wrap;margin:12px 0;"></div>
+
+            <div class="inv-section"><div class="inv-section-head"><div><div class="inv-section-title">IRA SKUs del mes más reciente, por CEDI</div></div></div><div id="irasku-comparativo-chart" style="padding:10px;"></div></div>
+
+            <div class="inv-section" style="margin-top:16px;"><div class="inv-section-head"><div><div class="inv-section-title">Matriz mensual — IRA SKUs, todos los CEDIs</div><div class="inv-section-note">Verde = cumple la meta (≥98.5%) · Rojo = no la cumple</div></div></div><div id="irasku-matriz-tabla" style="padding:10px;overflow-x:auto;"></div></div>
+
+            <div class="inv-section" style="margin-top:16px;"><div class="inv-section-head"><div><div class="inv-section-title">Detalle por CEDI</div></div></div>
+              <div class="inv-filterbar" style="margin:0 10px 10px;">
+                <div class="inv-filter-row" style="grid-template-columns:1fr;">
+                  <div class="inv-filter"><label>CEDI</label><select id="irasku-filtro-cedi"><option value="">Elige un CEDI...</option></select></div>
+                </div>
+              </div>
+              <div id="irasku-cedi-hero" style="display:flex;gap:18px;flex-wrap:wrap;margin:0 10px 18px;"></div>
+              <div id="irasku-cedi-chart" style="padding:10px;"></div>
+            </div>
           </div>
 
           <div id="panel-ind-mermas" class="hidden">
@@ -2820,7 +2853,7 @@ let RA_GLOBAL_CHART = null, RA_CEDI_CHART = null, RA_COMPARATIVO_CHART = null;
 
 function inicializarModuloIndicadores() {
   document.getElementById('tab-ind-personales').addEventListener('click', () => cambiarTabIndicadores('personales'));
-  document.getElementById('tab-ind-inventarios').addEventListener('click', () => { cambiarTabIndicadores('inventarios'); cargarPanelRaCompleto(); });
+  document.getElementById('tab-ind-inventarios').addEventListener('click', () => { cambiarTabIndicadores('inventarios'); cargarPanelRaCompleto(); cargarPanelIraSkuCompleto(); });
   document.getElementById('tab-ind-mermas').addEventListener('click', () => { cambiarTabIndicadores('mermas'); cargarPanelMermasCompleto(); });
   document.getElementById('tab-ind-analisis-mov').addEventListener('click', () => { cambiarTabIndicadores('analisis-mov'); if (!MOV_CEDI_POBLADO) { const sel = document.getElementById('mov-filtro-cedi'); CEDIS_MERMAS.forEach(c => sel.insertAdjacentHTML('beforeend', `<option value="${c}">${c}</option>`)); if (!puedeVerTodosLosCedis() && SESION.cedi) sel.value = SESION.cedi; MOV_CEDI_POBLADO = true; } consultarMovimientosMermas(); });
   document.getElementById('btn-mov-consultar').addEventListener('click', consultarMovimientosMermas);
@@ -2834,6 +2867,12 @@ function inicializarModuloIndicadores() {
   document.getElementById('btn-ra-aplicar-rango').addEventListener('click', cargarRaMatriz);
   document.getElementById('btn-ra-hero-aplicar').addEventListener('click', cargarRaGlobal);
   document.getElementById('btn-merma-hero-aplicar').addEventListener('click', cargarMermaGlobal);
+  document.getElementById('btn-irasku-hero-aplicar').addEventListener('click', cargarIraSkuGlobal);
+
+  const selCediIraSku = document.getElementById('irasku-filtro-cedi');
+  CEDIS_VALIDOS.forEach(c => selCediIraSku.insertAdjacentHTML('beforeend', `<option value="${c}">${c}</option>`));
+  if (!puedeVerTodosLosCedis() && SESION.cedi) selCediIraSku.value = SESION.cedi;
+  selCediIraSku.addEventListener('change', cargarIraSkuCedi);
 
   const selCediMerma = document.getElementById('merma-filtro-cedi');
   CEDIS_MERMAS.forEach(c => selCediMerma.insertAdjacentHTML('beforeend', `<option value="${c}">${c}</option>`));
@@ -3148,6 +3187,139 @@ async function guardarMermaManual() {
   estado.textContent = `Guardado -- ${cedi}, ${mesInput}.`;
   mostrarToast('Ventas/Inventario guardados.');
   cargarPanelMermasCompleto();
+}
+
+// ============================================================
+// MÓDULO IRA SKUs (% de SKUs con conteo exacto)
+// ============================================================
+function tarjetaHeroIraSku(mesTexto, ira, skusOk, skusTotales) {
+  const cumple = ira != null && ira >= 98.5;
+  const color = ira == null ? '#94a3b8' : cumple ? '#16a34a' : '#dc2626';
+  return `
+    <div style="flex:1;min-width:200px;background:linear-gradient(135deg, ${color}12, ${color}03);border:1px solid ${color}33;border-radius:14px;padding:14px;">
+      <div style="font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--modern-muted);font-weight:700;">IRA SKUs -- ${tEsc(mesTexto)}</div>
+      <div style="font-size:28px;font-weight:800;color:${color};line-height:1.1;margin-top:4px;">${ira != null ? ira + '%' : 'Sin datos'}</div>
+      <div style="font-size:11px;color:var(--modern-muted);margin-top:4px;">Meta ≥ 98.5% ${ira != null ? (cumple ? '· <span style="color:#16a34a;font-weight:700;">✓ cumple</span>' : '· <span style="color:#dc2626;font-weight:700;">✗ no cumple</span>') : ''}</div>
+    </div>
+    <div style="flex:1;min-width:180px;background:var(--surface-1);border-radius:14px;padding:14px;">
+      <div style="font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--modern-muted);font-weight:700;">SKUs con conteo exacto</div>
+      <div style="font-size:18px;font-weight:700;margin-top:4px;color:#16a34a;">${skusOk.toLocaleString('es-CO')}</div>
+      <div style="font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--modern-muted);font-weight:700;margin-top:8px;">SKUs totales contados</div>
+      <div style="font-size:18px;font-weight:700;margin-top:4px;">${skusTotales.toLocaleString('es-CO')}</div>
+    </div>`;
+}
+
+async function cargarIraSkuGlobal() {
+  const rango = parseInt(document.getElementById('irasku-hero-rango')?.value || '1', 10);
+  const { data, error } = await sb.rpc('indicador_ira_sku', { p_cedi: null, p_meses: 12 });
+  if (error) { mostrarToast('Error cargando IRA SKUs: ' + error.message); return; }
+  const filas = (data || []).filter(f => f.skus_totales > 0);
+  const hero = document.getElementById('irasku-global-hero');
+  if (!filas.length) { hero.innerHTML = '<div class="inv-empty">Todavía no hay datos suficientes de conteos para calcular IRA SKUs.</div>'; return; }
+
+  const filasRango = filas.slice(-rango);
+  const skusOk = filasRango.reduce((a, f) => a + Number(f.skus_ok || 0), 0);
+  const skusTotales = filasRango.reduce((a, f) => a + Number(f.skus_totales || 0), 0);
+  const ira = skusTotales > 0 ? Math.round((skusOk / skusTotales) * 10000) / 100 : null;
+  const etiquetaRango = rango === 1
+    ? new Date(filasRango[filasRango.length - 1].mes + 'T00:00:00').toLocaleDateString('es-CO', { month: 'long', year: 'numeric' })
+    : `últimos ${filasRango.length} meses (${new Date(filasRango[0].mes + 'T00:00:00').toLocaleDateString('es-CO', { month: 'short', year: '2-digit' })} -- ${new Date(filasRango[filasRango.length - 1].mes + 'T00:00:00').toLocaleDateString('es-CO', { month: 'short', year: '2-digit' })})`;
+  hero.innerHTML = tarjetaHeroIraSku('Global · ' + etiquetaRango, ira, skusOk, skusTotales);
+}
+
+let IRASKU_COMPARATIVO_CHART = null;
+async function cargarIraSkuComparativo() {
+  const { data, error } = await sb.rpc('indicador_ira_sku_comparativo_cedis');
+  const cont = document.getElementById('irasku-comparativo-chart');
+  if (error) { cont.innerHTML = `<div class="inv-empty">Error: ${tEsc(error.message)}</div>`; return; }
+  const filas = (data || []).filter(f => f.skus_totales > 0);
+  if (!filas.length) { cont.innerHTML = '<div class="inv-empty">Todavía no hay datos suficientes para comparar CEDIs.</div>'; return; }
+  const nota = `<p style="font-size:11px;color:var(--modern-muted);margin-bottom:8px;">Cada CEDI muestra su propio mes más reciente con conteo: ${filas.map(f => `${tEsc(f.cedi)} (${new Date(f.mes_usado + 'T00:00:00').toLocaleDateString('es-CO', { month: 'short', year: 'numeric' })})`).join(' · ')}</p>`;
+  const opciones = {
+    chart: { type: 'bar', height: 320, toolbar: { show: false }, fontFamily: 'inherit' },
+    series: [{ name: 'IRA SKUs', data: filas.map(f => f.ira_sku) }],
+    xaxis: { categories: filas.map(f => f.cedi) },
+    yaxis: { min: 80, max: 100, labels: { formatter: v => v.toFixed(0) + '%' } },
+    plotOptions: { bar: { borderRadius: 6, columnWidth: '55%', distributed: true } },
+    colors: filas.map(f => f.cumple_meta ? '#16a34a' : '#dc2626'),
+    legend: { show: false },
+    annotations: { yaxis: [{ y: 98.5, borderColor: '#0f172a', strokeDashArray: 6, label: { text: 'Meta 98.5%', style: { background: '#0f172a', color: '#fff' } } }] },
+    dataLabels: { enabled: true, formatter: v => v.toFixed(1) + '%' },
+    tooltip: { y: { formatter: v => v.toFixed(2) + '%' } },
+  };
+  cont.innerHTML = nota + '<div id="irasku-comparativo-chart-interno"></div>';
+  if (IRASKU_COMPARATIVO_CHART) IRASKU_COMPARATIVO_CHART.destroy();
+  IRASKU_COMPARATIVO_CHART = new ApexCharts(document.getElementById('irasku-comparativo-chart-interno'), opciones);
+  IRASKU_COMPARATIVO_CHART.render();
+}
+
+async function cargarIraSkuMatriz() {
+  const { data, error } = await sb.rpc('indicador_ira_sku_todos_cedis', { p_meses: 12 });
+  const cont = document.getElementById('irasku-matriz-tabla');
+  if (error) { cont.innerHTML = `<div class="inv-empty">Error: ${tEsc(error.message)}</div>`; return; }
+  const filas = (data || []).filter(f => f.skus_totales > 0);
+  if (!filas.length) { cont.innerHTML = '<div class="inv-empty">Todavía no hay histórico suficiente.</div>'; return; }
+
+  const meses = [...new Set(filas.map(f => f.mes))].sort();
+  const cedis = [...new Set(filas.map(f => f.cedi))].sort();
+  const buscar = (cedi, mes) => filas.find(f => f.cedi === cedi && f.mes === mes);
+
+  cont.innerHTML = `<table class="inv-table" style="text-align:center;"><thead><tr>
+      <th style="text-align:left;">CEDI</th>
+      ${meses.map(m => `<th>${new Date(m + 'T00:00:00').toLocaleDateString('es-CO', { month: 'short', year: '2-digit' })}</th>`).join('')}
+      <th>Promedio</th>
+    </tr></thead><tbody>${
+    cedis.map(cedi => {
+      const valoresCedi = meses.map(m => buscar(cedi, m)?.ira_sku).filter(v => v != null);
+      const promedio = valoresCedi.length ? (valoresCedi.reduce((a, b) => a + b, 0) / valoresCedi.length) : null;
+      return `<tr>
+        <td style="text-align:left;font-weight:700;">${tEsc(cedi)}</td>
+        ${meses.map(m => {
+          const f = buscar(cedi, m);
+          if (!f || f.ira_sku == null) return `<td style="color:#cbd5e1;">—</td>`;
+          const cumple = f.ira_sku >= 98.5;
+          return `<td><span style="display:inline-block;min-width:56px;padding:4px 8px;border-radius:8px;font-weight:700;font-size:11px;background:${cumple ? '#16a34a1a' : '#dc26261a'};color:${cumple ? '#16a34a' : '#dc2626'};">${f.ira_sku.toFixed(1)}%</span></td>`;
+        }).join('')}
+        <td style="font-weight:800;">${promedio != null ? promedio.toFixed(1) + '%' : '—'}</td>
+      </tr>`;
+    }).join('')
+  }</tbody></table>`;
+}
+
+async function cargarIraSkuCedi() {
+  const cedi = document.getElementById('irasku-filtro-cedi').value;
+  const hero = document.getElementById('irasku-cedi-hero');
+  const cont = document.getElementById('irasku-cedi-chart');
+  if (!cedi) { hero.innerHTML = ''; cont.innerHTML = ''; return; }
+  const { data, error } = await sb.rpc('indicador_ira_sku', { p_cedi: cedi, p_meses: 12 });
+  if (error) { hero.innerHTML = `<div class="inv-empty">Error: ${tEsc(error.message)}</div>`; return; }
+  const filas = (data || []).filter(f => f.skus_totales > 0);
+  if (!filas.length) { hero.innerHTML = `<div class="inv-empty">Todavía no hay datos para ${tEsc(cedi)}.</div>`; cont.innerHTML = ''; return; }
+  const ultimo = filas[filas.length - 1];
+  const mesTexto = new Date(ultimo.mes + 'T00:00:00').toLocaleDateString('es-CO', { month: 'long', year: 'numeric' });
+  hero.innerHTML = tarjetaHeroIraSku(`${cedi} · ${mesTexto}`, ultimo.ira_sku, ultimo.skus_ok, ultimo.skus_totales);
+
+  cont.innerHTML = '';
+  const chart = new ApexCharts(cont, {
+    chart: { type: 'line', height: 280, toolbar: { show: false }, fontFamily: 'inherit' },
+    series: [{ name: 'IRA SKUs', data: filas.map(f => f.ira_sku) }],
+    xaxis: { categories: filas.map(f => new Date(f.mes + 'T00:00:00').toLocaleDateString('es-CO', { month: 'short', year: '2-digit' })) },
+    yaxis: { min: 80, max: 100, labels: { formatter: v => v.toFixed(0) + '%' } },
+    colors: ['#0f766e'],
+    stroke: { curve: 'smooth', width: 3 },
+    markers: { size: 5 },
+    annotations: { yaxis: [{ y: 98.5, borderColor: '#0f172a', strokeDashArray: 6, label: { text: 'Meta 98.5%', style: { background: '#0f172a', color: '#fff' } } }] },
+    dataLabels: { enabled: true, formatter: v => v.toFixed(1) + '%' },
+  });
+  chart.render();
+}
+
+function cargarPanelIraSkuCompleto() {
+  cargarIraSkuGlobal();
+  cargarIraSkuComparativo();
+  cargarIraSkuMatriz();
+  const selCedi = document.getElementById('irasku-filtro-cedi');
+  if (selCedi.value) cargarIraSkuCedi();
 }
 
 function cargarPanelMermasCompleto() {
