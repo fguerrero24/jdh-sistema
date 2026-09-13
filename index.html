@@ -1188,7 +1188,19 @@ input:focus,select:focus,textarea:focus{outline:none!important;border-color:#176
               </div>
             </div>
 
-            <div class="inv-section" style="margin-top:16px;"><div class="inv-section-head"><div><div class="inv-section-title">Matriz mensual — % Merma/Ventas, todos los CEDIs</div><div class="inv-section-note">Verde = cumple la meta (&lt;0.3%) · Rojo = no la cumple</div></div></div><div id="merma-matriz-tabla" style="padding:10px;overflow-x:auto;"></div></div>
+            <div class="inv-section" style="margin-top:16px;"><div class="inv-section-head"><div><div class="inv-section-title">Matriz mensual — % Merma/Ventas, todos los CEDIs</div><div class="inv-section-note">Verde = cumple la meta (&lt;0.3%) · Rojo = no la cumple · Clic en el mes para ver el detalle de todas las sucursales</div></div></div><div id="merma-matriz-tabla" style="padding:10px;overflow-x:auto;"></div></div>
+
+            <div class="inv-section" style="margin-top:16px;">
+              <div class="inv-section-head"><div><div class="inv-section-title">Evolución mes a mes (global)</div></div>
+                <div style="display:flex;gap:6px;">
+                  <button class="btn ghost active" data-serie-merma="salidas" onclick="cambiarSerieMermaEvolucion('salidas')">Salidas</button>
+                  <button class="btn ghost" data-serie-merma="ajustes" onclick="cambiarSerieMermaEvolucion('ajustes')">Ajustes (neto)</button>
+                  <button class="btn ghost" data-serie-merma="donaciones" onclick="cambiarSerieMermaEvolucion('donaciones')">Donaciones</button>
+                </div>
+              </div>
+              <div id="merma-evolucion-variacion" style="padding:6px 14px 0;font-size:13px;"></div>
+              <div id="merma-evolucion-chart" style="padding:10px;"></div>
+            </div>
 
             <div class="inv-section" style="margin-top:16px;"><div class="inv-section-head"><div><div class="inv-section-title">Cargar Ventas e Inventario del mes (manual)</div><div class="inv-section-note">Cifras grandes de otro sistema -- se cargan a mano, una vez por CEDI y mes.</div></div></div>
               <div style="padding:14px;display:flex;gap:10px;flex-wrap:wrap;align-items:end;">
@@ -2072,7 +2084,9 @@ function fechaColombiaHoy() { return fechaColombia(new Date()); }
 function parsearMoneda(texto) {
   if (texto === null || texto === undefined) return NaN;
   if (typeof texto === 'number') return texto; // ya es un número real (ej. celda de Excel leída sin formato) -- no hay nada que reinterpretar
-  let limpio = String(texto).trim().replace(/[^\d.,]/g, '');
+  const textoOriginal = String(texto).trim();
+  const esNegativo = /-/.test(textoOriginal); // el signo puede venir antes o después del símbolo de moneda ("-$ 243.929" o "$ -243.929")
+  let limpio = textoOriginal.replace(/[^\d.,]/g, '');
   if (!limpio) return NaN;
   const tieneComa = limpio.includes(',');
   const tienePunto = limpio.includes('.');
@@ -2099,7 +2113,8 @@ function parsearMoneda(texto) {
   } else {
     limpio = limpio.replace(/\./g, ''); // sin coma: los puntos son de miles
   }
-  return Number(limpio);
+  const numero = Number(limpio);
+  return esNegativo ? -Math.abs(numero) : numero;
 }
 
 // Para montos que pueden venir en CUALQUIERA de los dos formatos según el
@@ -2119,15 +2134,17 @@ function parsearMonedaFlexible(texto) {
   // "$28,678."), así que ahora también pasa por parsearMoneda(), que ya sabe
   // distinguir ambos casos.
   if (crudo.includes(',')) return parsearMoneda(crudo);
+  const esNegativo = /-/.test(crudo); // el signo puede venir antes o después del símbolo de moneda
   const limpio = crudo.replace(/[^\d.]/g, '');
   const puntos = (limpio.match(/\./g) || []).length;
-  if (puntos === 0) return Number(limpio); // entero plano, sin ambigüedad
+  const aplicarSigno = n => esNegativo ? -Math.abs(n) : n;
+  if (puntos === 0) return aplicarSigno(Number(limpio)); // entero plano, sin ambigüedad
   if (puntos === 1) {
     const digitosDespues = limpio.split('.')[1]?.length || 0;
-    if (digitosDespues !== 3) return Number(limpio); // no son 3 dígitos -> es un punto decimal real
+    if (digitosDespues !== 3) return aplicarSigno(Number(limpio)); // no son 3 dígitos -> es un punto decimal real
   }
   // Más de un punto, o exactamente 3 dígitos tras un solo punto -> separador(es) de miles.
-  return Number(limpio.replace(/\./g, ''));
+  return aplicarSigno(Number(limpio.replace(/\./g, '')));
 }
 
 // Para HORAS (no dinero): el punto es el separador DECIMAL normal (ej. "2.074"
@@ -3041,6 +3058,7 @@ async function cargarMermaMatriz() {
   const filas = [];
   resultados.forEach(r => { if (!r.error && r.data) filas.push(...r.data); });
   const filasConDatos = filas.filter(f => f.pct_merma_ventas != null);
+  MERMA_MATRIZ_CACHE = filasConDatos; // se guarda para el clic en cada mes
   if (!filasConDatos.length) { cont.innerHTML = '<div class="inv-empty">Todavía no hay suficientes datos (movimientos + ventas cargadas) para armar la matriz.</div>'; return; }
 
   const meses = [...new Set(filasConDatos.map(f => f.mes))].sort();
@@ -3049,7 +3067,7 @@ async function cargarMermaMatriz() {
 
   cont.innerHTML = `<table class="inv-table" style="text-align:center;"><thead><tr>
       <th style="text-align:left;">CEDI</th>
-      ${meses.map(m => `<th>${new Date(m + 'T00:00:00').toLocaleDateString('es-CO', { month: 'short', year: '2-digit' })}</th>`).join('')}
+      ${meses.map(m => `<th style="cursor:pointer;" title="Ver todas las sucursales de este mes" onclick='verDetalleMesMermas(${JSON.stringify(m)})'>${new Date(m + 'T00:00:00').toLocaleDateString('es-CO', { month: 'short', year: '2-digit' })} 🔍</th>`).join('')}
     </tr></thead><tbody>${
     cedis.map(cedi => `<tr>
         <td style="text-align:left;font-weight:700;">${tEsc(cedi)}</td>
@@ -3062,6 +3080,27 @@ async function cargarMermaMatriz() {
         }).join('')}
       </tr>`).join('')
   }</tbody></table>`;
+}
+
+let MERMA_MATRIZ_CACHE = [];
+function verDetalleMesMermas(mes) {
+  const filas = MERMA_MATRIZ_CACHE.filter(f => f.mes === mes).sort((a, b) => b.merma - a.merma);
+  const mesTexto = new Date(mes + 'T00:00:00').toLocaleDateString('es-CO', { month: 'long', year: 'numeric' });
+  document.getElementById('ic-modal-contenido').innerHTML = `
+    <h3 style="margin-top:0;">Todas las sucursales -- ${mesTexto}</h3>
+    <div style="max-height:60vh;overflow-y:auto;"><table class="inv-table" style="font-size:12px;"><thead><tr><th>CEDI</th><th>Salidas</th><th>Donaciones</th><th>Ajustes</th><th>Merma</th><th>Ventas</th><th>% Ventas</th></tr></thead><tbody>${
+      filas.map(f => `<tr>
+        <td style="font-weight:700;">${tEsc(f.cedi)}</td>
+        <td>${formatoCOP(f.salidas)}</td><td>${formatoCOP(f.donaciones)}</td><td>${formatoCOP(f.ajustes)}</td>
+        <td style="font-weight:700;">${formatoCOP(f.merma)}</td>
+        <td>${f.ventas != null ? formatoCOP(f.ventas) : '—'}</td>
+        <td style="font-weight:700;color:${f.pct_merma_ventas < 0.3 ? '#16a34a' : '#dc2626'}">${f.pct_merma_ventas != null ? f.pct_merma_ventas + '%' : '—'}</td>
+      </tr>`).join('')
+    }</tbody></table></div>
+    <div style="display:flex;gap:8px;margin-top:16px;"><button class="btn" id="btn-merma-mes-cerrar" style="flex:1;">Cerrar</button></div>
+  `;
+  document.getElementById('ic-modal-backdrop').classList.remove('hidden');
+  document.getElementById('btn-merma-mes-cerrar').addEventListener('click', () => document.getElementById('ic-modal-backdrop').classList.add('hidden'));
 }
 
 async function cargarMermaCedi() {
@@ -3114,8 +3153,62 @@ async function guardarMermaManual() {
 function cargarPanelMermasCompleto() {
   cargarMermaGlobal();
   cargarMermaMatriz();
+  cargarMermaEvolucion();
   const selCedi = document.getElementById('merma-filtro-cedi');
   if (selCedi.value) cargarMermaCedi();
+}
+
+let MERMA_EVOLUCION_DATA = [];
+let MERMA_EVOLUCION_SERIE = 'salidas';
+let MERMA_EVOLUCION_CHART = null;
+const CAMPO_SERIE_MERMA = { salidas: 'salidas', ajustes: 'ajuste_neto_sin_filtrar', donaciones: 'donaciones' };
+const ETIQUETA_SERIE_MERMA = { salidas: 'Salidas', ajustes: 'Ajustes (neto)', donaciones: 'Donaciones' };
+const COLOR_SERIE_MERMA = { salidas: '#2563eb', ajustes: '#d97706', donaciones: '#16a34a' };
+
+async function cargarMermaEvolucion() {
+  const { data, error } = await sb.rpc('indicador_mermas', { p_cedi: null, p_meses: 12 });
+  if (error) { document.getElementById('merma-evolucion-chart').innerHTML = `<div class="inv-empty">Error: ${tEsc(error.message)}</div>`; return; }
+  MERMA_EVOLUCION_DATA = (data || []).filter(f => f.salidas > 0 || f.donaciones > 0 || f.ajuste_neto_sin_filtrar !== 0);
+  renderMermaEvolucion();
+}
+
+function cambiarSerieMermaEvolucion(serie) {
+  MERMA_EVOLUCION_SERIE = serie;
+  document.querySelectorAll('[data-serie-merma]').forEach(b => b.classList.toggle('active', b.dataset.serieMerma === serie));
+  renderMermaEvolucion();
+}
+
+function renderMermaEvolucion() {
+  const cont = document.getElementById('merma-evolucion-chart');
+  if (!MERMA_EVOLUCION_DATA.length) { cont.innerHTML = '<div class="inv-empty">Todavía no hay histórico suficiente.</div>'; return; }
+  const campo = CAMPO_SERIE_MERMA[MERMA_EVOLUCION_SERIE];
+  const categorias = MERMA_EVOLUCION_DATA.map(f => new Date(f.mes + 'T00:00:00').toLocaleDateString('es-CO', { month: 'short', year: '2-digit' }));
+  const valores = MERMA_EVOLUCION_DATA.map(f => Number(f[campo] || 0));
+
+  const ultimo = valores[valores.length - 1];
+  const anterior = valores.length > 1 ? valores[valores.length - 2] : null;
+  const variacionDiv = document.getElementById('merma-evolucion-variacion');
+  if (anterior != null && anterior !== 0) {
+    const variacionPct = Math.round(((ultimo - anterior) / Math.abs(anterior)) * 10000) / 100;
+    const sube = variacionPct > 0;
+    variacionDiv.innerHTML = `<strong>${ETIQUETA_SERIE_MERMA[MERMA_EVOLUCION_SERIE]}</strong> -- último mes: <strong>${formatoCOP(ultimo)}</strong> &nbsp; ${sube ? `<span style="color:#dc2626;">▲ +${variacionPct}%</span>` : variacionPct < 0 ? `<span style="color:#16a34a;">▼ ${variacionPct}%</span>` : `<span style="color:#94a3b8;">■ sin cambio</span>`} <span style="color:var(--modern-muted);">vs. mes anterior</span>`;
+  } else {
+    variacionDiv.innerHTML = `<strong>${ETIQUETA_SERIE_MERMA[MERMA_EVOLUCION_SERIE]}</strong> -- último mes: <strong>${formatoCOP(ultimo)}</strong>`;
+  }
+
+  cont.innerHTML = '';
+  if (MERMA_EVOLUCION_CHART) MERMA_EVOLUCION_CHART.destroy();
+  MERMA_EVOLUCION_CHART = new ApexCharts(cont, {
+    chart: { type: 'line', height: 300, toolbar: { show: false }, fontFamily: 'inherit' },
+    series: [{ name: ETIQUETA_SERIE_MERMA[MERMA_EVOLUCION_SERIE], data: valores }],
+    xaxis: { categories: categorias },
+    colors: [COLOR_SERIE_MERMA[MERMA_EVOLUCION_SERIE]],
+    stroke: { curve: 'smooth', width: 3 },
+    markers: { size: 5 },
+    dataLabels: { enabled: true, formatter: v => formatoCOP(v) },
+    tooltip: { y: { formatter: v => formatoCOP(v) } },
+  });
+  MERMA_EVOLUCION_CHART.render();
 }
 
 // ============================================================
@@ -3130,9 +3223,18 @@ async function consultarMovimientosMermas() {
   const desde = document.getElementById('mov-filtro-desde').value || null;
   const hasta = document.getElementById('mov-filtro-hasta').value || null;
 
-  const { data, error } = await sb.rpc('analisis_movimientos_mermas', { p_cedi: cedi, p_tipo_docto: tipo, p_desde: desde, p_hasta: hasta });
-  if (error) { mostrarToast('Error: ' + error.message); return; }
-  MOV_CACHE = data || [];
+  // Supabase corta cada respuesta en 1.000 filas -- se pide en bloques hasta
+  // traer todo (la función ya viene con un orden estable por valor_absoluto).
+  const TAM_BLOQUE = 1000;
+  let data = [], desdePagina = 0;
+  while (true) {
+    const { data: bloque, error } = await sb.rpc('analisis_movimientos_mermas', { p_cedi: cedi, p_tipo_docto: tipo, p_desde: desde, p_hasta: hasta }).range(desdePagina, desdePagina + TAM_BLOQUE - 1);
+    if (error) { mostrarToast('Error: ' + error.message); return; }
+    data = data.concat(bloque || []);
+    if (!bloque || bloque.length < TAM_BLOQUE) break;
+    desdePagina += TAM_BLOQUE;
+  }
+  MOV_CACHE = data;
   document.getElementById('mov-seccion-detalle').classList.add('hidden');
 
   const valorNeto = MOV_CACHE.reduce((a, f) => a + Number(f.valor_neto || 0), 0);
@@ -5991,10 +6093,18 @@ async function consultarFefo() {
   const cedi = document.getElementById('fefo-filtro-cedi').value || null;
 
   estado.textContent = 'Consultando...';
-  const { data, error } = await sb.rpc('analisis_fefo', { p_cedi: cedi });
-  if (error) { estado.textContent = 'Error: ' + error.message; return; }
+  // Paginado por seguridad -- Supabase corta cada respuesta en 1.000 filas.
+  const TAM_BLOQUE = 1000;
+  let data = [], desde = 0;
+  while (true) {
+    const { data: bloque, error } = await sb.rpc('analisis_fefo', { p_cedi: cedi }).range(desde, desde + TAM_BLOQUE - 1);
+    if (error) { estado.textContent = 'Error: ' + error.message; return; }
+    data = data.concat(bloque || []);
+    if (!bloque || bloque.length < TAM_BLOQUE) break;
+    desde += TAM_BLOQUE;
+  }
 
-  FEFO_CACHE = data || [];
+  FEFO_CACHE = data;
   estado.textContent = `${FEFO_CACHE.length.toLocaleString('es-CO')} pareja(s) producto+lote comparadas entre Picking y Altura.`;
   renderFefo();
 }
@@ -8207,7 +8317,17 @@ async function cargarModuloCompensatorios() {
 
 async function cargarSaldosCedi() {
   const cedi = document.getElementById('comp-cedi-saldo').value;
-  const { data, error } = await sb.rpc('saldos_horas_extra_cedi', { p_cedi: cedi });
+  // Paginado por seguridad -- Supabase corta cada respuesta en 1.000 filas.
+  const TAM_BLOQUE = 1000;
+  let data = [], desdePagina = 0, errorFinal = null;
+  while (true) {
+    const { data: bloque, error } = await sb.rpc('saldos_horas_extra_cedi', { p_cedi: cedi }).range(desdePagina, desdePagina + TAM_BLOQUE - 1);
+    if (error) { errorFinal = error; break; }
+    data = data.concat(bloque || []);
+    if (!bloque || bloque.length < TAM_BLOQUE) break;
+    desdePagina += TAM_BLOQUE;
+  }
+  const error = errorFinal;
   const cont = document.getElementById('comp-saldo-lista');
   if (error) { cont.innerHTML = '<div class="empty-state">No se pudo cargar el saldo.</div>'; return; }
   if (!data || !data.length) { cont.innerHTML = '<div class="empty-state">Nadie tiene saldo de horas extra pendiente en este CEDI.</div>'; return; }
@@ -8544,11 +8664,19 @@ async function liquidarNomina() {
   if (!desde || !hasta) { estado.textContent = 'Completa el rango de fechas.'; return; }
 
   estado.textContent = 'Calculando...';
-  const { data, error } = await sb.rpc('liquidador_nomina', { p_cedi: cedi, p_desde: desde, p_hasta: hasta, p_base_diaria: Number(document.getElementById('nomina-base-diaria').value) });
-  if (error) { estado.textContent = 'Error: ' + error.message; return; }
+  // Paginado por seguridad -- Supabase corta cada respuesta en 1.000 filas.
+  const TAM_BLOQUE = 1000;
+  let data = [], desdePagina = 0;
+  while (true) {
+    const { data: bloque, error } = await sb.rpc('liquidador_nomina', { p_cedi: cedi, p_desde: desde, p_hasta: hasta, p_base_diaria: Number(document.getElementById('nomina-base-diaria').value) }).range(desdePagina, desdePagina + TAM_BLOQUE - 1);
+    if (error) { estado.textContent = 'Error: ' + error.message; return; }
+    data = data.concat(bloque || []);
+    if (!bloque || bloque.length < TAM_BLOQUE) break;
+    desdePagina += TAM_BLOQUE;
+  }
 
   // Cada fila lleva su propia observación (edición manual, se guarda solo en pantalla hasta el guardado final).
-  NOMINA_RESULTADO = (data || []).map(f => ({ ...f, observaciones: '' }));
+  NOMINA_RESULTADO = data.map(f => ({ ...f, observaciones: '' }));
   if (!NOMINA_RESULTADO.length) { estado.textContent = 'No hay operarios con registros en ese CEDI y periodo.'; document.getElementById('nomina-tabla').innerHTML = ''; document.getElementById('nomina-resumen').innerHTML = ''; return; }
 
   estado.textContent = `${NOMINA_RESULTADO.length} operario(s) liquidados.`;
@@ -8882,10 +9010,18 @@ async function consultarControlSemana() {
   const hasta = document.getElementById('csem-hasta').value;
   if (!desde || !hasta) { estado.textContent = 'Completa el rango de fechas.'; return; }
 
-  const { data, error } = await sb.rpc('control_semana', { p_cedi: cedi, p_desde: desde, p_hasta: hasta });
-  if (error) { estado.textContent = 'Error: ' + error.message; return; }
+  // Paginado por seguridad -- Supabase corta cada respuesta en 1.000 filas.
+  const TAM_BLOQUE = 1000;
+  let data = [], desdePagina = 0;
+  while (true) {
+    const { data: bloque, error } = await sb.rpc('control_semana', { p_cedi: cedi, p_desde: desde, p_hasta: hasta }).range(desdePagina, desdePagina + TAM_BLOQUE - 1);
+    if (error) { estado.textContent = 'Error: ' + error.message; return; }
+    data = data.concat(bloque || []);
+    if (!bloque || bloque.length < TAM_BLOQUE) break;
+    desdePagina += TAM_BLOQUE;
+  }
 
-  CONTROL_SEMANA_RESULTADO = data || [];
+  CONTROL_SEMANA_RESULTADO = data;
   renderControlSemanaFiltrado();
 }
 
