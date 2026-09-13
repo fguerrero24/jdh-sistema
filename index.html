@@ -3135,47 +3135,54 @@ async function consultarMovimientosMermas() {
   MOV_CACHE = data || [];
   document.getElementById('mov-seccion-detalle').classList.add('hidden');
 
-  const totalValor = MOV_CACHE.reduce((a, f) => a + Number(f.valor || 0), 0);
-  const totalUnidades = MOV_CACHE.reduce((a, f) => a + Number(f.cantidad || 0), 0);
+  const valorNeto = MOV_CACHE.reduce((a, f) => a + Number(f.valor_neto || 0), 0);
+  const valorAbsoluto = MOV_CACHE.reduce((a, f) => a + Number(f.valor_absoluto || 0), 0);
+  const unidadesNetas = MOV_CACHE.reduce((a, f) => a + Number(f.cantidad_neta || 0), 0);
+  const unidadesAbsolutas = MOV_CACHE.reduce((a, f) => a + Number(f.cantidad_absoluta || 0), 0);
   const proveedoresUnicos = new Set(MOV_CACHE.map(f => f.proveedor)).size;
   const etiquetaTipo = tipo === 'SAI' ? 'Salidas' : 'Ajustes';
 
   document.getElementById('mov-kpis').innerHTML = `
-    <div class="inv-kpi" style="cursor:default"><div class="inv-kpi-label">Valor total (${etiquetaTipo})</div><div class="inv-kpi-value">${formatoCOP(totalValor)}</div></div>
-    <div class="inv-kpi" style="cursor:default"><div class="inv-kpi-label">Unidades totales</div><div class="inv-kpi-value">${totalUnidades.toLocaleString('es-CO')}</div></div>
+    <div class="inv-kpi" style="cursor:default"><div class="inv-kpi-label">Valor neto (con signo)</div><div class="inv-kpi-value">${formatoCOP(valorNeto)}</div></div>
+    <div class="inv-kpi" style="cursor:default"><div class="inv-kpi-label">Valor absoluto (bruto)</div><div class="inv-kpi-value">${formatoCOP(valorAbsoluto)}</div></div>
+    <div class="inv-kpi" style="cursor:default"><div class="inv-kpi-label">Unidades netas</div><div class="inv-kpi-value">${unidadesNetas.toLocaleString('es-CO')}</div></div>
+    <div class="inv-kpi" style="cursor:default"><div class="inv-kpi-label">Unidades absolutas</div><div class="inv-kpi-value">${unidadesAbsolutas.toLocaleString('es-CO')}</div></div>
     <div class="inv-kpi" style="cursor:default"><div class="inv-kpi-label">Proveedores involucrados</div><div class="inv-kpi-value">${proveedoresUnicos}</div></div>
     <div class="inv-kpi" style="cursor:default"><div class="inv-kpi-label">Referencias distintas</div><div class="inv-kpi-value">${MOV_CACHE.length}</div></div>
   `;
-  document.getElementById('mov-tabla-titulo').textContent = `Proveedores -- ${etiquetaTipo}, % de participación`;
+  document.getElementById('mov-tabla-titulo').textContent = `Proveedores -- ${etiquetaTipo}, % de participación (sobre valor absoluto)`;
 
-  renderMovProveedores(totalValor);
-  renderMovMotivos(totalValor);
-  renderMovAreas(totalValor);
+  renderMovProveedores(valorAbsoluto);
+  renderMovMotivos(valorAbsoluto);
+  renderMovAreas(valorAbsoluto);
 }
 
 function agruparMov(campo) {
   const mapa = new Map();
   MOV_CACHE.forEach(f => {
     const clave = f[campo] || 'Sin dato';
-    if (!mapa.has(clave)) mapa.set(clave, { cantidad: 0, valor: 0 });
+    if (!mapa.has(clave)) mapa.set(clave, { cantidadNeta: 0, cantidadAbs: 0, valorNeto: 0, valorAbs: 0 });
     const g = mapa.get(clave);
-    g.cantidad += Number(f.cantidad || 0);
-    g.valor += Number(f.valor || 0);
+    g.cantidadNeta += Number(f.cantidad_neta || 0);
+    g.cantidadAbs += Number(f.cantidad_absoluta || 0);
+    g.valorNeto += Number(f.valor_neto || 0);
+    g.valorAbs += Number(f.valor_absoluto || 0);
   });
-  return [...mapa.entries()].sort((a, b) => b[1].valor - a[1].valor);
+  return [...mapa.entries()].sort((a, b) => b[1].valorAbs - a[1].valorAbs);
 }
 
-function renderMovProveedores(totalValor) {
+function renderMovProveedores(totalValorAbs) {
   const porProveedor = agruparMov('proveedor');
   const cont = document.getElementById('mov-tabla-proveedores');
   if (!porProveedor.length) { cont.innerHTML = '<div class="inv-empty">Sin resultados con este filtro.</div>'; return; }
 
-  cont.innerHTML = `<table class="inv-table"><thead><tr><th>Proveedor</th><th>Unidades</th><th>Valor</th><th>% Participación</th></tr></thead><tbody>${
+  cont.innerHTML = `<table class="inv-table"><thead><tr><th>Proveedor</th><th>Unidades (neto)</th><th>Valor (neto)</th><th>Valor (absoluto)</th><th>% Participación</th></tr></thead><tbody>${
     porProveedor.slice(0, 30).map(([prov, g]) => `<tr style="cursor:pointer;" onclick='verDetalleProveedorMov(${JSON.stringify(prov)})'>
       <td>${tEsc(prov)}</td>
-      <td>${g.cantidad.toLocaleString('es-CO')}</td>
-      <td style="font-weight:700;">${formatoCOP(g.valor)}</td>
-      <td>${totalValor > 0 ? (g.valor / totalValor * 100).toFixed(1) + '%' : '—'}</td>
+      <td>${g.cantidadNeta.toLocaleString('es-CO')}</td>
+      <td style="font-weight:700;">${formatoCOP(g.valorNeto)}</td>
+      <td>${formatoCOP(g.valorAbs)}</td>
+      <td>${totalValorAbs > 0 ? (g.valorAbs / totalValorAbs * 100).toFixed(1) + '%' : '—'}</td>
     </tr>`).join('')
   }</tbody></table>`;
 
@@ -3183,7 +3190,7 @@ function renderMovProveedores(totalValor) {
   const top10 = porProveedor.slice(0, 10);
   MOV_CHART_PROVEEDOR = new ApexCharts(document.getElementById('mov-chart-proveedor'), {
     chart: { type: 'bar', height: 300, toolbar: { show: false }, fontFamily: 'inherit' },
-    series: [{ name: 'Valor', data: top10.map(([, g]) => g.valor) }],
+    series: [{ name: 'Valor absoluto', data: top10.map(([, g]) => g.valorAbs) }],
     xaxis: { categories: top10.map(([prov]) => prov.length > 20 ? prov.slice(0, 20) + '…' : prov) },
     plotOptions: { bar: { borderRadius: 4, horizontal: true } },
     colors: ['#2563eb'],
@@ -3192,14 +3199,14 @@ function renderMovProveedores(totalValor) {
   MOV_CHART_PROVEEDOR.render();
 }
 
-function renderMovMotivos(totalValor) {
+function renderMovMotivos(totalValorAbs) {
   const porMotivo = agruparMov('motivo');
   if (MOV_CHART_MOTIVO) MOV_CHART_MOTIVO.destroy();
   const top8 = porMotivo.slice(0, 8);
   if (!top8.length) { document.getElementById('mov-chart-motivo').innerHTML = '<div class="inv-empty">Sin datos.</div>'; return; }
   MOV_CHART_MOTIVO = new ApexCharts(document.getElementById('mov-chart-motivo'), {
     chart: { type: 'donut', height: 300, fontFamily: 'inherit' },
-    series: top8.map(([, g]) => g.valor),
+    series: top8.map(([, g]) => g.valorAbs),
     labels: top8.map(([m]) => m),
     legend: { position: 'bottom', fontSize: '11px' },
     dataLabels: { enabled: true, formatter: v => v.toFixed(1) + '%' },
@@ -3208,7 +3215,7 @@ function renderMovMotivos(totalValor) {
 }
 
 let MOV_CHART_AREA = null;
-function renderMovAreas(totalValor) {
+function renderMovAreas(totalValorAbs) {
   const porArea = agruparMov('area_responsable');
   if (MOV_CHART_AREA) MOV_CHART_AREA.destroy();
   const top8 = porArea.slice(0, 8);
@@ -3217,7 +3224,7 @@ function renderMovAreas(totalValor) {
   cont.innerHTML = '';
   MOV_CHART_AREA = new ApexCharts(cont, {
     chart: { type: 'bar', height: 280, toolbar: { show: false }, fontFamily: 'inherit' },
-    series: [{ name: 'Valor', data: top8.map(([, g]) => g.valor) }],
+    series: [{ name: 'Valor absoluto', data: top8.map(([, g]) => g.valorAbs) }],
     xaxis: { categories: top8.map(([area]) => area.length > 24 ? area.slice(0, 24) + '…' : area) },
     plotOptions: { bar: { borderRadius: 4, horizontal: true } },
     colors: ['#7c3aed'],
@@ -3227,17 +3234,18 @@ function renderMovAreas(totalValor) {
 }
 
 function verDetalleProveedorMov(proveedor) {
-  const filas = MOV_CACHE.filter(f => (f.proveedor || 'Sin dato') === proveedor).sort((a, b) => Number(b.valor || 0) - Number(a.valor || 0));
-  document.getElementById('mov-detalle-titulo').textContent = `Productos -- ${proveedor}`;
+  const filas = MOV_CACHE.filter(f => (f.proveedor || 'Sin dato') === proveedor).sort((a, b) => Number(b.valor_neto || 0) - Number(a.valor_neto || 0));
+  document.getElementById('mov-detalle-titulo').textContent = `Productos -- ${proveedor} (valores neteados)`;
   document.getElementById('mov-seccion-detalle').classList.remove('hidden');
-  document.getElementById('mov-tabla-detalle').innerHTML = `<table class="inv-table"><thead><tr><th>Código</th><th>Producto</th><th>Motivo</th><th>Bodega</th><th>Unidades</th><th>Valor</th></tr></thead><tbody>${
+  document.getElementById('mov-tabla-detalle').innerHTML = `<table class="inv-table"><thead><tr><th>Código</th><th>Producto</th><th>Motivo</th><th>Bodega</th><th>Área responsable</th><th>Unidades (neto)</th><th>Valor (neto)</th></tr></thead><tbody>${
     filas.map(f => `<tr>
       <td>${tEsc(f.referencia)}</td>
       <td class="inv-product">${tEsc(f.descripcion || '—')}</td>
       <td style="font-size:11px;">${tEsc(f.motivo)}</td>
       <td style="font-size:11px;">${tEsc(f.bodega)}</td>
-      <td>${Number(f.cantidad).toLocaleString('es-CO')}</td>
-      <td style="font-weight:700;">${formatoCOP(f.valor)}</td>
+      <td style="font-size:11px;">${tEsc(f.area_responsable)}</td>
+      <td>${Number(f.cantidad_neta).toLocaleString('es-CO')}</td>
+      <td style="font-weight:700;">${formatoCOP(f.valor_neto)}</td>
     </tr>`).join('')
   }</tbody></table>`;
   document.getElementById('mov-seccion-detalle').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
