@@ -1094,7 +1094,7 @@ input:focus,select:focus,textarea:focus{outline:none!important;border-color:#176
         <div id="view-indicadores" class="hidden">
           <div style="display:flex;gap:8px;margin-bottom:14px;">
             <button class="btn ghost admin-tab active" id="tab-ind-personales" style="display:flex;align-items:center;justify-content:center;text-align:center;">Mis indicadores</button>
-            <button class="btn ghost admin-tab" id="tab-ind-inventarios" style="display:flex;align-items:center;justify-content:center;text-align:center;">📦 Inventarios (RA$)</button>
+            <button class="btn ghost admin-tab" id="tab-ind-inventarios" style="display:flex;align-items:center;justify-content:center;text-align:center;">📦 Inventarios (IRA)</button>
             <button class="btn ghost admin-tab" id="tab-ind-mermas" style="display:flex;align-items:center;justify-content:center;text-align:center;">🗑️ Mermas</button>
             <button class="btn ghost admin-tab" id="tab-ind-analisis-mov" style="display:flex;align-items:center;justify-content:center;text-align:center;">📤 Salidas y Ajustes</button>
           </div>
@@ -1108,7 +1108,7 @@ input:focus,select:focus,textarea:focus{outline:none!important;border-color:#176
           <div id="panel-ind-inventarios" class="hidden">
             <div class="inv-hero" style="background:linear-gradient(135deg,#0f172a,#1e293b);">
               <div class="inv-hero-top">
-                <div><div class="inv-eyebrow" style="color:#93c5fd;">JDH · Control de Inventarios</div><div class="inv-title" style="color:#fff;">RA$ — Exactitud del Registro de Inventario</div><div class="inv-subtitle" style="color:#cbd5e1;">Qué tan confiable es el inventario físico contra lo que dicen los libros, medido en valor. Meta: ≥ 98.5%</div></div>
+                <div><div class="inv-eyebrow" style="color:#93c5fd;">JDH · Control de Inventarios</div><div class="inv-title" style="color:#fff;">IRA Valor — Exactitud del Registro de Inventario</div><div class="inv-subtitle" style="color:#cbd5e1;">Qué tan confiable es el inventario físico contra lo que dicen los libros, medido en valor. Meta: ≥ 98.5%</div></div>
               </div>
             </div>
 
@@ -1184,6 +1184,15 @@ input:focus,select:focus,textarea:focus{outline:none!important;border-color:#176
               </div>
               <div id="irasku-cedi-hero" style="display:flex;gap:18px;flex-wrap:wrap;margin:0 10px 18px;"></div>
               <div id="irasku-cedi-chart" style="padding:10px;"></div>
+            </div>
+
+            <div class="inv-section" style="margin-top:16px;"><div class="inv-section-head"><div><div class="inv-section-title">Proveedores más problemáticos (Pareto)</div><div class="inv-section-note">Ordenado por valor de la diferencia -- clic en un proveedor para ver sus SKUs con diferencia.</div></div></div>
+              <div id="irasku-proveedor-chart" style="padding:10px;"></div>
+              <div class="inv-table-wrap" id="irasku-proveedor-tabla"></div>
+            </div>
+
+            <div class="inv-section hidden" id="irasku-seccion-skus" style="margin-top:16px;"><div class="inv-section-head"><div><div class="inv-section-title" id="irasku-skus-titulo">SKUs con diferencia</div></div><button class="btn ghost" id="btn-irasku-volver-proveedores">← Volver a proveedores</button></div>
+              <div class="inv-table-wrap" id="irasku-tabla-skus"></div>
             </div>
           </div>
 
@@ -2872,7 +2881,8 @@ function inicializarModuloIndicadores() {
   const selCediIraSku = document.getElementById('irasku-filtro-cedi');
   CEDIS_VALIDOS.forEach(c => selCediIraSku.insertAdjacentHTML('beforeend', `<option value="${c}">${c}</option>`));
   if (!puedeVerTodosLosCedis() && SESION.cedi) selCediIraSku.value = SESION.cedi;
-  selCediIraSku.addEventListener('change', cargarIraSkuCedi);
+  selCediIraSku.addEventListener('change', () => { cargarIraSkuCedi(); cargarIraSkuProveedores(); });
+  document.getElementById('btn-irasku-volver-proveedores').addEventListener('click', () => { document.getElementById('irasku-seccion-skus').classList.add('hidden'); });
 
   const selCediMerma = document.getElementById('merma-filtro-cedi');
   CEDIS_MERMAS.forEach(c => selCediMerma.insertAdjacentHTML('beforeend', `<option value="${c}">${c}</option>`));
@@ -2990,11 +3000,13 @@ async function cargarRaComparativo() {
   const filas = (data || []).filter(f => f.valor_contado > 0);
   if (!filas.length) { cont.innerHTML = '<div class="inv-empty">Todavía no hay datos suficientes para comparar CEDIs.</div>'; return; }
   const nota = `<p style="font-size:11px;color:var(--modern-muted);margin-bottom:8px;">Cada CEDI muestra su propio mes más reciente con conteo (no necesariamente el mismo mes entre todos): ${filas.map(f => `${tEsc(f.cedi)} (${new Date(f.mes_usado + 'T00:00:00').toLocaleDateString('es-CO', { month: 'short', year: 'numeric' })})`).join(' · ')}</p>`;
+  const valoresRa = filas.map(f => f.ra_valor).filter(v => v != null);
+  const yMinRa = Math.max(0, Math.min(...valoresRa, 98.5) - 5);
   const opciones = {
     chart: { type: 'bar', height: 340, toolbar: { show: false }, fontFamily: 'inherit' },
     series: [{ name: 'RA$', data: filas.map(f => f.ra_valor) }],
     xaxis: { categories: filas.map(f => f.cedi) },
-    yaxis: { min: 90, max: 100, labels: { formatter: v => v.toFixed(0) + '%' } },
+    yaxis: { min: yMinRa, max: 100, labels: { formatter: v => v.toFixed(0) + '%' } },
     plotOptions: { bar: { borderRadius: 6, columnWidth: '55%', distributed: true } },
     colors: filas.map(f => f.cumple_meta ? '#16a34a' : '#dc2626'),
     legend: { show: false },
@@ -3235,11 +3247,13 @@ async function cargarIraSkuComparativo() {
   const filas = (data || []).filter(f => f.skus_totales > 0);
   if (!filas.length) { cont.innerHTML = '<div class="inv-empty">Todavía no hay datos suficientes para comparar CEDIs.</div>'; return; }
   const nota = `<p style="font-size:11px;color:var(--modern-muted);margin-bottom:8px;">Cada CEDI muestra su propio mes más reciente con conteo: ${filas.map(f => `${tEsc(f.cedi)} (${new Date(f.mes_usado + 'T00:00:00').toLocaleDateString('es-CO', { month: 'short', year: 'numeric' })})`).join(' · ')}</p>`;
+  const valoresIra = filas.map(f => f.ira_sku).filter(v => v != null);
+  const yMin = Math.max(0, Math.min(...valoresIra, 98.5) - 5);
   const opciones = {
     chart: { type: 'bar', height: 320, toolbar: { show: false }, fontFamily: 'inherit' },
     series: [{ name: 'IRA SKUs', data: filas.map(f => f.ira_sku) }],
     xaxis: { categories: filas.map(f => f.cedi) },
-    yaxis: { min: 80, max: 100, labels: { formatter: v => v.toFixed(0) + '%' } },
+    yaxis: { min: yMin, max: 100, labels: { formatter: v => v.toFixed(0) + '%' } },
     plotOptions: { bar: { borderRadius: 6, columnWidth: '55%', distributed: true } },
     colors: filas.map(f => f.cumple_meta ? '#16a34a' : '#dc2626'),
     legend: { show: false },
@@ -3300,11 +3314,13 @@ async function cargarIraSkuCedi() {
   hero.innerHTML = tarjetaHeroIraSku(`${cedi} · ${mesTexto}`, ultimo.ira_sku, ultimo.skus_ok, ultimo.skus_totales);
 
   cont.innerHTML = '';
+  const valoresIraCedi = filas.map(f => f.ira_sku).filter(v => v != null);
+  const yMinCedi = Math.max(0, Math.min(...valoresIraCedi, 98.5) - 5);
   const chart = new ApexCharts(cont, {
     chart: { type: 'line', height: 280, toolbar: { show: false }, fontFamily: 'inherit' },
     series: [{ name: 'IRA SKUs', data: filas.map(f => f.ira_sku) }],
     xaxis: { categories: filas.map(f => new Date(f.mes + 'T00:00:00').toLocaleDateString('es-CO', { month: 'short', year: '2-digit' })) },
-    yaxis: { min: 80, max: 100, labels: { formatter: v => v.toFixed(0) + '%' } },
+    yaxis: { min: yMinCedi, max: 100, labels: { formatter: v => v.toFixed(0) + '%' } },
     colors: ['#0f766e'],
     stroke: { curve: 'smooth', width: 3 },
     markers: { size: 5 },
@@ -3318,8 +3334,70 @@ function cargarPanelIraSkuCompleto() {
   cargarIraSkuGlobal();
   cargarIraSkuComparativo();
   cargarIraSkuMatriz();
+  cargarIraSkuProveedores();
   const selCedi = document.getElementById('irasku-filtro-cedi');
   if (selCedi.value) cargarIraSkuCedi();
+}
+
+let IRASKU_PROVEEDORES_CACHE = [];
+let IRASKU_CHART_PROVEEDOR = null;
+
+async function cargarIraSkuProveedores() {
+  const cedi = document.getElementById('irasku-filtro-cedi').value || null;
+  const { data, error } = await sb.rpc('analisis_proveedores_ira_sku', { p_cedi: cedi, p_meses: 12 });
+  const contTabla = document.getElementById('irasku-proveedor-tabla');
+  const contChart = document.getElementById('irasku-proveedor-chart');
+  if (error) { contTabla.innerHTML = `<div class="inv-empty">Error: ${tEsc(error.message)}</div>`; return; }
+  IRASKU_PROVEEDORES_CACHE = (data || []).filter(f => f.skus_contados > 0);
+  document.getElementById('irasku-seccion-skus').classList.add('hidden');
+  if (!IRASKU_PROVEEDORES_CACHE.length) { contTabla.innerHTML = '<div class="inv-empty">Todavía no hay datos suficientes.</div>'; contChart.innerHTML = ''; return; }
+
+  const top10 = IRASKU_PROVEEDORES_CACHE.filter(f => f.skus_con_diferencia > 0).slice(0, 10);
+  contChart.innerHTML = '';
+  if (top10.length) {
+    if (IRASKU_CHART_PROVEEDOR) IRASKU_CHART_PROVEEDOR.destroy();
+    IRASKU_CHART_PROVEEDOR = new ApexCharts(contChart, {
+      chart: { type: 'bar', height: 300, toolbar: { show: false }, fontFamily: 'inherit' },
+      series: [{ name: 'SKUs con diferencia', data: top10.map(f => f.skus_con_diferencia) }],
+      xaxis: { categories: top10.map(f => f.proveedor.length > 22 ? f.proveedor.slice(0, 22) + '…' : f.proveedor) },
+      plotOptions: { bar: { borderRadius: 4, horizontal: true } },
+      colors: ['#dc2626'],
+      dataLabels: { enabled: true },
+    });
+    IRASKU_CHART_PROVEEDOR.render();
+  }
+
+  contTabla.innerHTML = `<table class="inv-table"><thead><tr><th>Proveedor</th><th>SKUs contados</th><th>SKUs con diferencia</th><th>% con diferencia</th><th>Valor diferencia</th><th>% Acumulado (Pareto)</th></tr></thead><tbody>${
+    IRASKU_PROVEEDORES_CACHE.slice(0, 30).map(f => `<tr style="cursor:pointer;" onclick='verSkusProblematicasProveedor(${JSON.stringify(f.proveedor)})'>
+      <td>${tEsc(f.proveedor)}</td>
+      <td>${f.skus_contados}</td>
+      <td style="font-weight:700;color:${f.skus_con_diferencia > 0 ? '#dc2626' : '#16a34a'}">${f.skus_con_diferencia}</td>
+      <td>${f.pct_con_diferencia != null ? f.pct_con_diferencia + '%' : '—'}</td>
+      <td>${formatoCOP(f.valor_diferencia_absoluto)}</td>
+      <td>${f.pct_acumulado_pareto != null ? f.pct_acumulado_pareto + '%' : '—'}</td>
+    </tr>`).join('')
+  }</tbody></table>`;
+}
+
+async function verSkusProblematicasProveedor(proveedor) {
+  const cedi = document.getElementById('irasku-filtro-cedi').value || null;
+  const { data, error } = await sb.rpc('analisis_skus_problematicas_proveedor', { p_proveedor: proveedor, p_cedi: cedi, p_meses: 12 });
+  if (error) { mostrarToast('Error: ' + error.message); return; }
+  document.getElementById('irasku-skus-titulo').textContent = `SKUs con diferencia -- ${proveedor}`;
+  document.getElementById('irasku-seccion-skus').classList.remove('hidden');
+  document.getElementById('irasku-tabla-skus').innerHTML = `<table class="inv-table"><thead><tr><th>Código</th><th>Producto</th><th>CEDI</th><th>Fecha</th><th>Contado</th><th>Teórico</th><th>Diferencia</th><th>Valor diferencia</th></tr></thead><tbody>${
+    (data || []).map(f => `<tr>
+      <td>${tEsc(f.referencia)}</td>
+      <td class="inv-product">${tEsc(f.descripcion || '—')}</td>
+      <td>${tEsc(f.cedi)}</td>
+      <td>${new Date(f.fecha + 'T00:00:00').toLocaleDateString('es-CO')}</td>
+      <td>${f.inventario_contado}</td>
+      <td>${f.inventario_teorico}</td>
+      <td style="font-weight:700;color:${f.diferencia > 0 ? '#2563eb' : '#dc2626'}">${f.diferencia}</td>
+      <td>${f.valor_diferencia != null ? formatoCOP(f.valor_diferencia) : '—'}</td>
+    </tr>`).join('')
+  }</tbody></table>`;
+  document.getElementById('irasku-seccion-skus').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 }
 
 function cargarPanelMermasCompleto() {
