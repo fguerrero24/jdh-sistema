@@ -1097,6 +1097,7 @@ input:focus,select:focus,textarea:focus{outline:none!important;border-color:#176
             <button class="btn ghost admin-tab" id="tab-ind-inventarios" style="display:flex;align-items:center;justify-content:center;text-align:center;">📦 Inventarios (IRA)</button>
             <button class="btn ghost admin-tab" id="tab-ind-mermas" style="display:flex;align-items:center;justify-content:center;text-align:center;">🗑️ Mermas</button>
             <button class="btn ghost admin-tab" id="tab-ind-analisis-mov" style="display:flex;align-items:center;justify-content:center;text-align:center;">📤 Salidas y Ajustes</button>
+            <button class="btn ghost admin-tab" id="tab-ind-eru" style="display:flex;align-items:center;justify-content:center;text-align:center;">🎯 %ERU</button>
           </div>
 
           <div id="panel-ind-personales">
@@ -1193,6 +1194,43 @@ input:focus,select:focus,textarea:focus{outline:none!important;border-color:#176
 
             <div class="inv-section hidden" id="irasku-seccion-skus" style="margin-top:16px;"><div class="inv-section-head"><div><div class="inv-section-title" id="irasku-skus-titulo">SKUs con diferencia</div></div><button class="btn ghost" id="btn-irasku-volver-proveedores">← Volver a proveedores</button></div>
               <div class="inv-table-wrap" id="irasku-tabla-skus"></div>
+            </div>
+          </div>
+
+          <div id="panel-ind-eru" class="hidden">
+            <div class="inv-hero" style="background:linear-gradient(135deg,#581c87,#7e22ce);">
+              <div class="inv-hero-top">
+                <div><div class="inv-eyebrow" style="color:#e9d5ff;">JDH · Control de Inventarios</div><div class="inv-title" style="color:#fff;">%ERU — Exactitud de Registro de Ubicaciones</div><div class="inv-subtitle" style="color:#f3e8ff;">(Registros con conteo correcto) ÷ (Ubicaciones auditadas) × 100 -- se trae del módulo de conteo de Odoo. Meta: ≥ 98%</div></div>
+                <div class="inv-sync"><button class="btn" id="btn-sync-eru"><i class="ti ti-refresh"></i> Sincronizar desde Odoo</button></div>
+              </div>
+            </div>
+            <div id="eru-status" style="font-size:11px;color:var(--text-secondary);margin:8px 2px;"></div>
+
+            <div style="display:flex;gap:8px;align-items:end;margin-top:10px;">
+              <div class="inv-filter" style="max-width:220px;"><label>Rango para la tarjeta</label>
+                <select id="eru-hero-rango">
+                  <option value="1">Último mes</option>
+                  <option value="3">Últimos 3 meses</option>
+                  <option value="6">Últimos 6 meses</option>
+                  <option value="12" selected>Últimos 12 meses</option>
+                </select>
+              </div>
+              <button class="btn ghost" id="btn-eru-hero-aplicar">Aplicar</button>
+            </div>
+            <div id="eru-global-hero" style="display:flex;gap:12px;flex-wrap:wrap;margin:12px 0;"></div>
+
+            <div class="inv-section"><div class="inv-section-head"><div><div class="inv-section-title">%ERU del mes más reciente, por CEDI</div></div></div><div id="eru-comparativo-chart" style="padding:10px;"></div></div>
+
+            <div class="inv-section" style="margin-top:16px;"><div class="inv-section-head"><div><div class="inv-section-title">Matriz mensual — %ERU, todos los CEDIs</div><div class="inv-section-note">Verde = cumple la meta (≥98%) · Rojo = no la cumple</div></div></div><div id="eru-matriz-tabla" style="padding:10px;overflow-x:auto;"></div></div>
+
+            <div class="inv-section" style="margin-top:16px;"><div class="inv-section-head"><div><div class="inv-section-title">Detalle por CEDI</div></div></div>
+              <div class="inv-filterbar" style="margin:0 10px 10px;">
+                <div class="inv-filter-row" style="grid-template-columns:1fr;">
+                  <div class="inv-filter"><label>CEDI</label><select id="eru-filtro-cedi"><option value="">Elige un CEDI...</option></select></div>
+                </div>
+              </div>
+              <div id="eru-cedi-hero" style="display:flex;gap:18px;flex-wrap:wrap;margin:0 10px 18px;"></div>
+              <div id="eru-cedi-chart" style="padding:10px;"></div>
             </div>
           </div>
 
@@ -2867,6 +2905,13 @@ function inicializarModuloIndicadores() {
   document.getElementById('tab-ind-analisis-mov').addEventListener('click', () => { cambiarTabIndicadores('analisis-mov'); if (!MOV_CEDI_POBLADO) { const sel = document.getElementById('mov-filtro-cedi'); CEDIS_MERMAS.forEach(c => sel.insertAdjacentHTML('beforeend', `<option value="${c}">${c}</option>`)); if (!puedeVerTodosLosCedis() && SESION.cedi) sel.value = SESION.cedi; MOV_CEDI_POBLADO = true; } consultarMovimientosMermas(); });
   document.getElementById('btn-mov-consultar').addEventListener('click', consultarMovimientosMermas);
   document.getElementById('btn-mov-volver-proveedores').addEventListener('click', () => { document.getElementById('mov-seccion-detalle').classList.add('hidden'); });
+  document.getElementById('tab-ind-eru').addEventListener('click', () => { cambiarTabIndicadores('eru'); cargarPanelEruCompleto(); });
+  document.getElementById('btn-sync-eru').addEventListener('click', sincronizarEruDesdeOdoo);
+  document.getElementById('btn-eru-hero-aplicar').addEventListener('click', cargarEruGlobal);
+  const selCediEru = document.getElementById('eru-filtro-cedi');
+  CEDIS_VALIDOS.forEach(c => selCediEru.insertAdjacentHTML('beforeend', `<option value="${c}">${c}</option>`));
+  if (!puedeVerTodosLosCedis() && SESION.cedi) selCediEru.value = SESION.cedi;
+  selCediEru.addEventListener('change', cargarEruCedi);
 
   const selCedi = document.getElementById('ra-filtro-cedi');
   CEDIS_VALIDOS.forEach(c => selCedi.insertAdjacentHTML('beforeend', `<option value="${c}">${c}</option>`));
@@ -2901,10 +2946,12 @@ function cambiarTabIndicadores(cual) {
   document.getElementById('panel-ind-inventarios').classList.toggle('hidden', cual !== 'inventarios');
   document.getElementById('panel-ind-mermas').classList.toggle('hidden', cual !== 'mermas');
   document.getElementById('panel-ind-analisis-mov').classList.toggle('hidden', cual !== 'analisis-mov');
+  document.getElementById('panel-ind-eru').classList.toggle('hidden', cual !== 'eru');
   document.getElementById('tab-ind-personales').classList.toggle('active', cual === 'personales');
   document.getElementById('tab-ind-inventarios').classList.toggle('active', cual === 'inventarios');
   document.getElementById('tab-ind-mermas').classList.toggle('active', cual === 'mermas');
   document.getElementById('tab-ind-analisis-mov').classList.toggle('active', cual === 'analisis-mov');
+  document.getElementById('tab-ind-eru').classList.toggle('active', cual === 'eru');
 }
 
 let RA_YA_CARGADO = false;
@@ -3398,6 +3445,162 @@ async function verSkusProblematicasProveedor(proveedor) {
     </tr>`).join('')
   }</tbody></table>`;
   document.getElementById('irasku-seccion-skus').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+// ============================================================
+// MÓDULO %ERU (Exactitud de Registro de Ubicaciones)
+// ============================================================
+async function sincronizarEruDesdeOdoo() {
+  const boton = document.getElementById('btn-sync-eru');
+  const estado = document.getElementById('eru-status');
+  boton.disabled = true;
+  estado.textContent = 'Sincronizando con Odoo... esto puede tardar un momento.';
+  try {
+    const { data: resultado, error } = await sb.functions.invoke('sync-eru-odoo');
+    if (error) throw error;
+    if (resultado?.error) throw new Error(resultado.error);
+    estado.textContent = `Listo -- ${resultado.filas} registro(s) sincronizados desde Odoo (de ${resultado.total_odoo} en total).`;
+    mostrarToast('Sincronización de %ERU completada.');
+    cargarPanelEruCompleto();
+  } catch (err) {
+    estado.textContent = 'Error: ' + err.message;
+    mostrarToast('Error al sincronizar %ERU: ' + err.message);
+  }
+  boton.disabled = false;
+}
+
+function tarjetaHeroEru(mesTexto, eru, correctos, auditados) {
+  const cumple = eru != null && eru >= 98;
+  const color = eru == null ? '#94a3b8' : cumple ? '#16a34a' : '#dc2626';
+  return `
+    <div style="flex:1;min-width:200px;background:linear-gradient(135deg, ${color}12, ${color}03);border:1px solid ${color}33;border-radius:14px;padding:14px;">
+      <div style="font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--modern-muted);font-weight:700;">%ERU -- ${tEsc(mesTexto)}</div>
+      <div style="font-size:28px;font-weight:800;color:${color};line-height:1.1;margin-top:4px;">${eru != null ? eru + '%' : 'Sin datos'}</div>
+      <div style="font-size:11px;color:var(--modern-muted);margin-top:4px;">Meta ≥ 98% ${eru != null ? (cumple ? '· <span style="color:#16a34a;font-weight:700;">✓ cumple</span>' : '· <span style="color:#dc2626;font-weight:700;">✗ no cumple</span>') : ''}</div>
+    </div>
+    <div style="flex:1;min-width:180px;background:var(--surface-1);border-radius:14px;padding:14px;">
+      <div style="font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--modern-muted);font-weight:700;">Ubicaciones correctas</div>
+      <div style="font-size:18px;font-weight:700;margin-top:4px;color:#16a34a;">${correctos.toLocaleString('es-CO')}</div>
+      <div style="font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--modern-muted);font-weight:700;margin-top:8px;">Ubicaciones auditadas</div>
+      <div style="font-size:18px;font-weight:700;margin-top:4px;">${auditados.toLocaleString('es-CO')}</div>
+    </div>`;
+}
+
+async function cargarEruGlobal() {
+  const rango = parseInt(document.getElementById('eru-hero-rango')?.value || '1', 10);
+  const { data, error } = await sb.rpc('indicador_eru', { p_cedi: null, p_meses: 12 });
+  if (error) { mostrarToast('Error cargando %ERU: ' + error.message); return; }
+  const filas = (data || []).filter(f => f.auditados > 0);
+  const hero = document.getElementById('eru-global-hero');
+  if (!filas.length) { hero.innerHTML = '<div class="inv-empty">Todavía no hay datos -- sincroniza con Odoo primero.</div>'; return; }
+
+  const filasRango = filas.slice(-rango);
+  const correctos = filasRango.reduce((a, f) => a + Number(f.correctos || 0), 0);
+  const auditados = filasRango.reduce((a, f) => a + Number(f.auditados || 0), 0);
+  const eru = auditados > 0 ? Math.round((correctos / auditados) * 10000) / 100 : null;
+  const etiquetaRango = rango === 1
+    ? new Date(filasRango[filasRango.length - 1].mes + 'T00:00:00').toLocaleDateString('es-CO', { month: 'long', year: 'numeric' })
+    : `últimos ${filasRango.length} meses (${new Date(filasRango[0].mes + 'T00:00:00').toLocaleDateString('es-CO', { month: 'short', year: '2-digit' })} -- ${new Date(filasRango[filasRango.length - 1].mes + 'T00:00:00').toLocaleDateString('es-CO', { month: 'short', year: '2-digit' })})`;
+  hero.innerHTML = tarjetaHeroEru('Global · ' + etiquetaRango, eru, correctos, auditados);
+}
+
+let ERU_COMPARATIVO_CHART = null;
+async function cargarEruComparativo() {
+  const { data, error } = await sb.rpc('indicador_eru_comparativo_cedis');
+  const cont = document.getElementById('eru-comparativo-chart');
+  if (error) { cont.innerHTML = `<div class="inv-empty">Error: ${tEsc(error.message)}</div>`; return; }
+  const filas = (data || []).filter(f => f.auditados > 0);
+  if (!filas.length) { cont.innerHTML = '<div class="inv-empty">Todavía no hay datos suficientes para comparar CEDIs.</div>'; return; }
+  const nota = `<p style="font-size:11px;color:var(--modern-muted);margin-bottom:8px;">Cada CEDI muestra su propio mes más reciente con conteo: ${filas.map(f => `${tEsc(f.cedi)} (${new Date(f.mes_usado + 'T00:00:00').toLocaleDateString('es-CO', { month: 'short', year: 'numeric' })})`).join(' · ')}</p>`;
+  const valoresEru = filas.map(f => f.eru).filter(v => v != null);
+  const yMin = Math.max(0, Math.min(...valoresEru, 98) - 5);
+  const opciones = {
+    chart: { type: 'bar', height: 320, toolbar: { show: false }, fontFamily: 'inherit' },
+    series: [{ name: '%ERU', data: filas.map(f => f.eru) }],
+    xaxis: { categories: filas.map(f => f.cedi) },
+    yaxis: { min: yMin, max: 100, labels: { formatter: v => v.toFixed(0) + '%' } },
+    plotOptions: { bar: { borderRadius: 6, columnWidth: '55%', distributed: true } },
+    colors: filas.map(f => f.cumple_meta ? '#16a34a' : '#dc2626'),
+    legend: { show: false },
+    annotations: { yaxis: [{ y: 98, borderColor: '#0f172a', strokeDashArray: 6, label: { text: 'Meta 98%', style: { background: '#0f172a', color: '#fff' } } }] },
+    dataLabels: { enabled: true, formatter: v => v.toFixed(1) + '%' },
+    tooltip: { y: { formatter: v => v.toFixed(2) + '%' } },
+  };
+  cont.innerHTML = nota + '<div id="eru-comparativo-chart-interno"></div>';
+  if (ERU_COMPARATIVO_CHART) ERU_COMPARATIVO_CHART.destroy();
+  ERU_COMPARATIVO_CHART = new ApexCharts(document.getElementById('eru-comparativo-chart-interno'), opciones);
+  ERU_COMPARATIVO_CHART.render();
+}
+
+async function cargarEruMatriz() {
+  const { data, error } = await sb.rpc('indicador_eru_todos_cedis', { p_meses: 12 });
+  const cont = document.getElementById('eru-matriz-tabla');
+  if (error) { cont.innerHTML = `<div class="inv-empty">Error: ${tEsc(error.message)}</div>`; return; }
+  const filas = (data || []).filter(f => f.auditados > 0);
+  if (!filas.length) { cont.innerHTML = '<div class="inv-empty">Todavía no hay histórico suficiente.</div>'; return; }
+
+  const meses = [...new Set(filas.map(f => f.mes))].sort();
+  const cedis = [...new Set(filas.map(f => f.cedi))].sort();
+  const buscar = (cedi, mes) => filas.find(f => f.cedi === cedi && f.mes === mes);
+
+  cont.innerHTML = `<table class="inv-table" style="text-align:center;"><thead><tr>
+      <th style="text-align:left;">CEDI</th>
+      ${meses.map(m => `<th>${new Date(m + 'T00:00:00').toLocaleDateString('es-CO', { month: 'short', year: '2-digit' })}</th>`).join('')}
+      <th>Promedio</th>
+    </tr></thead><tbody>${
+    cedis.map(cedi => {
+      const valoresCedi = meses.map(m => buscar(cedi, m)?.eru).filter(v => v != null);
+      const promedio = valoresCedi.length ? (valoresCedi.reduce((a, b) => a + b, 0) / valoresCedi.length) : null;
+      return `<tr>
+        <td style="text-align:left;font-weight:700;">${tEsc(cedi)}</td>
+        ${meses.map(m => {
+          const f = buscar(cedi, m);
+          if (!f || f.eru == null) return `<td style="color:#cbd5e1;">—</td>`;
+          const cumple = f.eru >= 98;
+          return `<td><span style="display:inline-block;min-width:56px;padding:4px 8px;border-radius:8px;font-weight:700;font-size:11px;background:${cumple ? '#16a34a1a' : '#dc26261a'};color:${cumple ? '#16a34a' : '#dc2626'};">${f.eru.toFixed(1)}%</span></td>`;
+        }).join('')}
+        <td style="font-weight:800;">${promedio != null ? promedio.toFixed(1) + '%' : '—'}</td>
+      </tr>`;
+    }).join('')
+  }</tbody></table>`;
+}
+
+async function cargarEruCedi() {
+  const cedi = document.getElementById('eru-filtro-cedi').value;
+  const hero = document.getElementById('eru-cedi-hero');
+  const cont = document.getElementById('eru-cedi-chart');
+  if (!cedi) { hero.innerHTML = ''; cont.innerHTML = ''; return; }
+  const { data, error } = await sb.rpc('indicador_eru', { p_cedi: cedi, p_meses: 12 });
+  if (error) { hero.innerHTML = `<div class="inv-empty">Error: ${tEsc(error.message)}</div>`; return; }
+  const filas = (data || []).filter(f => f.auditados > 0);
+  if (!filas.length) { hero.innerHTML = `<div class="inv-empty">Todavía no hay datos para ${tEsc(cedi)}.</div>`; cont.innerHTML = ''; return; }
+  const ultimo = filas[filas.length - 1];
+  const mesTexto = new Date(ultimo.mes + 'T00:00:00').toLocaleDateString('es-CO', { month: 'long', year: 'numeric' });
+  hero.innerHTML = tarjetaHeroEru(`${cedi} · ${mesTexto}`, ultimo.eru, ultimo.correctos, ultimo.auditados);
+
+  cont.innerHTML = '';
+  const valoresEruCedi = filas.map(f => f.eru).filter(v => v != null);
+  const yMinCedi = Math.max(0, Math.min(...valoresEruCedi, 98) - 5);
+  const chart = new ApexCharts(cont, {
+    chart: { type: 'line', height: 280, toolbar: { show: false }, fontFamily: 'inherit' },
+    series: [{ name: '%ERU', data: filas.map(f => f.eru) }],
+    xaxis: { categories: filas.map(f => new Date(f.mes + 'T00:00:00').toLocaleDateString('es-CO', { month: 'short', year: '2-digit' })) },
+    yaxis: { min: yMinCedi, max: 100, labels: { formatter: v => v.toFixed(0) + '%' } },
+    colors: ['#7e22ce'],
+    stroke: { curve: 'smooth', width: 3 },
+    markers: { size: 5 },
+    annotations: { yaxis: [{ y: 98, borderColor: '#0f172a', strokeDashArray: 6, label: { text: 'Meta 98%', style: { background: '#0f172a', color: '#fff' } } }] },
+    dataLabels: { enabled: true, formatter: v => v.toFixed(1) + '%' },
+  });
+  chart.render();
+}
+
+function cargarPanelEruCompleto() {
+  cargarEruGlobal();
+  cargarEruComparativo();
+  cargarEruMatriz();
+  const selCedi = document.getElementById('eru-filtro-cedi');
+  if (selCedi.value) cargarEruCedi();
 }
 
 function cargarPanelMermasCompleto() {
