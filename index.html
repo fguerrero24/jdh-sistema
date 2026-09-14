@@ -1249,7 +1249,7 @@ input:focus,select:focus,textarea:focus{outline:none!important;border-color:#176
             </div>
             <div id="bdnc-global-hero" style="display:flex;gap:12px;flex-wrap:wrap;margin:12px 0;"></div>
 
-            <div class="inv-section"><div class="inv-section-head"><div><div class="inv-section-title">Evolución mensual por tipo de bodega</div><div class="inv-section-note">Cada línea es un tipo (Mercados, Devoluciones Proveedor, Averías, etc.)</div></div></div><div id="bdnc-evolucion-chart" style="padding:10px;"></div></div>
+            <div class="inv-section"><div class="inv-section-head"><div><div class="inv-section-title">Evolución mensual por tipo de bodega</div><div class="inv-section-note">Valor y variación % contra el mes anterior, últimos 12 meses.</div></div></div><div id="bdnc-evolucion-chart" style="padding:10px;overflow-x:auto;"></div></div>
 
             <div class="inv-section" style="margin-top:16px;"><div class="inv-section-head"><div><div class="inv-section-title">Antigüedad del inventario (mes de corte elegido)</div><div class="inv-section-note">Calculado desde la fecha de última entrada hasta el fin de ese mes</div></div></div><div id="bdnc-antiguedad-chart" style="padding:10px;"></div></div>
 
@@ -3720,21 +3720,26 @@ async function cargarBdncEvolucion() {
   const meses = [...new Set(filas.map(f => f.mes))].sort();
   const tipos = [...new Set(filas.map(f => f.desc_bodega))];
   const buscar = (tipo, mes) => filas.find(f => f.desc_bodega === tipo && f.mes === mes);
-  const colores = ['#92400e', '#2563eb', '#16a34a', '#dc2626', '#7c3aed', '#d97706', '#0891b2', '#be185d', '#4d7c0f', '#0f766e'];
 
-  cont.innerHTML = '';
-  if (BDNC_EVOLUCION_CHART) BDNC_EVOLUCION_CHART.destroy();
-  BDNC_EVOLUCION_CHART = new ApexCharts(cont, {
-    chart: { type: 'line', height: 340, toolbar: { show: false }, fontFamily: 'inherit' },
-    series: tipos.map(tipo => ({ name: tipo, data: meses.map(m => Number(buscar(tipo, m)?.valor || 0)) })),
-    xaxis: { categories: meses.map(m => new Date(m + 'T00:00:00').toLocaleDateString('es-CO', { month: 'short', year: '2-digit' })) },
-    colors: tipos.map((_, i) => colores[i % colores.length]),
-    stroke: { curve: 'smooth', width: 2 },
-    markers: { size: 4 },
-    legend: { position: 'top', fontSize: '11px' },
-    tooltip: { y: { formatter: v => formatoCOP(v) } },
-  });
-  BDNC_EVOLUCION_CHART.render();
+  cont.innerHTML = `<table class="inv-table" style="text-align:center;"><thead><tr>
+      <th style="text-align:left;">Tipo de bodega</th>
+      ${meses.map(m => `<th>${new Date(m + 'T00:00:00').toLocaleDateString('es-CO', { month: 'short', year: '2-digit' })}</th>`).join('')}
+    </tr></thead><tbody>${
+    tipos.map(tipo => `<tr>
+        <td style="text-align:left;font-weight:700;">${tEsc(tipo)}</td>
+        ${meses.map(m => {
+          const f = buscar(tipo, m);
+          if (!f || f.valor == null) return `<td style="color:#cbd5e1;">—</td>`;
+          const variacion = f.variacion_pct;
+          const colorVar = variacion == null ? 'var(--modern-muted)' : variacion > 0 ? '#dc2626' : variacion < 0 ? '#16a34a' : 'var(--modern-muted)';
+          const flecha = variacion == null ? '' : variacion > 0 ? '▲' : variacion < 0 ? '▼' : '■';
+          return `<td>
+            <div style="font-weight:700;">${formatoCOP(f.valor)}</div>
+            <div style="font-size:10px;color:${colorVar};">${variacion != null ? `${flecha} ${Math.abs(variacion)}%` : '—'}</div>
+          </td>`;
+        }).join('')}
+      </tr>`).join('')
+  }</tbody></table>`;
 }
 
 async function cargarBdncAntiguedad() {
