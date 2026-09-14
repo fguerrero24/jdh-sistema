@@ -9,7 +9,6 @@
 <script src="https://cdn.jsdelivr.net/npm/apexcharts@3.45.1/dist/apexcharts.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/three@0.160.0/examples/js/controls/OrbitControls.js"></script>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/dist/tabler-icons.min.css">
 <style>
   :root {
@@ -10498,14 +10497,10 @@ function inicializarEscenaThreeJs() {
   L3D_ESCENA.background = new THREE.Color(0x0f172a);
 
   L3D_CAMARA = new THREE.PerspectiveCamera(60, wrap.clientWidth / wrap.clientHeight, 0.1, 5000);
-  L3D_CAMARA.position.set(60, 60, 90);
 
   L3D_RENDERER = new THREE.WebGLRenderer({ antialias: true });
   L3D_RENDERER.setSize(wrap.clientWidth, wrap.clientHeight);
   wrap.insertBefore(L3D_RENDERER.domElement, wrap.firstChild);
-
-  L3D_CONTROLES = new THREE.OrbitControls(L3D_CAMARA, L3D_RENDERER.domElement);
-  L3D_CONTROLES.enableDamping = true;
 
   const luzAmbiente = new THREE.AmbientLight(0xffffff, 0.7);
   L3D_ESCENA.add(luzAmbiente);
@@ -10516,8 +10511,58 @@ function inicializarEscenaThreeJs() {
   L3D_RAYCASTER = new THREE.Raycaster();
   L3D_MOUSE = new THREE.Vector2();
 
+  // Control de cámara propio (órbita simple), en vez de THREE.OrbitControls --
+  // ese addon depende de un archivo extra del CDN que a veces no carga bien
+  // como script clásico. Esto es lo mismo pero sin esa dependencia externa.
+  L3D_CONTROLES = { target: new THREE.Vector3(0, 0, 0), radio: 120, theta: Math.PI / 4, phi: Math.PI / 3.2 };
+  let arrastrando = null; // 'rotar' | 'pan' | null
+  let ultimoX = 0, ultimoY = 0;
+
+  function actualizarPosicionCamara() {
+    const t = L3D_CONTROLES;
+    t.phi = Math.max(0.15, Math.min(Math.PI - 0.15, t.phi));
+    t.radio = Math.max(5, Math.min(2000, t.radio));
+    const x = t.target.x + t.radio * Math.sin(t.phi) * Math.sin(t.theta);
+    const y = t.target.y + t.radio * Math.cos(t.phi);
+    const z = t.target.z + t.radio * Math.sin(t.phi) * Math.cos(t.theta);
+    L3D_CAMARA.position.set(x, y, z);
+    L3D_CAMARA.lookAt(t.target);
+  }
+  actualizarPosicionCamara();
+
+  const canvas = L3D_RENDERER.domElement;
+  canvas.addEventListener('contextmenu', e => e.preventDefault());
+  canvas.addEventListener('mousedown', e => {
+    arrastrando = e.button === 2 ? 'pan' : 'rotar';
+    ultimoX = e.clientX; ultimoY = e.clientY;
+  });
+  window.addEventListener('mouseup', () => { arrastrando = null; });
+  canvas.addEventListener('mousemove', e => {
+    if (arrastrando === 'rotar') {
+      const dx = e.clientX - ultimoX, dy = e.clientY - ultimoY;
+      L3D_CONTROLES.theta -= dx * 0.006;
+      L3D_CONTROLES.phi -= dy * 0.006;
+      actualizarPosicionCamara();
+    } else if (arrastrando === 'pan') {
+      const dx = e.clientX - ultimoX, dy = e.clientY - ultimoY;
+      const factor = L3D_CONTROLES.radio * 0.0016;
+      const dirCam = new THREE.Vector3(); L3D_CAMARA.getWorldDirection(dirCam);
+      const derecha = new THREE.Vector3().crossVectors(dirCam, L3D_CAMARA.up).normalize();
+      const arriba = new THREE.Vector3().crossVectors(derecha, dirCam).normalize();
+      L3D_CONTROLES.target.addScaledVector(derecha, -dx * factor);
+      L3D_CONTROLES.target.addScaledVector(arriba, dy * factor);
+      actualizarPosicionCamara();
+    }
+    ultimoX = e.clientX; ultimoY = e.clientY;
+    onMoveEscena3D(e);
+  });
+  canvas.addEventListener('wheel', e => {
+    e.preventDefault();
+    L3D_CONTROLES.radio *= (1 + (e.deltaY > 0 ? 0.1 : -0.1));
+    actualizarPosicionCamara();
+  }, { passive: false });
+
   L3D_RENDERER.domElement.addEventListener('click', onClickEscena3D);
-  L3D_RENDERER.domElement.addEventListener('mousemove', onMoveEscena3D);
 
   window.addEventListener('resize', () => {
     if (!L3D_RENDERER) return;
@@ -10528,10 +10573,11 @@ function inicializarEscenaThreeJs() {
 
   function animar() {
     requestAnimationFrame(animar);
-    if (L3D_CONTROLES) L3D_CONTROLES.update();
     if (L3D_RENDERER && L3D_ESCENA && L3D_CAMARA) L3D_RENDERER.render(L3D_ESCENA, L3D_CAMARA);
   }
   animar();
+
+  window.L3D_ACTUALIZAR_CAMARA = actualizarPosicionCamara;
 }
 
 const L3D_ESPACIO_PASILLO = 1.4, L3D_ESPACIO_POSICION = 1.4, L3D_ESPACIO_NIVEL = 1.6, L3D_ESPACIO_ZONA = 8;
@@ -10576,10 +10622,12 @@ function recentrarCamara3D() {
   L3D_CUBOS.forEach(c => caja.expandByObject(c));
   const centro = caja.getCenter(new THREE.Vector3());
   const tamano = caja.getSize(new THREE.Vector3());
-  const distancia = Math.max(tamano.x, tamano.y, tamano.z) * 1.4 + 10;
-  L3D_CAMARA.position.set(centro.x + distancia * 0.6, centro.y + distancia * 0.5, centro.z + distancia * 0.6);
+  const distancia = Math.max(tamano.x, tamano.y, tamano.z) * 1.2 + 15;
   L3D_CONTROLES.target.copy(centro);
-  L3D_CONTROLES.update();
+  L3D_CONTROLES.radio = distancia;
+  L3D_CONTROLES.theta = Math.PI / 4;
+  L3D_CONTROLES.phi = Math.PI / 3.2;
+  if (window.L3D_ACTUALIZAR_CAMARA) window.L3D_ACTUALIZAR_CAMARA();
 }
 
 function onMoveEscena3D(evento) {
