@@ -995,43 +995,6 @@ input:focus,select:focus,textarea:focus{outline:none!important;border-color:#176
 .fefo-hero{border:1px solid #dbeafe;background:linear-gradient(135deg,#eff6ff,#fff);border-radius:16px;padding:14px 16px;margin-bottom:12px}.fefo-hero-title{font-weight:850;color:#0f172a;font-size:14px}.fefo-hero-copy{font-size:11px;color:#64748b;margin-top:3px}.fefo-kpis-modern{display:grid;grid-template-columns:repeat(4,1fr);gap:9px;margin:12px 0}.fefo-kpi{border:1px solid #e5e7eb;border-radius:13px;padding:11px;background:#fff}.fefo-kpi-label{font-size:9px;color:#64748b;font-weight:800;text-transform:uppercase}.fefo-kpi-value{font-size:19px;font-weight:850;margin-top:3px}.fefo-table .hist-table{font-size:11px}
 @media(max-width:1100px){.inv-kpis{grid-template-columns:repeat(3,1fr)}.inv-filter-row{grid-template-columns:repeat(3,1fr)}.inv-exception-grid{grid-template-columns:1fr}}@media(max-width:700px){.inv-kpis{grid-template-columns:repeat(2,1fr)}.inv-filter-row{grid-template-columns:1fr}.inv-hero-top{flex-direction:column}.fefo-kpis-modern{grid-template-columns:repeat(2,1fr)}}
 </style>
-
-<style id="layout-3d-racks-profesional">
-#view-layout-3d .l3d-stage-grid{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:14px;align-items:start}
-#view-layout-3d .l3d-stage{margin:0!important;border:1px solid rgba(148,163,184,.16)!important;box-shadow:0 14px 34px rgba(15,23,42,.12)}
-#view-layout-3d .l3d-stage-head{padding:12px 14px 9px;border-bottom:1px solid rgba(148,163,184,.12)}
-#view-layout-3d .l3d-stage-title{font-size:13px;font-weight:800;color:#0f172a;display:flex;align-items:center;gap:8px}
-#view-layout-3d .l3d-stage-title:before{content:"";width:7px;height:7px;border-radius:50%;background:#0ea5e9}
-#view-layout-3d .l3d-stage-note{font-size:10.5px;color:#64748b;margin-top:4px}
-#view-layout-3d #l3d-canvas-wrap{
- position:relative;height:600px;overflow:hidden;border-radius:0 0 16px 16px;
- background:#f7f9fc!important;
-}
-#view-layout-3d #l3d-canvas-wrap canvas{display:block;position:absolute;inset:0;width:100%!important;height:100%!important}
-#view-layout-3d #l3d-status{padding:7px 14px 5px!important;font-size:10px!important;color:#64748b!important}
-#view-layout-3d #l3d-leyenda{
- top:14px!important;right:14px!important;
- background:rgba(255,255,255,.94)!important;
- border:1px solid rgba(15,23,42,.10)!important;
- border-radius:10px!important;padding:10px 12px!important;
- color:#334155!important;box-shadow:0 8px 22px rgba(15,23,42,.12);
-}
-#view-layout-3d #l3d-tooltip{
- background:rgba(15,23,42,.96)!important;color:#fff!important;
- border-radius:8px!important;padding:8px 10px!important;
- box-shadow:0 8px 20px rgba(15,23,42,.22)!important
-}
-#view-layout-3d #l3d-panel-detalle{
- width:292px!important;background:rgba(255,255,255,.97)!important;
- color:#0f172a!important;border-left:1px solid rgba(15,23,42,.10)!important;
- box-shadow:-12px 0 28px rgba(15,23,42,.12);backdrop-filter:blur(10px)
-}
-#view-layout-3d .l3d-prov-item{transition:.15s ease;border:1px solid transparent}
-#view-layout-3d .l3d-prov-item:hover{background:rgba(14,165,233,.06)!important;border-color:rgba(14,165,233,.16)}
-#view-layout-3d .l3d-prov-item.l3d-selected{background:rgba(14,165,233,.09)!important;border-color:rgba(14,165,233,.28);box-shadow:inset 3px 0 #0ea5e9}
-@media(max-width:1050px){#view-layout-3d .l3d-stage-grid{grid-template-columns:1fr}}
-</style>
-
 </head>
 <body>
 
@@ -1428,39 +1391,34 @@ input:focus,select:focus,textarea:focus{outline:none!important;border-color:#176
             <button class="btn ghost" id="btn-l3d-recentrar">Recentrar vista</button>
           </div>
 
-          <div id="l3d-kpis" class="inv-kpis" style="margin:14px 0;"></div>
+          <div class="inv-section" style="margin:14px 0;"><div class="inv-section-head"><div><div class="inv-section-title">Ocupación por almacén</div><div class="inv-section-note">Clic en una barra para filtrar todo el resto del panel por ese almacén.</div></div></div><div id="l3d-kpis" style="padding:10px;"></div></div>
 
-          <div class="l3d-stage-grid">
-  <div class="inv-section l3d-stage">
-    <div class="l3d-stage-head">
-      <div class="l3d-stage-title">Layout físico · Vista isométrica</div>
-      <div class="l3d-stage-note">La estructura representa los racks y sus niveles; cada bloque de color representa una posición real.</div>
-    </div>
-    <div id="l3d-status"></div>
-    <div id="l3d-canvas-wrap">
-      <div id="l3d-tooltip" class="hidden"></div>
-      <div id="l3d-leyenda">
-        <div style="font-weight:800;margin-bottom:7px;color:#0f172a;font-size:10px;text-transform:uppercase;letter-spacing:.07em;">Estado</div>
-        <div style="display:flex;align-items:center;gap:6px;margin-bottom:5px;font-size:10.5px;"><span style="width:10px;height:10px;border-radius:2px;background:#16a34a;display:inline-block;"></span>Vacía</div>
-        <div style="display:flex;align-items:center;gap:6px;margin-bottom:5px;font-size:10.5px;"><span style="width:10px;height:10px;border-radius:2px;background:#dc2626;display:inline-block;"></span>Ocupada</div>
-        <div style="display:flex;align-items:center;gap:6px;margin-bottom:5px;font-size:10.5px;"><span style="width:10px;height:10px;border-radius:2px;background:#0ea5e9;display:inline-block;"></span>Proveedor</div>
-        <div style="display:flex;align-items:center;gap:6px;font-size:10.5px;"><span style="width:10px;height:10px;border:1px solid #94a3b8;background:#cbd5e1;opacity:.6;display:inline-block;"></span>Estructura</div>
-      </div>
-      <div id="l3d-panel-detalle" class="hidden">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
-          <strong style="font-size:13px;color:#0f172a;">Detalle de ubicación</strong>
-          <button id="btn-l3d-cerrar-detalle" style="background:#f1f5f9;border:1px solid #e2e8f0;color:#64748b;cursor:pointer;width:28px;height:28px;border-radius:7px;">✕</button>
-        </div>
-        <div id="l3d-detalle-contenido" style="font-size:12px;line-height:1.7;"></div>
-      </div>
-    </div>
-  </div>
-  <div class="inv-section" style="margin:0;">
-    <div class="inv-section-head"><div class="inv-section-title">Proveedores (Pareto)</div></div>
-    <div style="padding:9px 11px;font-size:10.5px;color:var(--text-secondary);">Selecciona un proveedor para resaltar sus posiciones dentro de los racks.</div>
-    <div id="l3d-pareto-proveedores" style="max-height:520px;overflow-y:auto;padding:0 10px 10px;"></div>
-  </div>
-</div>
+          <div style="display:grid;grid-template-columns:1fr 340px;gap:14px;align-items:start;">
+            <div class="inv-section" style="margin:0;">
+              <div class="inv-section-head"><div><div class="inv-section-title">Vista 3D</div><div class="inv-section-note">Arrastra para rotar · rueda para zoom · clic derecho para mover · clic en una ubicación para ver el detalle.</div></div></div>
+              <div id="l3d-status" style="font-size:11px;color:var(--text-secondary);padding:0 10px 6px;"></div>
+              <div id="l3d-canvas-wrap" style="position:relative;height:600px;border-radius:0 0 16px 16px;overflow:hidden;background:#0f172a;">
+                <div id="l3d-tooltip" class="hidden" style="position:absolute;pointer-events:none;background:rgba(15,23,42,.92);color:#fff;padding:4px 9px;border-radius:6px;font-size:10.5px;z-index:10;box-shadow:0 2px 8px rgba(0,0,0,.3);white-space:nowrap;"></div>
+                <div id="l3d-leyenda" style="position:absolute;top:14px;right:14px;background:rgba(15,23,42,.85);backdrop-filter:blur(6px);border:1px solid rgba(255,255,255,.1);border-radius:10px;padding:10px 14px;font-size:11px;color:#e2e8f0;z-index:5;">
+                  <div style="font-weight:700;margin-bottom:6px;color:#fff;">Leyenda</div>
+                  <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;"><span style="width:11px;height:11px;border-radius:3px;background:#16a34a;display:inline-block;"></span>Vacía</div>
+                  <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;"><span style="width:11px;height:11px;border-radius:3px;background:#dc2626;display:inline-block;"></span>Ocupada</div>
+                  <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;"><span style="width:11px;height:11px;border-radius:3px;background:#0ea5e9;display:inline-block;"></span>Resaltado (proveedor)</div>
+                  <div style="display:flex;align-items:center;gap:6px;"><span style="width:11px;height:11px;border-radius:3px;background:#475569;display:inline-block;opacity:.5;"></span>Estructura</div>
+                </div>
+                <div id="l3d-panel-detalle" class="hidden" style="position:absolute;top:0;right:0;height:100%;width:280px;background:rgba(15,23,42,.96);backdrop-filter:blur(8px);border-left:1px solid rgba(255,255,255,.12);color:#e2e8f0;z-index:8;padding:18px;overflow-y:auto;">
+                  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;"><strong style="font-size:13px;">Detalle</strong><button id="btn-l3d-cerrar-detalle" style="background:none;border:none;color:#94a3b8;cursor:pointer;font-size:16px;">✕</button></div>
+                  <div id="l3d-detalle-contenido" style="font-size:12px;line-height:1.7;"></div>
+                </div>
+              </div>
+            </div>
+
+            <div class="inv-section" style="margin:0;">
+              <div class="inv-section-head"><div class="inv-section-title">Proveedores (Pareto)</div></div>
+              <div style="padding:8px 10px;font-size:11px;color:var(--text-secondary);">Clic en un proveedor para resaltar sus posiciones en el 3D.</div>
+              <div id="l3d-pareto-proveedores" style="max-height:520px;overflow-y:auto;padding:0 10px 10px;"></div>
+            </div>
+          </div>
 
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:14px;">
             <div class="inv-section" style="margin:0;"><div class="inv-section-head"><div class="inv-section-title">Ocupación por tipo de almacenamiento</div></div><div id="l3d-tabla-almacenamiento" style="padding:10px;"></div></div>
@@ -10548,27 +10506,43 @@ function inicializarLayout3D() {
 }
 
 async function cargarLayout3DAlmacenes() {
-  const { data, error } = await sb.from('layout_almacenes').select('almacen').limit(20000);
+  const { data, error } = await sb.rpc('layout_lista_almacenes');
   const sel = document.getElementById('l3d-filtro-almacen');
   if (error || !data) return;
-  const almacenes = [...new Set(data.map(f => f.almacen))].sort();
+  const almacenes = data.map(f => f.almacen).sort();
   sel.innerHTML = almacenes.map(a => `<option value="${tEsc(a)}">${tEsc(a)}</option>`).join('');
   if (almacenes.length) { L3D_ALMACEN_ACTUAL = almacenes[0]; cargarLayout3DAlmacen(); }
 }
 
+let L3D_CHART_RESUMEN = null;
 async function cargarLayout3DResumen() {
   const { data, error } = await sb.rpc('layout_resumen_ocupacion', {});
   const cont = document.getElementById('l3d-kpis');
   if (error) { cont.innerHTML = `<div class="inv-empty">Error: ${tEsc(error.message)}</div>`; return; }
-  const filas = data || [];
+  const filas = (data || []).filter(f => f.total_ubicaciones > 0);
   if (!filas.length) { cont.innerHTML = '<div class="inv-empty">Todavía no hay layout cargado -- impórtalo desde Importación de Maestros.</div>'; return; }
-  cont.innerHTML = filas.map(f => `
-    <div class="inv-kpi" style="cursor:pointer;" onclick="document.getElementById('l3d-filtro-almacen').value=${JSON.stringify(f.almacen)}; cargarLayout3DAlmacen();">
-      <div class="inv-kpi-label">${tEsc(f.almacen)}</div>
-      <div class="inv-kpi-value" style="color:${f.pct_ocupacion >= 80 ? '#dc2626' : f.pct_ocupacion >= 50 ? '#d97706' : '#16a34a'}">${f.pct_ocupacion != null ? f.pct_ocupacion + '%' : '—'}</div>
-      <div style="font-size:11px;color:var(--text-secondary);">${f.ubicaciones_ocupadas}/${f.total_ubicaciones} ubicaciones</div>
-    </div>
-  `).join('');
+
+  cont.innerHTML = '';
+  if (L3D_CHART_RESUMEN) L3D_CHART_RESUMEN.destroy();
+  L3D_CHART_RESUMEN = new ApexCharts(cont, {
+    chart: {
+      type: 'bar', height: 220, toolbar: { show: false }, fontFamily: 'inherit',
+      events: { dataPointSelection: (e, ctx, config) => {
+        const almacen = filas[config.dataPointIndex].almacen;
+        document.getElementById('l3d-filtro-almacen').value = almacen;
+        cargarLayout3DAlmacen();
+      } },
+    },
+    series: [{ name: '% Ocupación', data: filas.map(f => f.pct_ocupacion) }],
+    xaxis: { categories: filas.map(f => f.almacen) },
+    yaxis: { min: 0, max: 100, labels: { formatter: v => v.toFixed(0) + '%' } },
+    plotOptions: { bar: { borderRadius: 6, columnWidth: '55%', distributed: true } },
+    colors: filas.map(f => f.pct_ocupacion >= 80 ? '#dc2626' : f.pct_ocupacion >= 50 ? '#d97706' : '#16a34a'),
+    legend: { show: false },
+    dataLabels: { enabled: true, formatter: v => v.toFixed(1) + '%' },
+    tooltip: { y: { formatter: (v, { dataPointIndex }) => `${v.toFixed(1)}% -- ${filas[dataPointIndex].ubicaciones_ocupadas}/${filas[dataPointIndex].total_ubicaciones} ubicaciones` } },
+  });
+  L3D_CHART_RESUMEN.render();
 }
 
 async function cargarLayout3DAlmacen() {
@@ -10577,9 +10551,17 @@ async function cargarLayout3DAlmacen() {
   L3D_ALMACEN_ACTUAL = almacen;
   L3D_PROVEEDOR_RESALTADO = null;
   document.getElementById('l3d-status').textContent = 'Cargando ubicaciones...';
-  const { data, error } = await sb.rpc('layout_ubicaciones_almacen', { p_almacen: almacen });
-  if (error) { document.getElementById('l3d-status').textContent = 'Error: ' + error.message; return; }
-  L3D_DATOS_ALMACEN = data || [];
+  // Paginado por seguridad -- Supabase corta cada respuesta en 1.000 filas.
+  const TAM_BLOQUE = 1000;
+  let data = [], desde = 0;
+  while (true) {
+    const { data: bloque, error } = await sb.rpc('layout_ubicaciones_almacen', { p_almacen: almacen }).range(desde, desde + TAM_BLOQUE - 1);
+    if (error) { document.getElementById('l3d-status').textContent = 'Error: ' + error.message; return; }
+    data = data.concat(bloque || []);
+    if (!bloque || bloque.length < TAM_BLOQUE) break;
+    desde += TAM_BLOQUE;
+  }
+  L3D_DATOS_ALMACEN = data;
   document.getElementById('l3d-status').textContent = `${L3D_DATOS_ALMACEN.length.toLocaleString('es-CO')} ubicación(es) -- ${L3D_DATOS_ALMACEN.filter(f => f.ocupada).length.toLocaleString('es-CO')} ocupada(s).`;
 
   const niveles = [...new Set(L3D_DATOS_ALMACEN.map(f => f.nivel_estructura).filter(v => v != null))].sort((a, b) => a - b);
@@ -10601,14 +10583,9 @@ async function cargarLayout3DPareto() {
   const filas = (data || []).filter(f => f.posiciones_ocupadas > 0);
   if (!filas.length) { cont.innerHTML = '<div class="inv-empty">Sin ubicaciones ocupadas para este almacén.</div>'; return; }
   cont.innerHTML = filas.map(f => `
-    <div class="l3d-prov-item ${L3D_PROVEEDOR_RESALTADO === f.proveedor ? 'l3d-selected' : ''}"
-         style="cursor:pointer;padding:9px 8px;border-radius:8px;margin-bottom:4px;"
-         onclick='resaltarProveedorEn3D(${JSON.stringify(f.proveedor)})'>
-      <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:11.5px;font-weight:700;color:#334155;">
-        <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${tEsc(f.proveedor)}</span>
-        <span style="font-size:10px;font-weight:800;color:#0f172a;background:#f1f5f9;border-radius:999px;padding:2px 7px;">${f.posiciones_ocupadas}</span>
-      </div>
-      <div style="font-size:9.5px;color:#94a3b8;margin-top:4px;">Pareto acumulado: ${f.pct_acumulado_pareto}%</div>
+    <div class="l3d-prov-item" style="cursor:pointer;padding:8px;border-radius:8px;margin-bottom:4px;background:${L3D_PROVEEDOR_RESALTADO === f.proveedor ? 'var(--surface-2)' : 'transparent'};" onclick='resaltarProveedorEn3D(${JSON.stringify(f.proveedor)})'>
+      <div style="display:flex;justify-content:space-between;font-size:12px;font-weight:700;">${tEsc(f.proveedor)}<span>${f.posiciones_ocupadas}</span></div>
+      <div style="font-size:10px;color:var(--text-secondary);">Pareto acumulado: ${f.pct_acumulado_pareto}%</div>
     </div>
   `).join('');
 }
@@ -10616,19 +10593,13 @@ async function cargarLayout3DPareto() {
 async function resaltarProveedorEn3D(proveedor) {
   L3D_PROVEEDOR_RESALTADO = L3D_PROVEEDOR_RESALTADO === proveedor ? null : proveedor;
   cargarLayout3DPareto();
+  L3D_DATOS_ALMACEN.forEach(f => { f.proveedorSeleccionado = false; });
   if (!L3D_PROVEEDOR_RESALTADO) { renderizarEscena3D(); return; }
   const { data, error } = await sb.rpc('layout_ubicaciones_proveedor', { p_almacen: L3D_ALMACEN_ACTUAL, p_proveedor: proveedor });
   if (error) { mostrarToast('Error: ' + error.message); return; }
   const codigos = new Set((data || []).map(f => f.codigo_barra));
-  L3D_CUBOS.forEach(c => {
-    const selected = codigos.has(c.userData.codigo_barra);
-    c.userData.proveedorSeleccionado = selected;
-    c.material.color.setHex(selected ? 0x0ea5e9 : (c.userData.ocupada ? 0xdc2626 : 0x16a34a));
-    if (c.material.emissive) {
-      c.material.emissive.setHex(selected ? 0x064e5b : (c.userData.ocupada ? 0x30060a : 0x052e20));
-      c.material.emissiveIntensity = selected ? 0.9 : 0.12;
-    }
-  });
+  L3D_DATOS_ALMACEN.forEach(f => { if (codigos.has(f.codigo_barra)) f.proveedorSeleccionado = true; });
+  renderizarEscena3D();
 }
 
 async function cargarLayout3DAlmacenamiento() {
@@ -10656,7 +10627,7 @@ async function cargarLayout3DOperacion() {
 function inicializarEscenaThreeJs() {
   const wrap = document.getElementById('l3d-canvas-wrap');
   L3D_ESCENA = new THREE.Scene();
-  L3D_ESCENA.background = new THREE.Color(0xf7f9fc);
+  L3D_ESCENA.background = new THREE.Color(0x0f172a);
 
   L3D_CAMARA = new THREE.PerspectiveCamera(60, wrap.clientWidth / wrap.clientHeight, 0.1, 5000);
 
@@ -10763,27 +10734,8 @@ const L3D_ESP_ZIGZAG_LADO = 2.0;
 const L3D_ESP_ZIGZAG_NIVEL = 1.4;
 const L3D_ESP_ZIGZAG_PISO = 6;
 
-
-// ============================================================
-// LAYOUT 3D — RACK ISOMÉTRICO PROFESIONAL
-// Prioridad visual: rack → nivel → posición → estado.
-// ============================================================
-const L3D_ESP_POSICION = 0.92;
-const L3D_ESP_NIVEL = 1.38;
-const L3D_ESP_PAR = 2.65;
-const L3D_ESP_AISLE = 6.4;
-const L3D_TAMANO_CUBO = 0.56;
-
-const L3D_ESP_ZIGZAG_GRUPO = 1.25;
-const L3D_ESP_ZIGZAG_LADO = 1.9;
-const L3D_ESP_ZIGZAG_NIVEL = 1.25;
-const L3D_ESP_ZIGZAG_PISO = 5.5;
-
-let L3D_PISO = null, L3D_ESTRUCTURA = [], L3D_ETIQUETAS = [];
-
 function renderizarEscena3D() {
   if (!L3D_ESCENA) return;
-
   L3D_CUBOS.forEach(c => L3D_ESCENA.remove(c));
   L3D_ESTRUCTURA.forEach(c => L3D_ESCENA.remove(c));
   L3D_ETIQUETAS.forEach(c => L3D_ESCENA.remove(c));
@@ -10793,238 +10745,169 @@ function renderizarEscena3D() {
   const nivelFiltro = document.getElementById('l3d-filtro-nivel').value;
   const tipoFiltro = document.getElementById('l3d-filtro-tipo').value;
 
-  const racks = [...new Set(
-    L3D_DATOS_ALMACEN.filter(f => f.tipo_ubicacion === 'rack').map(f => f.rack)
-  )].sort((a,b) => {
-    const fa = L3D_DATOS_ALMACEN.find(f => f.rack === a);
-    const fb = L3D_DATOS_ALMACEN.find(f => f.rack === b);
-    return (fa?.rack_index ?? 0) - (fb?.rack_index ?? 0);
-  });
-
+  const racks = [...new Set(L3D_DATOS_ALMACEN.filter(f => f.tipo_ubicacion === 'rack').map(f => f.rack))]
+    .sort((a, b) => {
+      const fa = L3D_DATOS_ALMACEN.find(f => f.rack === a), fb = L3D_DATOS_ALMACEN.find(f => f.rack === b);
+      return (fa?.rack_index ?? 0) - (fb?.rack_index ?? 0);
+    });
   const posicionZRack = rack => {
     const idx = racks.indexOf(rack);
     if (idx < 0) return 0;
-    const par = Math.floor(idx / 2);
-    const lado = idx % 2;
-    return par * L3D_ESP_AISLE + lado * L3D_ESP_PAR;
+    const parIdx = Math.floor(idx / 2), lado = idx % 2;
+    return parIdx * L3D_ESP_AISLE + lado * L3D_ESP_PAR;
   };
 
-  const colorOcupada = 0xdc2626;
-  const colorVacia = 0x16a34a;
-  const colorProveedor = 0x0ea5e9;
+  // ---------- Materiales: estructura de acero (postes/vigas) + pallets ----------
+  const matAcero = new THREE.MeshStandardMaterial({ color: 0xf97316, metalness: 0.4, roughness: 0.5 }); // naranja tipo rack industrial
+  const matPallet = new THREE.MeshStandardMaterial({ color: 0x92400e, roughness: 0.9 }); // madera
+  const geomPalletBase = new THREE.BoxGeometry(L3D_ESP_POSICION * 0.82, 0.08, 0.95);
 
-  const slotGeo = new THREE.BoxGeometry(
-    L3D_TAMANO_CUBO, L3D_TAMANO_CUBO, L3D_TAMANO_CUBO
-  );
-  const structureGeo = new THREE.BoxGeometry(
-    L3D_TAMANO_CUBO + .10, L3D_TAMANO_CUBO + .10, L3D_TAMANO_CUBO + .10
-  );
+  const geomFantasma = new THREE.BoxGeometry(L3D_TAMANO_CUBO, L3D_TAMANO_CUBO, L3D_TAMANO_CUBO);
+  const matFantasma = new THREE.MeshBasicMaterial({ color: 0x64748b, transparent: true, opacity: 0.13, depthWrite: false });
+  const bordeFantasma = new THREE.EdgesGeometry(geomFantasma);
+  const matBordeFantasma = new THREE.LineBasicMaterial({ color: 0x94a3b8, transparent: true, opacity: 0.3 });
 
-  // Estructura: gris muy claro/transparente, como un rack físico.
-  const structureMat = new THREE.MeshBasicMaterial({
-    color: 0x64748b, transparent: true, opacity: 0.15,
-    depthWrite: false
-  });
-  const edgeMat = new THREE.LineBasicMaterial({
-    color: 0x64748b, transparent: true, opacity: 0.34
-  });
-  const edgeGeo = new THREE.EdgesGeometry(structureGeo);
-
-  const metalMat = new THREE.MeshLambertMaterial({
-    color: 0x94a3b8, transparent: true, opacity: 0.58
-  });
+  const colorOcupada = 0xdc2626, colorVacia = 0x16a34a;
 
   let minX = Infinity, maxX = -Infinity, minZ = Infinity, maxZ = -Infinity;
-  const addPoint = (x,z) => {
-    minX = Math.min(minX,x); maxX = Math.max(maxX,x);
-    minZ = Math.min(minZ,z); maxZ = Math.max(maxZ,z);
-  };
+  const agregarPunto = (x, z) => { minX = Math.min(minX, x); maxX = Math.max(maxX, x); minZ = Math.min(minZ, z); maxZ = Math.max(maxZ, z); };
 
-  function addStructureBox(x,y,z) {
-    const mesh = new THREE.Mesh(structureGeo, structureMat);
-    mesh.position.set(x,y,z);
-    L3D_ESCENA.add(mesh); L3D_ESTRUCTURA.push(mesh);
+  // Dibuja un pallet (base de madera + carga de color) en una posición -- se
+  // usa para racks, mezzanine, cava, refri: todo lo que tiene código de
+  // barra se ve como un pallet en su lugar. Siempre se dibuja además una
+  // "caja fantasma" transparente en la posición, tenga o no código de barra
+  // -- así se ve la silueta completa del rack, no solo huecos donde falta dato.
+  function dibujarPallet(f, x, y, z) {
+    agregarPunto(x, z);
 
-    const edge = new THREE.LineSegments(edgeGeo, edgeMat);
-    edge.position.set(x,y,z);
-    L3D_ESCENA.add(edge); L3D_ESTRUCTURA.push(edge);
-  }
-
-  function addBeam(x,y,z,sx,sy,sz) {
-    const g = new THREE.BoxGeometry(sx,sy,sz);
-    const m = new THREE.Mesh(g, metalMat);
-    m.position.set(x,y,z);
-    L3D_ESCENA.add(m); L3D_ESTRUCTURA.push(m);
-  }
-
-  function drawRackFrame(rack, rows) {
-    if (!rows.length) return;
-
-    const z = posicionZRack(rack);
-    const maxPos = Math.max(...rows.map(f => Number(f.posicion_estructura) || 0));
-    const maxNivel = Math.max(...rows.map(f => Number(f.nivel_estructura) || 0));
-    const largo = Math.max(1, maxPos * L3D_ESP_POSICION);
-    const alto = Math.max(L3D_ESP_NIVEL, maxNivel * L3D_ESP_NIVEL);
-    const cx = largo / 2;
-
-    // Dos montantes laterales: definen claramente el volumen del rack.
-    addBeam(0, alto/2, z, .075, alto + .18, .075);
-    addBeam(largo, alto/2, z, .075, alto + .18, .075);
-
-    // Largueros horizontales por nivel.
-    [...new Set(rows.map(f => Number(f.nivel_estructura)).filter(Number.isFinite))]
-      .sort((a,b)=>a-b)
-      .forEach(nivel => {
-        const y = nivel * L3D_ESP_NIVEL;
-        addBeam(cx, y, z, largo, .055, .09);
-      });
-
-    // Estructura trasera tenue para reforzar profundidad.
-    addBeam(cx, alto/2, z + .08, .045, alto, .045);
-
-    // Posiciones transparentes: visibles incluso cuando están vacías.
-    rows.forEach(f => {
-      if (nivelFiltro && String(f.nivel_estructura) !== nivelFiltro) return;
-      if (f.posicion_estructura == null || f.nivel_estructura == null) return;
-
-      const x = Number(f.posicion_estructura) * L3D_ESP_POSICION;
-      const y = Number(f.nivel_estructura) * L3D_ESP_NIVEL;
-      addPoint(x,z);
-      addStructureBox(x,y,z);
-    });
-
-    // Identificador discreto debajo del rack.
-    const label = crearEtiquetaTexto(rack, '#334155', .72);
-    label.position.set(cx, -0.62, z + .02);
-    L3D_ESCENA.add(label); L3D_ETIQUETAS.push(label);
-  }
-
-  function drawSlot(f,x,y,z) {
-    addPoint(x,z);
-
-    // Siempre se conserva la estructura.
-    addStructureBox(x,y,z);
+    const fantasma = new THREE.Mesh(geomFantasma, matFantasma);
+    fantasma.position.set(x, y, z);
+    L3D_ESCENA.add(fantasma); L3D_ESTRUCTURA.push(fantasma);
+    const bordes = new THREE.LineSegments(bordeFantasma, matBordeFantasma);
+    bordes.position.set(x, y, z);
+    L3D_ESCENA.add(bordes); L3D_ESTRUCTURA.push(bordes);
 
     if (f.codigo_barra == null) return;
+    const base = new THREE.Mesh(geomPalletBase, matPallet); // material compartido -- NO se agrega a L3D_CUBOS (si se recolorea por proveedor, no debe afectar a los demás pallets)
+    base.position.set(x, y, z);
+    L3D_ESCENA.add(base);
 
-    const selected = !!f.proveedorSeleccionado;
-    const color = selected ? colorProveedor : (f.ocupada ? colorOcupada : colorVacia);
+    const alturaCarga = f.ocupada ? 0.62 : 0.22;
+    const geomCarga = new THREE.BoxGeometry(L3D_ESP_POSICION * 0.7, alturaCarga, 0.8);
+    const seleccionado = !!f.proveedorSeleccionado;
+    const colorBase = seleccionado ? 0x0ea5e9 : (f.ocupada ? colorOcupada : colorVacia);
+    const colorEmissive = seleccionado ? 0x0c4a6e : (f.ocupada ? 0x450a0a : 0x052e16);
+    const carga = new THREE.Mesh(geomCarga, new THREE.MeshLambertMaterial({ color: colorBase, emissive: colorEmissive, emissiveIntensity: seleccionado ? 0.9 : 0.25 })); // material propio -- sí se puede recolorear individualmente
+    carga.position.set(x, y + 0.04 + alturaCarga / 2, z);
+    carga.userData = f;
+    L3D_ESCENA.add(carga); L3D_CUBOS.push(carga);
+  }
 
-    const mat = new THREE.MeshLambertMaterial({
-      color,
-      emissive: selected ? 0x064e5b : (f.ocupada ? 0x30060a : 0x052e20),
-      emissiveIntensity: selected ? .9 : .12
+  // Dibuja el marco de acero (postes + viga) de UN nivel de UN rack --
+  // spanPosiciones = [min, max] de posicion_estructura ocupadas en ese rack.
+  function dibujarNivelRack(z, nivel, spanPosiciones) {
+    const y = nivel * L3D_ESP_NIVEL;
+    const x0 = (spanPosiciones[0] - 0.55) * L3D_ESP_POSICION, x1 = (spanPosiciones[1] + 0.55) * L3D_ESP_POSICION;
+    const largo = x1 - x0;
+    const viga = new THREE.Mesh(new THREE.BoxGeometry(largo, 0.07, 0.1), matAcero);
+    viga.position.set((x0 + x1) / 2, y - L3D_ESP_NIVEL / 2 + 0.05, z + 0.42);
+    L3D_ESCENA.add(viga); L3D_ESTRUCTURA.push(viga);
+    const viga2 = viga.clone(); viga2.position.z = z - 0.42;
+    L3D_ESCENA.add(viga2); L3D_ESTRUCTURA.push(viga2);
+  }
+  function dibujarPostesRack(z, xInicio, xFin, alturaTotal) {
+    [xInicio, xFin].forEach(x => {
+      [z + 0.42, z - 0.42].forEach(zPos => {
+        const poste = new THREE.Mesh(new THREE.BoxGeometry(0.08, alturaTotal, 0.08), matAcero);
+        poste.position.set(x, alturaTotal / 2 - L3D_ESP_NIVEL / 2 + 0.05, zPos);
+        L3D_ESCENA.add(poste); L3D_ESTRUCTURA.push(poste);
+      });
     });
-
-    const slot = new THREE.Mesh(slotGeo, mat);
-    slot.scale.set(.86,.86,.86);
-    slot.position.set(x,y,z);
-    slot.userData = f;
-    slot.userData.baseColor = color;
-    slot.userData.baseScale = .86;
-    L3D_ESCENA.add(slot);
-    L3D_CUBOS.push(slot);
   }
 
   // ---------- Racks estándar ----------
   if (!tipoFiltro || tipoFiltro === 'rack') {
     racks.forEach(rack => {
-      const rows = L3D_DATOS_ALMACEN.filter(f =>
-        f.tipo_ubicacion === 'rack' && f.rack === rack
-      );
-      drawRackFrame(rack, rows);
-    });
+      const filasRack = L3D_DATOS_ALMACEN.filter(f => f.rack === rack && f.tipo_ubicacion === 'rack');
+      if (!filasRack.length) return;
+      const z = posicionZRack(rack);
+      const posiciones = filasRack.map(f => f.posicion_estructura).filter(v => v != null);
+      const niveles = [...new Set(filasRack.map(f => f.nivel_estructura).filter(v => v != null))].sort((a, b) => a - b);
+      const spanPos = [Math.min(...posiciones), Math.max(...posiciones)];
+      const alturaTotal = (Math.max(...niveles) + 0.5) * L3D_ESP_NIVEL;
 
-    L3D_DATOS_ALMACEN.forEach(f => {
-      if (f.tipo_ubicacion !== 'rack') return;
-      if (nivelFiltro && String(f.nivel_estructura) !== nivelFiltro) return;
-      if (f.posicion_estructura == null || f.nivel_estructura == null) return;
+      dibujarPostesRack(z, (spanPos[0] - 0.55) * L3D_ESP_POSICION, (spanPos[1] + 0.55) * L3D_ESP_POSICION, alturaTotal);
+      niveles.forEach(nivel => { if (!nivelFiltro || String(nivel) === nivelFiltro) dibujarNivelRack(z, nivel, spanPos); });
 
-      const x = Number(f.posicion_estructura) * L3D_ESP_POSICION;
-      const y = Number(f.nivel_estructura) * L3D_ESP_NIVEL;
-      const z = posicionZRack(f.rack);
-      drawSlot(f,x,y,z);
+      filasRack.forEach(f => {
+        if (nivelFiltro && String(f.nivel_estructura) !== nivelFiltro) return;
+        if (f.posicion_estructura == null || f.nivel_estructura == null) return;
+        dibujarPallet(f, f.posicion_estructura * L3D_ESP_POSICION, f.nivel_estructura * L3D_ESP_NIVEL, z);
+      });
+
+      const etiqueta = crearEtiquetaTexto(rack, '#67e8f9');
+      etiqueta.position.set((spanPos[0] + spanPos[1]) / 2 * L3D_ESP_POSICION, -0.9, z);
+      L3D_ESCENA.add(etiqueta); L3D_ETIQUETAS.push(etiqueta);
     });
   }
 
-  // ---------- Áreas especiales ----------
-  const clusters = {
-    mezzanine:{offsetX:-12,color:'#7c3aed',label:'MEZZANINE'},
-    cava:{offsetX:-12,offsetZAdd:18,color:'#0284c7',label:'CAVA'},
-    refri:{offsetX:-12,offsetZAdd:36,color:'#0891b2',label:'REFRI'}
-  };
-
-  ['mezzanine','cava','refri'].forEach(tipo => {
+  // ---------- Mezzanine / Cava / Refri (zigzag), agrupados aparte ----------
+  const clusters = { mezzanine: { offsetX: -14, color: '#a78bfa', label: 'MEZZANINE' }, cava: { offsetX: -14, offsetZAdd: 20, color: '#38bdf8', label: 'CAVA' }, refri: { offsetX: -14, offsetZAdd: 40, color: '#22d3ee', label: 'REFRI' } };
+  ['mezzanine', 'cava', 'refri'].forEach(tipo => {
     if (tipoFiltro && tipoFiltro !== tipo) return;
-    const rows = L3D_DATOS_ALMACEN.filter(f => f.tipo_ubicacion === tipo);
-    if (!rows.length) return;
-
+    const filasTipo = L3D_DATOS_ALMACEN.filter(f => f.tipo_ubicacion === tipo);
+    if (!filasTipo.length) return;
     const info = clusters[tipo];
-    const pisos = [...new Set(rows.map(f => f.piso_mezzanine ?? f.nivel_estructura ?? 1))]
-      .sort((a,b)=>a-b);
-
-    rows.forEach(f => {
+    const pisos = [...new Set(filasTipo.map(f => f.piso_mezzanine ?? f.nivel_estructura ?? 1))].sort((a, b) => a - b);
+    filasTipo.forEach(f => {
       const piso = f.piso_mezzanine ?? f.nivel_estructura ?? 1;
       if (nivelFiltro && String(piso) !== nivelFiltro) return;
-      const pidx = pisos.indexOf(piso);
+      const pisoIdx = pisos.indexOf(piso);
       const x = info.offsetX - (f.grupo_zigzag || 0) * L3D_ESP_ZIGZAG_GRUPO;
       const z = (info.offsetZAdd || 0) + (f.lado_zigzag === 'izquierda' ? L3D_ESP_ZIGZAG_LADO : 0);
-      const y = pidx * L3D_ESP_ZIGZAG_PISO + (f.nivel_zigzag || 1) * L3D_ESP_ZIGZAG_NIVEL;
-      drawSlot(f,x,y,z);
+      const y = pisoIdx * L3D_ESP_ZIGZAG_PISO + (f.nivel_zigzag || 1) * L3D_ESP_ZIGZAG_NIVEL;
+      dibujarPallet(f, x, y, z);
     });
-
-    const label = crearEtiquetaTexto(info.label, info.color, .76);
-    label.position.set(info.offsetX - 2.4, Math.max(1,(pisos.length*L3D_ESP_ZIGZAG_PISO)/2), (info.offsetZAdd||0)+.8);
-    L3D_ESCENA.add(label); L3D_ETIQUETAS.push(label);
+    const etiqueta = crearEtiquetaTexto(info.label, info.color);
+    etiqueta.position.set(info.offsetX - 3, (pisos.length * L3D_ESP_ZIGZAG_PISO) / 2, (info.offsetZAdd || 0) + 1);
+    L3D_ESCENA.add(etiqueta); L3D_ETIQUETAS.push(etiqueta);
   });
 
-  // ---------- Contenedores ----------
+  // ---------- Contenedores (únicos, aparte) ----------
   if (!tipoFiltro || tipoFiltro === 'contenedor') {
     const contenedores = L3D_DATOS_ALMACEN.filter(f => f.tipo_ubicacion === 'contenedor');
-    contenedores.forEach((f,i) => {
-      const x = (maxX === -Infinity ? 0 : maxX) + 5.0 + i*1.35;
-      drawSlot(f,x,L3D_ESP_NIVEL,0);
+    contenedores.forEach((f, i) => {
+      const x = (maxX === -Infinity ? 0 : maxX) + L3D_ESP_AISLE + i * 1.6;
+      const y = L3D_ESP_NIVEL;
+      const z = 0;
+      dibujarPallet(f, x, y, z);
     });
     if (contenedores.length) {
-      const label = crearEtiquetaTexto('CONTENEDORES','#a16207',.70);
-      label.position.set((maxX===-Infinity?0:maxX)+5,-.62,0);
-      L3D_ESCENA.add(label); L3D_ETIQUETAS.push(label);
+      const etiqueta = crearEtiquetaTexto('CONT.', '#fbbf24');
+      etiqueta.position.set((maxX === -Infinity ? 0 : maxX) + L3D_ESP_AISLE, -0.9, 0);
+      L3D_ESCENA.add(etiqueta); L3D_ETIQUETAS.push(etiqueta);
     }
   }
 
-  // ---------- Piso limpio, sin cuadrícula dominante ----------
   if (isFinite(minX)) {
-    const sx = (maxX-minX)+18, sz=(maxZ-minZ)+18;
-    const size=Math.max(sx,sz);
-    const floor = new THREE.Mesh(
-      new THREE.PlaneGeometry(size,size),
-      new THREE.MeshBasicMaterial({color:0xf8fafc,side:THREE.DoubleSide})
-    );
-    floor.rotation.x=-Math.PI/2;
-    floor.position.set((minX+maxX)/2,-.10,(minZ+maxZ)/2);
-    L3D_ESCENA.add(floor); L3D_PISO=floor;
-
-    // Cuadrícula muy tenue: solo para escala y orientación.
-    const grid = new THREE.GridHelper(
-      size, Math.max(10,Math.round(size/2.8)), 0xd7dee8, 0xe9eef5
-    );
-    grid.position.set((minX+maxX)/2,-.075,(minZ+maxZ)/2);
-    if (grid.material) {
-      grid.material.transparent=true;
-      grid.material.opacity=.32;
-    }
-    L3D_ESCENA.add(grid);
-    L3D_ESTRUCTURA.push(grid);
+    const anchoX = (maxX - minX) + 24, anchoZ = (maxZ - minZ) + 24;
+    const tamanoPiso = Math.max(anchoX, anchoZ);
+    L3D_PISO = new THREE.GridHelper(tamanoPiso, Math.round(tamanoPiso / 1.3), 0x334155, 0x1e293b);
+    L3D_PISO.position.set((minX + maxX) / 2, 0, (minZ + maxZ) / 2);
+    L3D_ESCENA.add(L3D_PISO);
   }
 }
+
+let L3D_PISO = null, L3D_ESTRUCTURA = [], L3D_ETIQUETAS = [];
 
 function recentrarCamara3D() {
   if ((!L3D_ESTRUCTURA.length && !L3D_CUBOS.length) || !L3D_CAMARA || !L3D_CONTROLES) return;
   const caja = new THREE.Box3();
   L3D_ESTRUCTURA.forEach(c => caja.expandByObject(c));
+  L3D_CUBOS.forEach(c => caja.expandByObject(c));
   const centro = caja.getCenter(new THREE.Vector3());
   const tamano = caja.getSize(new THREE.Vector3());
-  const distancia = Math.max(tamano.x, tamano.y, tamano.z) * 1.15 + 12;
+  const distancia = Math.max(tamano.x, tamano.y, tamano.z) * 1.1 + 12;
   L3D_CONTROLES.target.copy(centro);
   L3D_CONTROLES.radio = distancia;
   L3D_CONTROLES.theta = Math.PI / 4;
@@ -11042,9 +10925,9 @@ function onMoveEscena3D(evento) {
   const intersectados = L3D_RAYCASTER.intersectObjects(L3D_CUBOS);
   if (intersectados.length) {
     const f = intersectados[0].object.userData;
-    tooltip.innerHTML = `<strong>${tEsc(f.codigo_ubicacion)}</strong><br>${f.ocupada ? `Ocupada -- ${tEsc(f.producto || 'sin nombre')} (${f.cantidad})` : 'Vacía'}<br><span style="color:#94a3b8;">${tEsc(f.tipo || '')} · ${f.peso_kg ? f.peso_kg + ' kg' : ''}</span>`;
-    tooltip.style.left = (evento.clientX - rect.left + 14) + 'px';
-    tooltip.style.top = (evento.clientY - rect.top + 14) + 'px';
+    tooltip.innerHTML = `<strong>${tEsc(f.codigo_ubicacion)}</strong> · ${f.ocupada ? `${tEsc((f.producto || '').replace(/^\[\d+\]\s*/, '').slice(0, 26))}` : 'Vacía'}`;
+    tooltip.style.left = (evento.clientX - rect.left + 12) + 'px';
+    tooltip.style.top = (evento.clientY - rect.top + 12) + 'px';
     tooltip.classList.remove('hidden');
   } else {
     tooltip.classList.add('hidden');
@@ -11057,16 +10940,14 @@ function onClickEscena3D(evento) {
   if (!intersectados.length) return;
   const f = intersectados[0].object.userData;
   document.getElementById('l3d-detalle-contenido').innerHTML = `
-    <div style="font-size:20px;font-weight:850;margin-bottom:10px;color:${f.ocupada ? '#b91c1c' : '#15803d'};">${tEsc(f.codigo_ubicacion)}</div>
-    <div style="display:inline-flex;align-items:center;gap:6px;padding:4px 8px;border-radius:999px;background:${f.ocupada ? '#fef2f2' : '#f0fdf4'};color:${f.ocupada ? '#b91c1c' : '#15803d'};font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;margin-bottom:12px;">
-      <span style="width:6px;height:6px;border-radius:50%;background:currentColor;"></span>${f.ocupada ? 'Ocupada' : 'Disponible'}
-    </div>
-    ${f.ocupada ? `<div style="padding:8px 0;border-top:1px solid #e2e8f0;"><span style="color:#64748b;">Producto</span><div style="font-weight:700;color:#334155;">${tEsc(f.producto || '—')}</div></div><div style="padding:8px 0;border-top:1px solid #e2e8f0;"><span style="color:#64748b;">Cantidad</span><div style="font-weight:700;color:#334155;">${f.cantidad ?? '—'}</div></div>` : ''}
-    <div style="padding:8px 0;border-top:1px solid #e2e8f0;"><span style="color:#64748b;">Tipo</span><div style="font-weight:700;color:#334155;">${tEsc(f.tipo || '—')}</div></div>
-    <div style="padding:8px 0;border-top:1px solid #e2e8f0;"><span style="color:#64748b;">Almacenamiento</span><div style="font-weight:700;color:#334155;">${tEsc(f.almacenamiento || '—')}</div></div>
-    <div style="padding:8px 0;border-top:1px solid #e2e8f0;"><span style="color:#64748b;">Peso máx.</span><div style="font-weight:700;color:#334155;">${f.peso_kg != null ? f.peso_kg + ' kg' : '—'}</div></div>
-    <div style="padding:8px 0;border-top:1px solid #e2e8f0;"><span style="color:#64748b;">Volumen</span><div style="font-weight:700;color:#334155;">${f.volumen ?? '—'}</div></div>
-    <div style="padding:8px 0;border-top:1px solid #e2e8f0;"><span style="color:#64748b;">Código de barra</span><div style="font-weight:700;color:#334155;word-break:break-all;">${tEsc(f.codigo_barra || '—')}</div></div>
+    <div style="font-size:20px;font-weight:800;margin-bottom:10px;color:${f.ocupada ? '#f87171' : '#4ade80'};">${tEsc(f.codigo_ubicacion)}</div>
+    <div style="margin-bottom:6px;"><span style="color:#94a3b8;">Estado:</span> <strong>${f.ocupada ? 'Ocupada' : 'Vacía'}</strong></div>
+    ${f.ocupada ? `<div style="margin-bottom:6px;"><span style="color:#94a3b8;">Producto:</span> ${tEsc(f.producto || '—')}</div><div style="margin-bottom:6px;"><span style="color:#94a3b8;">Cantidad:</span> ${f.cantidad ?? '—'}</div>` : ''}
+    <div style="margin-bottom:6px;"><span style="color:#94a3b8;">Tipo:</span> ${tEsc(f.tipo || '—')}</div>
+    <div style="margin-bottom:6px;"><span style="color:#94a3b8;">Almacenamiento:</span> ${tEsc(f.almacenamiento || '—')}</div>
+    <div style="margin-bottom:6px;"><span style="color:#94a3b8;">Peso máx.:</span> ${f.peso_kg != null ? f.peso_kg + ' kg' : '—'}</div>
+    <div style="margin-bottom:6px;"><span style="color:#94a3b8;">Volumen:</span> ${f.volumen ?? '—'}</div>
+    <div style="margin-bottom:6px;"><span style="color:#94a3b8;">Código de barra:</span> ${tEsc(f.codigo_barra || '—')}</div>
   `;
   document.getElementById('l3d-panel-detalle').classList.remove('hidden');
 }
