@@ -10580,49 +10580,102 @@ function inicializarEscenaThreeJs() {
   window.L3D_ACTUALIZAR_CAMARA = actualizarPosicionCamara;
 }
 
-const L3D_ESPACIO_PASILLO = 1.4, L3D_ESPACIO_POSICION = 1.4, L3D_ESPACIO_NIVEL = 1.6, L3D_ESPACIO_ZONA = 8;
-const L3D_TAMANO_CUBO = 1.1;
+const L3D_ESPACIO_BAHIA = 1.5;   // separación entre cada sección/bahía a lo largo de la estantería (pasillo)
+const L3D_ESPACIO_SUBLUGAR = 0.55; // separación fina entre posiciones dentro de la misma bahía
+const L3D_ESPACIO_NIVEL = 1.5;
+const L3D_ESPACIO_PAR = 2.6;   // separación entre las 2 estanterías que forman un mismo pasillo (frente a frente)
+const L3D_ESPACIO_AISLE = 7;   // ancho del pasillo caminable entre un par de estanterías y el siguiente
+const L3D_TAMANO_CUBO = 1.05;
+let L3D_PISO = null, L3D_ESTRUCTURA = [];
 
 function renderizarEscena3D() {
   if (!L3D_ESCENA) return;
   L3D_CUBOS.forEach(c => L3D_ESCENA.remove(c));
+  L3D_ESTRUCTURA.forEach(c => L3D_ESCENA.remove(c));
+  if (L3D_PISO) L3D_ESCENA.remove(L3D_PISO);
   L3D_CUBOS = [];
+  L3D_ESTRUCTURA = [];
 
   const nivelFiltro = document.getElementById('l3d-filtro-nivel').value;
   const zonaFiltro = document.getElementById('l3d-filtro-zona').value;
   const zonas = [...new Set(L3D_DATOS_ALMACEN.map(f => f.zona).filter(Boolean))].sort();
 
+  // Las zonas se agrupan de a pares para formar pasillos "frente a frente"
+  // (A y B comparten un pasillo, C y D el siguiente, etc.) -- igual al
+  // patrón de la referencia de Odoo. Esto da la posición en Z (profundidad).
+  const posicionZ = zona => {
+    const idx = zonas.indexOf(zona);
+    if (idx < 0) return 0;
+    const parIdx = Math.floor(idx / 2);
+    const ladoPar = idx % 2; // 0 = lado izquierdo del pasillo, 1 = lado derecho
+    return parIdx * L3D_ESPACIO_AISLE + ladoPar * L3D_ESPACIO_PAR;
+  };
+
   const geometria = new THREE.BoxGeometry(L3D_TAMANO_CUBO, L3D_TAMANO_CUBO, L3D_TAMANO_CUBO);
+  const matEstructura = new THREE.MeshBasicMaterial({ color: 0x64748b, transparent: true, opacity: 0.12 });
+  const bordeEstructura = new THREE.EdgesGeometry(geometria);
+  const matBorde = new THREE.LineBasicMaterial({ color: 0x94a3b8, transparent: true, opacity: 0.35 });
   const matOcupada = new THREE.MeshLambertMaterial({ color: 0xdc2626 });
   const matVacia = new THREE.MeshLambertMaterial({ color: 0x16a34a });
-  const matSinDato = new THREE.MeshLambertMaterial({ color: 0x475569 });
+
+  let minX = Infinity, maxX = -Infinity, minZ = Infinity, maxZ = -Infinity;
 
   L3D_DATOS_ALMACEN.forEach(f => {
     if (nivelFiltro && String(f.nivel) !== nivelFiltro) return;
     if (zonaFiltro && f.zona !== zonaFiltro) return;
     if (f.pasillo == null || f.posicion == null) return;
 
-    const zonaIdx = f.zona ? zonas.indexOf(f.zona) : 0;
-    const x = zonaIdx * L3D_ESPACIO_ZONA + f.pasillo * L3D_ESPACIO_PASILLO;
+    // "Pasillo" avanza a lo largo de la estantería (X); "posición" es el
+    // sub-lugar fino dentro de esa bahía (también en X, pero mucho más
+    // junto); "nivel" es la altura (Y); la zona (par A/B, C/D...) da la
+    // profundidad (Z), como estanterías enfrentadas en un mismo corredor.
+    const x = f.pasillo * L3D_ESPACIO_BAHIA + (f.posicion - 1) * L3D_ESPACIO_SUBLUGAR;
     const y = (f.nivel || 1) * L3D_ESPACIO_NIVEL;
-    const z = f.posicion * L3D_ESPACIO_POSICION;
+    const z = posicionZ(f.zona);
+    minX = Math.min(minX, x); maxX = Math.max(maxX, x);
+    minZ = Math.min(minZ, z); maxZ = Math.max(maxZ, z);
 
-    const mat = f.codigo_barra == null ? matSinDato : (f.ocupada ? matOcupada : matVacia);
-    const cubo = new THREE.Mesh(geometria, mat);
-    cubo.position.set(x, y, z);
-    cubo.userData = f;
-    L3D_ESCENA.add(cubo);
-    L3D_CUBOS.push(cubo);
+    // Siempre se dibuja la "estructura" (el cubo del estante, transparente)
+    // -- así se ve el esqueleto completo de la estantería, como en Odoo.
+    const estructura = new THREE.Mesh(geometria, matEstructura);
+    estructura.position.set(x, y, z);
+    L3D_ESCENA.add(estructura);
+    L3D_ESTRUCTURA.push(estructura);
+    const lineas = new THREE.LineSegments(bordeEstructura, matBorde);
+    lineas.position.set(x, y, z);
+    L3D_ESCENA.add(lineas);
+    L3D_ESTRUCTURA.push(lineas);
+
+    // Si tiene código de barra conocido, se dibuja el cubo sólido encima
+    // (ocupado = rojo, vacío = verde) -- un poco más chico para que se note
+    // la diferencia contra la estructura.
+    if (f.codigo_barra != null) {
+      const cuboSolido = new THREE.Mesh(geometria, f.ocupada ? matOcupada : matVacia);
+      cuboSolido.scale.set(0.8, 0.8, 0.8);
+      cuboSolido.position.set(x, y, z);
+      cuboSolido.userData = f;
+      L3D_ESCENA.add(cuboSolido);
+      L3D_CUBOS.push(cuboSolido);
+    }
   });
+
+  // Piso tipo cuadrícula, como el suelo de la referencia.
+  if (isFinite(minX)) {
+    const anchoX = (maxX - minX) + 20, anchoZ = (maxZ - minZ) + 20;
+    const tamanoPiso = Math.max(anchoX, anchoZ);
+    L3D_PISO = new THREE.GridHelper(tamanoPiso, Math.round(tamanoPiso / 1.3), 0x334155, 0x1e293b);
+    L3D_PISO.position.set((minX + maxX) / 2, 0, (minZ + maxZ) / 2);
+    L3D_ESCENA.add(L3D_PISO);
+  }
 }
 
 function recentrarCamara3D() {
-  if (!L3D_CUBOS.length || !L3D_CAMARA || !L3D_CONTROLES) return;
+  if ((!L3D_ESTRUCTURA.length && !L3D_CUBOS.length) || !L3D_CAMARA || !L3D_CONTROLES) return;
   const caja = new THREE.Box3();
-  L3D_CUBOS.forEach(c => caja.expandByObject(c));
+  L3D_ESTRUCTURA.forEach(c => caja.expandByObject(c));
   const centro = caja.getCenter(new THREE.Vector3());
   const tamano = caja.getSize(new THREE.Vector3());
-  const distancia = Math.max(tamano.x, tamano.y, tamano.z) * 1.2 + 15;
+  const distancia = Math.max(tamano.x, tamano.y, tamano.z) * 1.1 + 12;
   L3D_CONTROLES.target.copy(centro);
   L3D_CONTROLES.radio = distancia;
   L3D_CONTROLES.theta = Math.PI / 4;
