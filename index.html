@@ -8,6 +8,8 @@
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/apexcharts@3.45.1/dist/apexcharts.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.160.0/examples/js/controls/OrbitControls.js"></script>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/dist/tabler-icons.min.css">
 <style>
   :root {
@@ -1033,6 +1035,7 @@ input:focus,select:focus,textarea:focus{outline:none!important;border-color:#176
       </div>
       <div class="sidebar-item active" data-modulo="torre"><i class="ti ti-broadcast"></i>Torre de control</div>
       <div class="sidebar-item" data-modulo="indicadores"><i class="ti ti-chart-bar"></i>Indicadores</div>
+      <div class="sidebar-item" data-modulo="layout-3d"><i class="ti ti-cube-3d-sphere"></i>Layout 3D</div>
       <div class="sidebar-item" data-modulo-grupo="inventario" id="grupo-inventario"><i class="ti ti-package"></i>Inventario<i class="ti ti-chevron-down" style="margin-left:auto;font-size:13px;"></i></div>
       <div class="sidebar-item sidebar-sub hidden" data-modulo="inventario-wms" style="padding-left:38px;font-size:11.5px;">Inventario WMS</div>
       <div class="sidebar-item sidebar-sub hidden" data-modulo="vencimientos" style="padding-left:38px;font-size:11.5px;">Vencimientos</div>
@@ -1375,6 +1378,36 @@ input:focus,select:focus,textarea:focus{outline:none!important;border-color:#176
           </div>
         </div>
 
+        <div id="view-layout-3d" class="hidden">
+          <div class="inv-hero" style="background:linear-gradient(135deg,#164e63,#0e7490);">
+            <div class="inv-hero-top">
+              <div><div class="inv-eyebrow" style="color:#a5f3fc;">JDH · Ocupación de Almacenes</div><div class="inv-title" style="color:#fff;">Layout 3D</div><div class="inv-subtitle" style="color:#cffafe;">Ocupación real por ubicación, cruzando el layout físico contra el inventario WMS.</div></div>
+            </div>
+          </div>
+
+          <div style="display:flex;gap:8px;align-items:end;margin-top:10px;flex-wrap:wrap;">
+            <div class="inv-filter" style="max-width:220px;"><label>Almacén</label><select id="l3d-filtro-almacen"></select></div>
+            <div class="inv-filter" style="max-width:160px;"><label>Nivel</label><select id="l3d-filtro-nivel"><option value="">Todos</option></select></div>
+            <div class="inv-filter" style="max-width:220px;"><label>Zona</label><select id="l3d-filtro-zona"><option value="">Todas</option></select></div>
+            <button class="btn ghost" id="btn-l3d-recentrar">Recentrar vista</button>
+          </div>
+
+          <div id="l3d-kpis" class="inv-kpis" style="margin:14px 0;"></div>
+
+          <div class="inv-section">
+            <div class="inv-section-head"><div><div class="inv-section-title">Vista 3D</div><div class="inv-section-note">Clic y arrastra para rotar · rueda del mouse para zoom · clic derecho para mover · clic en una ubicación para ver el detalle.</div></div>
+              <div style="display:flex;gap:10px;align-items:center;font-size:11px;">
+                <span style="display:flex;align-items:center;gap:4px;"><span style="width:12px;height:12px;border-radius:3px;background:#16a34a;display:inline-block;"></span>Vacía</span>
+                <span style="display:flex;align-items:center;gap:4px;"><span style="width:12px;height:12px;border-radius:3px;background:#dc2626;display:inline-block;"></span>Ocupada</span>
+              </div>
+            </div>
+            <div id="l3d-status" style="font-size:11px;color:var(--text-secondary);padding:0 10px 6px;"></div>
+            <div id="l3d-canvas-wrap" style="position:relative;height:560px;border-radius:0 0 16px 16px;overflow:hidden;background:#0f172a;">
+              <div id="l3d-tooltip" class="hidden" style="position:absolute;pointer-events:none;background:#0f172a;color:#fff;padding:8px 12px;border-radius:8px;font-size:12px;z-index:10;box-shadow:0 4px 12px rgba(0,0,0,.3);max-width:240px;"></div>
+            </div>
+          </div>
+        </div>
+
         <div id="view-inventario" class="hidden">
           <div class="inv-hero">
             <div class="inv-hero-top">
@@ -1510,6 +1543,7 @@ input:focus,select:focus,textarea:focus{outline:none!important;border-color:#176
                 <option value="mermas_donaciones">Donaciones -- Mermas</option>
                 <option value="mermas_ventas">Ventas mensuales (consolidado) -- Mermas</option>
                 <option value="bd_no_conformes">BD No Conformes (mensual)</option>
+                <option value="layout_almacenes">Layout de Almacenes</option>
               </select>
             </div>
             <div class="indicator-field"><label>Archivo (.xlsx o .csv)</label><input type="file" id="imp-archivo" accept=".xlsx,.xls,.csv"></div>
@@ -2480,7 +2514,7 @@ function mostrarLogin(mensaje) {
 // NAVEGACIÓN ENTRE MÓDULOS
 // ============================================================
 const NOMBRES_MODULO = {
-  torre: 'Torre de control', indicadores: 'Indicadores', 'inventario-wms': 'Inventario · Inventario WMS', vencimientos: 'Inventario · Vencimientos', 'importacion-maestros': 'Inventario · Importación de Maestros', 'siesa-vs-wms': 'Inventario · SIESA vs WMS', 'inventarios-ciclicos': 'Inventario · Inventarios Cíclicos',
+  torre: 'Torre de control', indicadores: 'Indicadores', 'layout-3d': 'Layout 3D', 'inventario-wms': 'Inventario · Inventario WMS', vencimientos: 'Inventario · Vencimientos', 'importacion-maestros': 'Inventario · Importación de Maestros', 'siesa-vs-wms': 'Inventario · SIESA vs WMS', 'inventarios-ciclicos': 'Inventario · Inventarios Cíclicos',
   'recepcion-importar': 'Recepción y despacho · Importar cargue',
   'recepcion-rutas': 'Recepción y despacho · Rutas del día',
   'recepcion-ranking': 'Recepción y despacho · Ranking de auditores',
@@ -2532,6 +2566,7 @@ function cambiarModulo(modulo) {
 
   document.getElementById('view-torre').classList.toggle('hidden', modulo !== 'torre' || bloqueado);
   document.getElementById('view-indicadores').classList.toggle('hidden', modulo !== 'indicadores' || bloqueado);
+  document.getElementById('view-layout-3d').classList.toggle('hidden', modulo !== 'layout-3d' || bloqueado);
   document.getElementById('view-recepcion-importar').classList.toggle('hidden', modulo !== 'recepcion-importar' || bloqueado);
   document.getElementById('view-recepcion-rutas').classList.toggle('hidden', modulo !== 'recepcion-rutas' || bloqueado);
   document.getElementById('view-recepcion-ranking').classList.toggle('hidden', modulo !== 'recepcion-ranking' || bloqueado);
@@ -2557,6 +2592,7 @@ function cambiarModulo(modulo) {
   }
   if (modulo === 'torre') cargarTorreControl();
   if (modulo === 'indicadores') { cargarIndicadores(); if (!RA_TABS_LISTOS) { inicializarModuloIndicadores(); RA_TABS_LISTOS = true; } }
+  if (modulo === 'layout-3d') { if (!LAYOUT3D_LISTO) { inicializarLayout3D(); LAYOUT3D_LISTO = true; } }
   if (modulo === 'recepcion-rutas') {
     const inputVista = document.getElementById('rutas-fecha-vista');
     if (!inputVista.value) inputVista.value = fechaColombiaHoy();
@@ -7289,6 +7325,55 @@ document.getElementById('btn-imp-procesar').addEventListener('click', async () =
     return;
   }
 
+  // ---------- Layout de Almacenes ----------
+  if (tipoId === 'layout_almacenes') {
+    estado.textContent = 'Leyendo archivo...';
+    const filasArchivo = await leerCsvComoTexto(archivo);
+    if (!filasArchivo.length) { estado.textContent = 'El archivo está vacío o no se pudo leer.'; return; }
+
+    const MAPA_ALMACEN_CEDI = { Barranquilla: 'BAQ', Bogota: 'BOG', Copacabana: 'COP', Cartagena: 'CTG', Pereira: 'PER', Bucaramanga: 'BGA' };
+    const filasProcesadas = [];
+    let sinDatos = 0;
+    filasArchivo.forEach(fila => {
+      const almacen = String(valorPorColumna(fila, ['Almacén']) ?? '').trim();
+      const codigoUbic = String(valorPorColumna(fila, ['Nombre Ubicación']) ?? '').trim();
+      if (!almacen || !codigoUbic) { sinDatos++; return; }
+      let ubicCompleta = String(valorPorColumna(fila, ['Nombre Completo de Locación']) ?? '').trim();
+      if (!ubicCompleta) ubicCompleta = codigoUbic; // fallback para filas sin ruta completa (ej. COMPENSAR)
+
+      const m = codigoUbic.match(/^([A-Z]+)(\d{2})(\d{2})$/);
+      const zona = m ? m[1] : null;
+      const pasillo = m ? parseInt(m[2], 10) : null;
+      const posicion = m ? parseInt(m[3], 10) : null;
+
+      const segmentos = ubicCompleta.split('/');
+      const nivel = (segmentos.length >= 3 && /^\d+$/.test(segmentos[2])) ? parseInt(segmentos[2], 10) : null;
+
+      filasProcesadas.push({
+        cedi: MAPA_ALMACEN_CEDI[almacen] || null, almacen, ubicacion_completa: ubicCompleta,
+        codigo_ubicacion: codigoUbic, zona, pasillo, posicion, nivel,
+        operacion: String(valorPorColumna(fila, ['Operación']) ?? '').trim() || null,
+        storage_category: String(valorPorColumna(fila, ['Storage Category']) ?? '').trim() || null,
+        tipo: String(valorPorColumna(fila, ['TIPO']) ?? '').trim() || null,
+        codigo_barra: String(valorPorColumna(fila, ['CODIGO BARRA']) ?? '').trim() || null,
+        peso_kg: parsearMonedaFlexible(valorPorColumna(fila, ['PESO (Kg)'])),
+        volumen: parsearMonedaFlexible(valorPorColumna(fila, ['VOLUMEN']) ?? valorPorColumna(fila, ['VOLUMEN '])),
+      });
+    });
+
+    IMPORTACION_FILAS_PROCESADAS = filasProcesadas;
+    estado.textContent = `${filasProcesadas.length.toLocaleString('es-CO')} ubicación(es) listas para importar (se actualiza/agrega, no borra lo demás).` +
+      (sinDatos ? ` ${sinDatos} fila(s) se ignoraron por datos incompletos.` : '');
+
+    document.getElementById('imp-preview').innerHTML = `
+      <p style="font-size:12px;color:var(--text-secondary);">Vista previa (primeras 10 filas).</p>
+      <table class="hist-table open"><tr><th>Almacén</th><th>Ubicación</th><th>Zona</th><th>Nivel</th><th>Código barra</th></tr>${
+        filasProcesadas.slice(0, 10).map(r => `<tr><td>${tEsc(r.almacen)}</td><td>${tEsc(r.codigo_ubicacion)}</td><td>${tEsc(r.zona || '—')}</td><td>${r.nivel ?? '—'}</td><td>${tEsc(r.codigo_barra || '—')}</td></tr>`).join('')
+      }</table>`;
+    document.getElementById('btn-imp-confirmar').classList.toggle('hidden', filasProcesadas.length === 0);
+    return;
+  }
+
 
   estado.textContent = 'Leyendo archivo...';
   const buffer = await archivo.arrayBuffer();
@@ -7539,6 +7624,26 @@ document.getElementById('btn-imp-confirmar').addEventListener('click', async () 
     }
     boton.disabled = false;
     estado.textContent = `Listo -- ${importados} registro(s) importados para el corte de ${mesCorte}.`;
+    mostrarToast('Importación completada.');
+    document.getElementById('btn-imp-confirmar').classList.add('hidden');
+    return;
+  }
+
+  // ---------- Layout de Almacenes -- upsert por ubicacion_completa (no duplica ni borra) ----------
+  if (tipoId === 'layout_almacenes') {
+    boton.disabled = true;
+    const TAM_LOTE = 200;
+    let importados = 0;
+    const total = IMPORTACION_FILAS_PROCESADAS.length;
+    for (let i = 0; i < total; i += TAM_LOTE) {
+      const lote = IMPORTACION_FILAS_PROCESADAS.slice(i, i + TAM_LOTE);
+      const { error } = await sb.from('layout_almacenes').upsert(lote, { onConflict: 'ubicacion_completa' });
+      if (error) { estado.textContent = `Error en el lote ${i}-${i + TAM_LOTE}: ${error.message}`; boton.disabled = false; return; }
+      importados += lote.length;
+      estado.textContent = `Importando... ${importados}/${total}`;
+    }
+    boton.disabled = false;
+    estado.textContent = `Listo -- ${importados} ubicación(es) importadas.`;
     mostrarToast('Importación completada.');
     document.getElementById('btn-imp-confirmar').classList.add('hidden');
     return;
@@ -10321,6 +10426,189 @@ async function enviarPreguntaIaFlotante() {
 
 document.getElementById('ia-flotante-enviar').addEventListener('click', enviarPreguntaIaFlotante);
 document.getElementById('ia-flotante-input').addEventListener('keydown', (e) => { if (e.key === 'Enter') enviarPreguntaIaFlotante(); });
+
+// ============================================================
+// MÓDULO LAYOUT 3D — Three.js
+// ============================================================
+let LAYOUT3D_LISTO = false;
+let L3D_ESCENA = null, L3D_CAMARA = null, L3D_RENDERER = null, L3D_CONTROLES = null;
+let L3D_RAYCASTER = null, L3D_MOUSE = null, L3D_CUBOS = [];
+let L3D_ALMACEN_ACTUAL = null;
+let L3D_DATOS_ALMACEN = [];
+
+function inicializarLayout3D() {
+  cargarLayout3DAlmacenes();
+  document.getElementById('l3d-filtro-almacen').addEventListener('change', () => { cargarLayout3DAlmacen(); });
+  document.getElementById('l3d-filtro-nivel').addEventListener('change', renderizarEscena3D);
+  document.getElementById('l3d-filtro-zona').addEventListener('change', renderizarEscena3D);
+  document.getElementById('btn-l3d-recentrar').addEventListener('click', recentrarCamara3D);
+  cargarLayout3DResumen();
+  inicializarEscenaThreeJs();
+}
+
+async function cargarLayout3DAlmacenes() {
+  const { data, error } = await sb.from('layout_almacenes').select('almacen').limit(20000);
+  const sel = document.getElementById('l3d-filtro-almacen');
+  if (error || !data) return;
+  const almacenes = [...new Set(data.map(f => f.almacen))].sort();
+  sel.innerHTML = almacenes.map(a => `<option value="${tEsc(a)}">${tEsc(a)}</option>`).join('');
+  if (almacenes.length) { L3D_ALMACEN_ACTUAL = almacenes[0]; cargarLayout3DAlmacen(); }
+}
+
+async function cargarLayout3DResumen() {
+  const { data, error } = await sb.rpc('layout_resumen_ocupacion', {});
+  const cont = document.getElementById('l3d-kpis');
+  if (error) { cont.innerHTML = `<div class="inv-empty">Error: ${tEsc(error.message)}</div>`; return; }
+  const filas = data || [];
+  if (!filas.length) { cont.innerHTML = '<div class="inv-empty">Todavía no hay layout cargado -- impórtalo desde Importación de Maestros.</div>'; return; }
+  cont.innerHTML = filas.map(f => `
+    <div class="inv-kpi" style="cursor:pointer;" onclick="document.getElementById('l3d-filtro-almacen').value=${JSON.stringify(f.almacen)}; cargarLayout3DAlmacen();">
+      <div class="inv-kpi-label">${tEsc(f.almacen)}</div>
+      <div class="inv-kpi-value" style="color:${f.pct_ocupacion >= 80 ? '#dc2626' : f.pct_ocupacion >= 50 ? '#d97706' : '#16a34a'}">${f.pct_ocupacion != null ? f.pct_ocupacion + '%' : '—'}</div>
+      <div style="font-size:11px;color:var(--text-secondary);">${f.ubicaciones_ocupadas}/${f.total_ubicaciones} ubicaciones</div>
+    </div>
+  `).join('');
+}
+
+async function cargarLayout3DAlmacen() {
+  const almacen = document.getElementById('l3d-filtro-almacen').value;
+  if (!almacen) return;
+  L3D_ALMACEN_ACTUAL = almacen;
+  document.getElementById('l3d-status').textContent = 'Cargando ubicaciones...';
+  const { data, error } = await sb.rpc('layout_ubicaciones_almacen', { p_almacen: almacen });
+  if (error) { document.getElementById('l3d-status').textContent = 'Error: ' + error.message; return; }
+  L3D_DATOS_ALMACEN = data || [];
+  document.getElementById('l3d-status').textContent = `${L3D_DATOS_ALMACEN.length.toLocaleString('es-CO')} ubicación(es) -- ${L3D_DATOS_ALMACEN.filter(f => f.ocupada).length.toLocaleString('es-CO')} ocupada(s).`;
+
+  const niveles = [...new Set(L3D_DATOS_ALMACEN.map(f => f.nivel).filter(v => v != null))].sort((a, b) => a - b);
+  const selNivel = document.getElementById('l3d-filtro-nivel');
+  selNivel.innerHTML = '<option value="">Todos</option>' + niveles.map(n => `<option value="${n}">Nivel ${n}</option>`).join('');
+
+  const zonas = [...new Set(L3D_DATOS_ALMACEN.map(f => f.zona).filter(Boolean))].sort();
+  const selZona = document.getElementById('l3d-filtro-zona');
+  selZona.innerHTML = '<option value="">Todas</option>' + zonas.map(z => `<option value="${tEsc(z)}">Zona ${tEsc(z)}</option>`).join('');
+
+  renderizarEscena3D();
+  recentrarCamara3D();
+}
+
+function inicializarEscenaThreeJs() {
+  const wrap = document.getElementById('l3d-canvas-wrap');
+  L3D_ESCENA = new THREE.Scene();
+  L3D_ESCENA.background = new THREE.Color(0x0f172a);
+
+  L3D_CAMARA = new THREE.PerspectiveCamera(60, wrap.clientWidth / wrap.clientHeight, 0.1, 5000);
+  L3D_CAMARA.position.set(60, 60, 90);
+
+  L3D_RENDERER = new THREE.WebGLRenderer({ antialias: true });
+  L3D_RENDERER.setSize(wrap.clientWidth, wrap.clientHeight);
+  wrap.insertBefore(L3D_RENDERER.domElement, wrap.firstChild);
+
+  L3D_CONTROLES = new THREE.OrbitControls(L3D_CAMARA, L3D_RENDERER.domElement);
+  L3D_CONTROLES.enableDamping = true;
+
+  const luzAmbiente = new THREE.AmbientLight(0xffffff, 0.7);
+  L3D_ESCENA.add(luzAmbiente);
+  const luzDireccional = new THREE.DirectionalLight(0xffffff, 0.6);
+  luzDireccional.position.set(50, 100, 50);
+  L3D_ESCENA.add(luzDireccional);
+
+  L3D_RAYCASTER = new THREE.Raycaster();
+  L3D_MOUSE = new THREE.Vector2();
+
+  L3D_RENDERER.domElement.addEventListener('click', onClickEscena3D);
+  L3D_RENDERER.domElement.addEventListener('mousemove', onMoveEscena3D);
+
+  window.addEventListener('resize', () => {
+    if (!L3D_RENDERER) return;
+    const w = wrap.clientWidth, h = wrap.clientHeight;
+    L3D_CAMARA.aspect = w / h; L3D_CAMARA.updateProjectionMatrix();
+    L3D_RENDERER.setSize(w, h);
+  });
+
+  function animar() {
+    requestAnimationFrame(animar);
+    if (L3D_CONTROLES) L3D_CONTROLES.update();
+    if (L3D_RENDERER && L3D_ESCENA && L3D_CAMARA) L3D_RENDERER.render(L3D_ESCENA, L3D_CAMARA);
+  }
+  animar();
+}
+
+const L3D_ESPACIO_PASILLO = 1.4, L3D_ESPACIO_POSICION = 1.4, L3D_ESPACIO_NIVEL = 1.6, L3D_ESPACIO_ZONA = 8;
+const L3D_TAMANO_CUBO = 1.1;
+
+function renderizarEscena3D() {
+  if (!L3D_ESCENA) return;
+  L3D_CUBOS.forEach(c => L3D_ESCENA.remove(c));
+  L3D_CUBOS = [];
+
+  const nivelFiltro = document.getElementById('l3d-filtro-nivel').value;
+  const zonaFiltro = document.getElementById('l3d-filtro-zona').value;
+  const zonas = [...new Set(L3D_DATOS_ALMACEN.map(f => f.zona).filter(Boolean))].sort();
+
+  const geometria = new THREE.BoxGeometry(L3D_TAMANO_CUBO, L3D_TAMANO_CUBO, L3D_TAMANO_CUBO);
+  const matOcupada = new THREE.MeshLambertMaterial({ color: 0xdc2626 });
+  const matVacia = new THREE.MeshLambertMaterial({ color: 0x16a34a });
+  const matSinDato = new THREE.MeshLambertMaterial({ color: 0x475569 });
+
+  L3D_DATOS_ALMACEN.forEach(f => {
+    if (nivelFiltro && String(f.nivel) !== nivelFiltro) return;
+    if (zonaFiltro && f.zona !== zonaFiltro) return;
+    if (f.pasillo == null || f.posicion == null) return;
+
+    const zonaIdx = f.zona ? zonas.indexOf(f.zona) : 0;
+    const x = zonaIdx * L3D_ESPACIO_ZONA + f.pasillo * L3D_ESPACIO_PASILLO;
+    const y = (f.nivel || 1) * L3D_ESPACIO_NIVEL;
+    const z = f.posicion * L3D_ESPACIO_POSICION;
+
+    const mat = f.codigo_barra == null ? matSinDato : (f.ocupada ? matOcupada : matVacia);
+    const cubo = new THREE.Mesh(geometria, mat);
+    cubo.position.set(x, y, z);
+    cubo.userData = f;
+    L3D_ESCENA.add(cubo);
+    L3D_CUBOS.push(cubo);
+  });
+}
+
+function recentrarCamara3D() {
+  if (!L3D_CUBOS.length || !L3D_CAMARA || !L3D_CONTROLES) return;
+  const caja = new THREE.Box3();
+  L3D_CUBOS.forEach(c => caja.expandByObject(c));
+  const centro = caja.getCenter(new THREE.Vector3());
+  const tamano = caja.getSize(new THREE.Vector3());
+  const distancia = Math.max(tamano.x, tamano.y, tamano.z) * 1.4 + 10;
+  L3D_CAMARA.position.set(centro.x + distancia * 0.6, centro.y + distancia * 0.5, centro.z + distancia * 0.6);
+  L3D_CONTROLES.target.copy(centro);
+  L3D_CONTROLES.update();
+}
+
+function onMoveEscena3D(evento) {
+  const wrap = document.getElementById('l3d-canvas-wrap');
+  const rect = wrap.getBoundingClientRect();
+  L3D_MOUSE.x = ((evento.clientX - rect.left) / rect.width) * 2 - 1;
+  L3D_MOUSE.y = -((evento.clientY - rect.top) / rect.height) * 2 + 1;
+  const tooltip = document.getElementById('l3d-tooltip');
+  L3D_RAYCASTER.setFromCamera(L3D_MOUSE, L3D_CAMARA);
+  const intersectados = L3D_RAYCASTER.intersectObjects(L3D_CUBOS);
+  if (intersectados.length) {
+    const f = intersectados[0].object.userData;
+    tooltip.innerHTML = `<strong>${tEsc(f.codigo_ubicacion)}</strong><br>${f.ocupada ? `Ocupada -- ${tEsc(f.producto || 'sin nombre')} (${f.cantidad})` : 'Vacía'}<br><span style="color:#94a3b8;">${tEsc(f.tipo || '')} · ${f.peso_kg ? f.peso_kg + ' kg' : ''}</span>`;
+    tooltip.style.left = (evento.clientX - rect.left + 14) + 'px';
+    tooltip.style.top = (evento.clientY - rect.top + 14) + 'px';
+    tooltip.classList.remove('hidden');
+  } else {
+    tooltip.classList.add('hidden');
+  }
+}
+
+function onClickEscena3D(evento) {
+  L3D_RAYCASTER.setFromCamera(L3D_MOUSE, L3D_CAMARA);
+  const intersectados = L3D_RAYCASTER.intersectObjects(L3D_CUBOS);
+  if (intersectados.length) {
+    const f = intersectados[0].object.userData;
+    mostrarToast(`${f.codigo_ubicacion}: ${f.ocupada ? `Ocupada -- ${f.producto} (${f.cantidad})` : 'Vacía'}`);
+  }
+}
 
 document.getElementById('imp-tipo').addEventListener('change', (e) => {
   document.getElementById('imp-bdnc-mes-wrap').classList.toggle('hidden', e.target.value !== 'bd_no_conformes');
