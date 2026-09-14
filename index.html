@@ -2277,16 +2277,27 @@ function parsearHoras(texto) {
 // una fecha de texto "29/01/2026" a un número de serie de Excel con un
 // pequeño error de precisión, que a veces cae en el día/mes equivocado).
 // Cada valor queda como el texto exacto del archivo, sin ninguna conversión.
+function quitarComillas(valor) {
+  const v = (valor ?? '').trim();
+  // Quita comillas dobles que envuelven todo el valor (ej. `"001"` -> `001`).
+  // Si el valor trae comillas escapadas como `""` (una comilla literal dentro
+  // del campo), las vuelve una sola comilla normal.
+  if (v.length >= 2 && v.startsWith('"') && v.endsWith('"')) {
+    return v.slice(1, -1).replace(/""/g, '"');
+  }
+  return v;
+}
+
 async function leerCsvComoTexto(archivo) {
   const texto = await archivo.text();
   const lineas = texto.split(/\r\n|\n|\r/).filter(l => l.trim() !== '');
   if (!lineas.length) return [];
   const delimitador = lineas[0].includes(';') ? ';' : ',';
-  const encabezados = lineas[0].split(delimitador).map(h => h.trim());
+  const encabezados = lineas[0].split(delimitador).map(h => quitarComillas(h));
   return lineas.slice(1).map(linea => {
     const valores = linea.split(delimitador);
     const fila = {};
-    encabezados.forEach((h, i) => { fila[h] = (valores[i] ?? '').trim(); });
+    encabezados.forEach((h, i) => { fila[h] = quitarComillas(valores[i]); });
     return fila;
   });
 }
