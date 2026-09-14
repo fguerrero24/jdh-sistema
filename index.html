@@ -3463,6 +3463,7 @@ async function cargarIraSkuGlobal() {
 }
 
 let IRASKU_COMPARATIVO_CHART = null;
+let IRASKU_CEDI_CHART = null;
 async function cargarIraSkuComparativo() {
   const { data, error } = await sb.rpc('indicador_ira_sku_comparativo_cedis');
   const cont = document.getElementById('irasku-comparativo-chart');
@@ -3539,7 +3540,8 @@ async function cargarIraSkuCedi() {
   cont.innerHTML = '';
   const valoresIraCedi = filas.map(f => f.ira_sku).filter(v => v != null);
   const yMinCedi = Math.max(0, Math.min(...valoresIraCedi, 98.5) - 5);
-  const chart = new ApexCharts(cont, {
+  if (IRASKU_CEDI_CHART) { IRASKU_CEDI_CHART.destroy(); IRASKU_CEDI_CHART = null; }
+  IRASKU_CEDI_CHART = new ApexCharts(cont, {
     chart: { type: 'line', height: 280, toolbar: { show: false }, fontFamily: 'inherit' },
     series: [{ name: 'IRA SKUs', data: filas.map(f => f.ira_sku) }],
     xaxis: { categories: filas.map(f => new Date(f.mes + 'T00:00:00').toLocaleDateString('es-CO', { month: 'short', year: '2-digit' })) },
@@ -3550,7 +3552,7 @@ async function cargarIraSkuCedi() {
     annotations: { yaxis: [{ y: 98.5, borderColor: '#0f172a', strokeDashArray: 6, label: { text: 'Meta 98.5%', style: { background: '#0f172a', color: '#fff' } } }] },
     dataLabels: { enabled: true, formatter: v => v.toFixed(1) + '%' },
   });
-  chart.render();
+  IRASKU_CEDI_CHART.render();
 
   document.getElementById('irasku-cedi-detalle-tabla').innerHTML = `<p style="font-size:11px;color:var(--modern-muted);margin:0 0 6px;">Detalle mensual -- clic en un mes para ver el desglose por referencia.</p><table class="inv-table"><thead><tr><th>Mes</th><th>SKUs correctos</th><th>SKUs totales</th><th>% Exactitud (IRA SKUs)</th></tr></thead><tbody>${
     filas.slice().reverse().map(f => `<tr style="cursor:pointer;" onclick='verDetalleReferenciaIraSku(${JSON.stringify(f.mes)}, ${JSON.stringify(cedi)})'>
@@ -3715,6 +3717,7 @@ async function cargarEruGlobal() {
 }
 
 let ERU_COMPARATIVO_CHART = null;
+let ERU_CEDI_CHART = null;
 async function cargarEruComparativo() {
   const { data, error } = await sb.rpc('indicador_eru_comparativo_cedis');
   const cont = document.getElementById('eru-comparativo-chart');
@@ -3791,7 +3794,8 @@ async function cargarEruCedi() {
   cont.innerHTML = '';
   const valoresEruCedi = filas.map(f => f.eru).filter(v => v != null);
   const yMinCedi = Math.max(0, Math.min(...valoresEruCedi, 98) - 5);
-  const chart = new ApexCharts(cont, {
+  if (ERU_CEDI_CHART) { ERU_CEDI_CHART.destroy(); ERU_CEDI_CHART = null; }
+  ERU_CEDI_CHART = new ApexCharts(cont, {
     chart: { type: 'line', height: 280, toolbar: { show: false }, fontFamily: 'inherit' },
     series: [{ name: '%ERU', data: filas.map(f => f.eru) }],
     xaxis: { categories: filas.map(f => new Date(f.mes + 'T00:00:00').toLocaleDateString('es-CO', { month: 'short', year: '2-digit' })) },
@@ -3802,7 +3806,7 @@ async function cargarEruCedi() {
     annotations: { yaxis: [{ y: 98, borderColor: '#0f172a', strokeDashArray: 6, label: { text: 'Meta 98%', style: { background: '#0f172a', color: '#fff' } } }] },
     dataLabels: { enabled: true, formatter: v => v.toFixed(1) + '%' },
   });
-  chart.render();
+  ERU_CEDI_CHART.render();
 
   document.getElementById('eru-cedi-detalle-tabla').innerHTML = `<table class="inv-table"><thead><tr><th>Mes</th><th>Registros correctos</th><th>Registros auditados</th><th>% ERU</th></tr></thead><tbody>${
     filas.slice().reverse().map(f => `<tr>
