@@ -1156,6 +1156,7 @@ input:focus,select:focus,textarea:focus{outline:none!important;border-color:#176
               </div>
               <div id="ra-cedi-hero" style="display:flex;gap:18px;flex-wrap:wrap;margin:0 10px 18px;"></div>
               <div id="ra-cedi-chart" style="padding:10px;"></div>
+              <div style="padding:10px;"><p style="font-size:11px;color:var(--modern-muted);margin:0 0 6px;">Detalle mensual -- los números crudos detrás del %, para poder verificar de dónde sale cada cifra.</p><div id="ra-cedi-detalle-tabla" style="overflow-x:auto;"></div></div>
             </div>
 
             <div class="inv-hero" style="background:linear-gradient(135deg,#134e4a,#0f766e);margin-top:20px;">
@@ -1189,6 +1190,11 @@ input:focus,select:focus,textarea:focus{outline:none!important;border-color:#176
               </div>
               <div id="irasku-cedi-hero" style="display:flex;gap:18px;flex-wrap:wrap;margin:0 10px 18px;"></div>
               <div id="irasku-cedi-chart" style="padding:10px;"></div>
+              <div style="padding:10px;overflow-x:auto;" id="irasku-cedi-detalle-tabla"></div>
+              <div class="hidden" id="irasku-referencia-detalle" style="padding:10px;border-top:1px solid var(--modern-border);margin-top:10px;">
+                <div class="inv-section-title" id="irasku-referencia-titulo" style="font-size:13px;margin-bottom:8px;">Detalle por referencia</div>
+                <div style="overflow-x:auto;" id="irasku-tabla-referencia"></div>
+              </div>
             </div>
 
             <div class="inv-section" style="margin-top:16px;"><div class="inv-section-head"><div><div class="inv-section-title">Proveedores más problemáticos (Pareto)</div><div class="inv-section-note">Ordenado por valor de la diferencia -- clic en un proveedor para ver sus SKUs con diferencia.</div></div></div>
@@ -3186,19 +3192,27 @@ async function cargarRaGlobal() {
 
 async function cargarRaCedi() {
   const cedi = document.getElementById('ra-filtro-cedi').value;
-  if (!cedi) { document.getElementById('ra-cedi-hero').innerHTML = ''; document.getElementById('ra-cedi-chart').innerHTML = ''; return; }
+  if (!cedi) { document.getElementById('ra-cedi-hero').innerHTML = ''; document.getElementById('ra-cedi-chart').innerHTML = ''; document.getElementById('ra-cedi-detalle-tabla').innerHTML = ''; return; }
   const { data, error } = await sb.rpc('indicador_ra_valor', { p_cedi: cedi, p_meses: 12 });
   if (error) { mostrarToast('Error cargando RA$: ' + error.message); return; }
   const filas = (data || []).filter(f => f.valor_contado > 0);
   const hero = document.getElementById('ra-cedi-hero');
-  if (!filas.length) { hero.innerHTML = `<div class="inv-empty">Todavía no hay datos de inventario contado para ${tEsc(cedi)}.</div>`; document.getElementById('ra-cedi-chart').innerHTML = ''; return; }
+  if (!filas.length) { hero.innerHTML = `<div class="inv-empty">Todavía no hay datos de inventario contado para ${tEsc(cedi)}.</div>`; document.getElementById('ra-cedi-chart').innerHTML = ''; document.getElementById('ra-cedi-detalle-tabla').innerHTML = ''; return; }
   const ultimo = filas[filas.length - 1];
   const mesTexto = new Date(ultimo.mes + 'T00:00:00').toLocaleDateString('es-CO', { month: 'long', year: 'numeric' });
   hero.innerHTML = tarjetaHeroRa(`${mesTexto} · ${cedi}`, ultimo.ra_valor, ultimo.variacion_vs_mes_anterior, ultimo.valor_contado, ultimo.valor_ajustes_absoluto);
   if (RA_CEDI_CHART) RA_CEDI_CHART.destroy();
   RA_CEDI_CHART = dibujarChartRa('ra-cedi-chart', filas, `RA$ ${cedi}`);
-}
 
+  document.getElementById('ra-cedi-detalle-tabla').innerHTML = `<table class="inv-table"><thead><tr><th>Mes</th><th>Valor contado</th><th>Valor diferencia (absoluto)</th><th>% Exactitud (IRA Valor)</th></tr></thead><tbody>${
+    filas.slice().reverse().map(f => `<tr>
+      <td>${new Date(f.mes + 'T00:00:00').toLocaleDateString('es-CO', { month: 'short', year: 'numeric' })}</td>
+      <td>${formatoCOP(f.valor_contado)}</td>
+      <td>${formatoCOP(f.valor_ajustes_absoluto)}</td>
+      <td style="font-weight:700;color:${f.ra_valor >= 98.5 ? '#16a34a' : '#dc2626'};">${f.ra_valor != null ? f.ra_valor + '%' : '—'}</td>
+    </tr>`).join('')
+  }</tbody></table>`;
+}
 
 async function cargarRaComparativo() {
   const { data, error } = await sb.rpc('indicador_ra_valor_comparativo_cedis');
@@ -3535,6 +3549,40 @@ async function cargarIraSkuCedi() {
     dataLabels: { enabled: true, formatter: v => v.toFixed(1) + '%' },
   });
   chart.render();
+
+  document.getElementById('irasku-cedi-detalle-tabla').innerHTML = `<p style="font-size:11px;color:var(--modern-muted);margin:0 0 6px;">Detalle mensual -- clic en un mes para ver el desglose por referencia.</p><table class="inv-table"><thead><tr><th>Mes</th><th>SKUs correctos</th><th>SKUs totales</th><th>% Exactitud (IRA SKUs)</th></tr></thead><tbody>${
+    filas.slice().reverse().map(f => `<tr style="cursor:pointer;" onclick='verDetalleReferenciaIraSku(${JSON.stringify(f.mes)}, ${JSON.stringify(cedi)})'>
+      <td>${new Date(f.mes + 'T00:00:00').toLocaleDateString('es-CO', { month: 'short', year: 'numeric' })}</td>
+      <td>${f.skus_ok.toLocaleString('es-CO')}</td>
+      <td>${f.skus_totales.toLocaleString('es-CO')}</td>
+      <td style="font-weight:700;color:${f.ira_sku >= 98.5 ? '#16a34a' : '#dc2626'};">${f.ira_sku != null ? f.ira_sku + '%' : '—'}</td>
+    </tr>`).join('')
+  }</tbody></table>`;
+  document.getElementById('irasku-referencia-detalle').classList.add('hidden');
+}
+
+async function verDetalleReferenciaIraSku(mes, cedi) {
+  const cont = document.getElementById('irasku-tabla-referencia');
+  cont.innerHTML = '<div class="inv-empty">Cargando...</div>';
+  document.getElementById('irasku-referencia-titulo').textContent = `Detalle por referencia -- ${cedi}, ${new Date(mes + 'T00:00:00').toLocaleDateString('es-CO', { month: 'long', year: 'numeric' })}`;
+  document.getElementById('irasku-referencia-detalle').classList.remove('hidden');
+  const { data, error } = await sb.rpc('indicador_ira_sku_detalle_referencia', { p_cedi: cedi, p_meses: 24 });
+  if (error) { cont.innerHTML = `<div class="inv-empty">Error: ${tEsc(error.message)}</div>`; return; }
+  const filas = (data || []).filter(f => f.mes === mes);
+  if (!filas.length) { cont.innerHTML = '<div class="inv-empty">Sin registros para este mes.</div>'; return; }
+  cont.innerHTML = `<table class="inv-table"><thead><tr><th>Fecha</th><th>Referencia</th><th>Producto</th><th>Contado</th><th>Teórico</th><th>Diferencia</th><th>Correcto</th><th>Valor diferencia</th></tr></thead><tbody>${
+    filas.map(f => `<tr>
+      <td>${new Date(f.fecha + 'T00:00:00').toLocaleDateString('es-CO')}</td>
+      <td>${tEsc(f.referencia)}</td>
+      <td class="inv-product">${tEsc(f.descripcion || '—')}</td>
+      <td>${f.inventario_contado}</td>
+      <td>${f.inventario_teorico}</td>
+      <td style="font-weight:700;color:${f.diferencia === 0 ? '#16a34a' : '#dc2626'};">${f.diferencia}</td>
+      <td>${f.correcto ? '✓' : '✗'}</td>
+      <td>${f.valor_diferencia != null ? formatoCOP(f.valor_diferencia) : '—'}</td>
+    </tr>`).join('')
+  }</tbody></table>`;
+  document.getElementById('irasku-referencia-detalle').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 }
 
 function cargarPanelIraSkuCompleto() {
