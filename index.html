@@ -1101,6 +1101,7 @@ input:focus,select:focus,textarea:focus{outline:none!important;border-color:#176
             <button class="btn ghost admin-tab" id="tab-ind-analisis-mov" style="display:flex;align-items:center;justify-content:center;text-align:center;">📤 Salidas y Ajustes</button>
             <button class="btn ghost admin-tab" id="tab-ind-eru" style="display:flex;align-items:center;justify-content:center;text-align:center;">🎯 %ERU</button>
             <button class="btn ghost admin-tab" id="tab-ind-bdnc" style="display:flex;align-items:center;justify-content:center;text-align:center;">🗄️ BD No Conformes</button>
+            <button class="btn ghost admin-tab" id="tab-ind-productividad" style="display:flex;align-items:center;justify-content:center;text-align:center;">🚀 Productividad</button>
           </div>
 
           <div id="panel-ind-personales">
@@ -1266,6 +1267,36 @@ input:focus,select:focus,textarea:focus{outline:none!important;border-color:#176
 
             <div class="inv-section hidden" id="bdnc-seccion-items" style="margin-top:16px;"><div class="inv-section-head"><div><div class="inv-section-title" id="bdnc-items-titulo">Ítems</div></div><button class="btn ghost" id="btn-bdnc-volver-proveedores">← Volver a proveedores</button></div>
               <div class="inv-table-wrap" id="bdnc-tabla-items"></div>
+            </div>
+          </div>
+
+          <div id="panel-ind-productividad" class="hidden">
+            <div class="inv-hero" style="background:linear-gradient(135deg,#065f46,#047857);">
+              <div class="inv-hero-top">
+                <div><div class="inv-eyebrow" style="color:#a7f3d0;">JDH · Recepción y Despacho</div><div class="inv-title" style="color:#fff;">Productividad</div><div class="inv-subtitle" style="color:#d1fae5;">Takt time, fill rate, y OTIF de picking (antes de 4:00am) y packing (antes de 6:00am), en lleno.</div></div>
+              </div>
+            </div>
+
+            <div style="display:flex;gap:8px;align-items:end;margin-top:10px;flex-wrap:wrap;">
+              <div class="inv-filter" style="max-width:220px;"><label>CEDI</label><select id="prod-filtro-cedi"><option value="">Todos</option></select></div>
+              <div class="inv-filter" style="max-width:170px;"><label>Desde</label><input type="date" id="prod-filtro-desde"></div>
+              <div class="inv-filter" style="max-width:170px;"><label>Hasta</label><input type="date" id="prod-filtro-hasta"></div>
+              <button class="btn" id="btn-prod-aplicar">Aplicar</button>
+            </div>
+
+            <div id="prod-global-hero" style="display:flex;gap:12px;flex-wrap:wrap;margin:14px 0;"></div>
+
+            <div class="inv-section"><div class="inv-section-head"><div class="inv-section-title">Evolución mensual</div></div><div id="prod-evolucion-tabla" style="padding:10px;overflow-x:auto;"></div></div>
+
+            <div class="inv-section" style="margin-top:16px;"><div class="inv-section-head"><div class="inv-section-title">Picking vs. Packing -- variables que impactan el OTIF</div></div><div id="prod-otif-variables" style="padding:10px;"></div></div>
+
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:16px;">
+              <div class="inv-section" style="margin:0;"><div class="inv-section-head"><div class="inv-section-title">Comparativo por CEDI</div></div><div id="prod-tabla-cedi" style="padding:10px;"></div></div>
+              <div class="inv-section" style="margin:0;"><div class="inv-section-head"><div class="inv-section-title">Ranking de auditores</div></div><div id="prod-tabla-auditores" style="padding:10px;"></div></div>
+            </div>
+
+            <div class="inv-section hidden" id="prod-seccion-detalle" style="margin-top:16px;"><div class="inv-section-head"><div><div class="inv-section-title" id="prod-detalle-titulo">Rutas</div></div><button class="btn ghost" id="btn-prod-cerrar-detalle">Cerrar</button></div>
+              <div class="inv-table-wrap" id="prod-tabla-detalle"></div>
             </div>
           </div>
 
@@ -3029,6 +3060,13 @@ function inicializarModuloIndicadores() {
   CEDIS_MERMAS.forEach(c => selCediBdnc.insertAdjacentHTML('beforeend', `<option value="${c}">${c}</option>`));
   if (!puedeVerTodosLosCedis() && SESION.cedi) selCediBdnc.value = SESION.cedi;
 
+  document.getElementById('tab-ind-productividad').addEventListener('click', () => { cambiarTabIndicadores('productividad'); cargarPanelProductividadCompleto(); });
+  document.getElementById('btn-prod-aplicar').addEventListener('click', cargarPanelProductividadCompleto);
+  document.getElementById('btn-prod-cerrar-detalle').addEventListener('click', () => { document.getElementById('prod-seccion-detalle').classList.add('hidden'); });
+  const selCediProd = document.getElementById('prod-filtro-cedi');
+  CEDIS_VALIDOS.forEach(c => selCediProd.insertAdjacentHTML('beforeend', `<option value="${c}">${c}</option>`));
+  if (!puedeVerTodosLosCedis() && SESION.cedi) selCediProd.value = SESION.cedi;
+
   const selCedi = document.getElementById('ra-filtro-cedi');
   CEDIS_VALIDOS.forEach(c => selCedi.insertAdjacentHTML('beforeend', `<option value="${c}">${c}</option>`));
   if (!puedeVerTodosLosCedis() && SESION.cedi) selCedi.value = SESION.cedi;
@@ -3064,12 +3102,14 @@ function cambiarTabIndicadores(cual) {
   document.getElementById('panel-ind-analisis-mov').classList.toggle('hidden', cual !== 'analisis-mov');
   document.getElementById('panel-ind-eru').classList.toggle('hidden', cual !== 'eru');
   document.getElementById('panel-ind-bdnc').classList.toggle('hidden', cual !== 'bdnc');
+  document.getElementById('panel-ind-productividad').classList.toggle('hidden', cual !== 'productividad');
   document.getElementById('tab-ind-personales').classList.toggle('active', cual === 'personales');
   document.getElementById('tab-ind-inventarios').classList.toggle('active', cual === 'inventarios');
   document.getElementById('tab-ind-mermas').classList.toggle('active', cual === 'mermas');
   document.getElementById('tab-ind-analisis-mov').classList.toggle('active', cual === 'analisis-mov');
   document.getElementById('tab-ind-eru').classList.toggle('active', cual === 'eru');
   document.getElementById('tab-ind-bdnc').classList.toggle('active', cual === 'bdnc');
+  document.getElementById('tab-ind-productividad').classList.toggle('active', cual === 'productividad');
 }
 
 let RA_YA_CARGADO = false;
@@ -3932,6 +3972,137 @@ async function verItemsProveedorBdnc(proveedor) {
     </tr>`).join('')
   }</tbody></table>`;
   document.getElementById('bdnc-seccion-items').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+// ============================================================
+// MÓDULO PRODUCTIVIDAD (picking/packing, OTIF, takt time, fill rate)
+// ============================================================
+function filtrosProd() {
+  return {
+    p_cedi: document.getElementById('prod-filtro-cedi').value || null,
+    p_desde: document.getElementById('prod-filtro-desde').value || null,
+    p_hasta: document.getElementById('prod-filtro-hasta').value || null,
+  };
+}
+
+function celdaOtif(pct) {
+  if (pct == null) return '<span style="color:#94a3b8;">—</span>';
+  const color = pct >= 90 ? '#16a34a' : pct >= 70 ? '#d97706' : '#dc2626';
+  return `<strong style="color:${color};">${pct}%</strong>`;
+}
+
+function tarjetaProd(etiqueta, valor, sub) {
+  return `
+    <div style="flex:1;min-width:150px;background:var(--surface-1);border-radius:14px;padding:14px;">
+      <div style="font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--modern-muted);font-weight:700;">${tEsc(etiqueta)}</div>
+      <div style="font-size:24px;font-weight:800;margin-top:4px;">${valor}</div>
+      ${sub ? `<div style="font-size:11px;color:var(--modern-muted);margin-top:4px;">${sub}</div>` : ''}
+    </div>`;
+}
+
+async function cargarProdGlobal() {
+  const cont = document.getElementById('prod-global-hero');
+  const { data, error } = await sb.rpc('productividad_resumen', filtrosProd());
+  if (error) { cont.innerHTML = `<div class="inv-empty">Error: ${tEsc(error.message)}</div>`; return; }
+  const f = (data || [])[0];
+  if (!f || !f.rutas_atendidas) { cont.innerHTML = '<div class="inv-empty">Todavía no hay rutas archivadas para este filtro.</div>'; return; }
+  cont.innerHTML =
+    tarjetaProd('Rutas atendidas', f.rutas_atendidas.toLocaleString('es-CO'), null) +
+    tarjetaProd('Takt time promedio', f.takt_time_promedio != null ? f.takt_time_promedio + 's/línea' : '—', null) +
+    tarjetaProd('Fill rate promedio', f.fill_rate_promedio != null ? f.fill_rate_promedio + '%' : '—', null) +
+    tarjetaProd('Hora prom. fin picking', f.hora_promedio_fin_picking || '—', 'Meta: antes de 4:00am') +
+    tarjetaProd('Hora prom. fin packing', f.hora_promedio_fin_packing || '—', 'Meta: antes de 6:00am') +
+    tarjetaProd('OTIF Picking', f.otif_picking_pct != null ? f.otif_picking_pct + '%' : '—', 'A tiempo + en lleno') +
+    tarjetaProd('OTIF Packing', f.otif_packing_pct != null ? f.otif_packing_pct + '%' : '—', 'A tiempo + en lleno');
+}
+
+async function cargarProdEvolucion() {
+  const cont = document.getElementById('prod-evolucion-tabla');
+  const { data, error } = await sb.rpc('productividad_evolucion_mensual', { p_cedi: filtrosProd().p_cedi, p_meses: 12 });
+  if (error) { cont.innerHTML = `<div class="inv-empty">Error: ${tEsc(error.message)}</div>`; return; }
+  const filas = data || [];
+  if (!filas.length) { cont.innerHTML = '<div class="inv-empty">Sin histórico suficiente.</div>'; return; }
+  cont.innerHTML = `<table class="inv-table" style="text-align:center;"><thead><tr>
+      <th style="text-align:left;">Mes</th><th>Rutas</th><th>Takt time</th><th>Fill rate</th><th>OTIF Picking</th><th>OTIF Packing</th>
+    </tr></thead><tbody>${
+    filas.map(f => `<tr>
+      <td style="text-align:left;font-weight:700;">${new Date(f.mes + 'T00:00:00').toLocaleDateString('es-CO', { month: 'long', year: 'numeric' })}</td>
+      <td>${f.rutas_atendidas}</td>
+      <td>${f.takt_time_promedio != null ? f.takt_time_promedio + 's' : '—'}</td>
+      <td>${f.fill_rate_promedio != null ? f.fill_rate_promedio + '%' : '—'}</td>
+      <td>${celdaOtif(f.otif_picking_pct)}</td>
+      <td>${celdaOtif(f.otif_packing_pct)}</td>
+    </tr>`).join('')
+  }</tbody></table>`;
+}
+
+async function cargarProdOtifVariables() {
+  const cont = document.getElementById('prod-otif-variables');
+  const { data, error } = await sb.rpc('productividad_otif_variables', filtrosProd());
+  if (error) { cont.innerHTML = `<div class="inv-empty">Error: ${tEsc(error.message)}</div>`; return; }
+  const filas = data || [];
+  if (!filas.length) { cont.innerHTML = '<div class="inv-empty">Sin datos.</div>'; return; }
+  const dimensiones = [...new Set(filas.map(f => f.dimension))];
+  cont.innerHTML = dimensiones.map(dim => `
+    <div style="margin-bottom:16px;">
+      <div style="font-weight:700;font-size:12px;margin-bottom:6px;">${tEsc(dim)}</div>
+      <table class="inv-table" style="text-align:center;"><thead><tr><th style="text-align:left;">Categoría</th><th>Rutas</th><th>OTIF Picking</th><th>OTIF Packing</th></tr></thead><tbody>${
+        filas.filter(f => f.dimension === dim).map(f => `<tr><td style="text-align:left;">${tEsc(f.categoria)}</td><td>${f.rutas}</td><td>${celdaOtif(f.otif_picking_pct)}</td><td>${celdaOtif(f.otif_packing_pct)}</td></tr>`).join('')
+      }</tbody></table>
+    </div>
+  `).join('');
+}
+
+async function cargarProdPorCedi() {
+  const cont = document.getElementById('prod-tabla-cedi');
+  const f = filtrosProd();
+  const { data, error } = await sb.rpc('productividad_por_cedi', { p_desde: f.p_desde, p_hasta: f.p_hasta });
+  if (error) { cont.innerHTML = `<div class="inv-empty">Error: ${tEsc(error.message)}</div>`; return; }
+  const filas = data || [];
+  if (!filas.length) { cont.innerHTML = '<div class="inv-empty">Sin datos.</div>'; return; }
+  cont.innerHTML = `<table class="inv-table" style="text-align:center;"><thead><tr><th style="text-align:left;">CEDI</th><th>Rutas</th><th>Takt</th><th>Fill rate</th><th>OTIF Pick.</th><th>OTIF Pack.</th></tr></thead><tbody>${
+    filas.map(f => `<tr><td style="text-align:left;font-weight:700;">${tEsc(f.cedi)}</td><td>${f.rutas_atendidas}</td><td>${f.takt_time_promedio ?? '—'}</td><td>${f.fill_rate_promedio != null ? f.fill_rate_promedio + '%' : '—'}</td><td>${celdaOtif(f.otif_picking_pct)}</td><td>${celdaOtif(f.otif_packing_pct)}</td></tr>`).join('')
+  }</tbody></table>`;
+}
+
+async function cargarProdAuditores() {
+  const cont = document.getElementById('prod-tabla-auditores');
+  const { data, error } = await sb.rpc('productividad_ranking_auditores', filtrosProd());
+  if (error) { cont.innerHTML = `<div class="inv-empty">Error: ${tEsc(error.message)}</div>`; return; }
+  const filas = data || [];
+  if (!filas.length) { cont.innerHTML = '<div class="inv-empty">Sin datos.</div>'; return; }
+  cont.innerHTML = `<p style="font-size:10.5px;color:var(--text-secondary);margin:0 0 6px;">Clic en un auditor para ver el detalle de sus rutas.</p><table class="inv-table" style="text-align:center;"><thead><tr><th style="text-align:left;">Auditor</th><th>Rutas</th><th>Takt</th><th>Fill</th><th>OTIF Pick.</th><th>OTIF Pack.</th></tr></thead><tbody>${
+    filas.map(f => `<tr style="cursor:pointer;" onclick='verRutasAuditorProd(${JSON.stringify(f.auditor)})'><td style="text-align:left;font-weight:700;">${tEsc(f.auditor)}</td><td>${f.rutas_atendidas}</td><td>${f.takt_time_promedio ?? '—'}</td><td>${f.fill_rate_promedio != null ? f.fill_rate_promedio + '%' : '—'}</td><td>${celdaOtif(f.otif_picking_pct)}</td><td>${celdaOtif(f.otif_packing_pct)}</td></tr>`).join('')
+  }</tbody></table>`;
+}
+
+async function verRutasAuditorProd(auditor) {
+  const f = filtrosProd();
+  const { data, error } = await sb.rpc('productividad_rutas_auditor', { p_auditor: auditor, p_cedi: f.p_cedi, p_desde: f.p_desde, p_hasta: f.p_hasta });
+  if (error) { mostrarToast('Error: ' + error.message); return; }
+  document.getElementById('prod-detalle-titulo').textContent = `Rutas -- ${auditor}`;
+  document.getElementById('prod-seccion-detalle').classList.remove('hidden');
+  document.getElementById('prod-tabla-detalle').innerHTML = `<table class="inv-table"><thead><tr><th>Fecha</th><th>CEDI</th><th>Ruta</th><th>Pedidos</th><th>Fill rate</th><th>Takt</th><th>Fin picking</th><th>Fin packing</th></tr></thead><tbody>${
+    (data || []).map(r => `<tr>
+      <td>${new Date(r.fecha + 'T00:00:00').toLocaleDateString('es-CO')}</td>
+      <td>${tEsc(r.cedi)}</td>
+      <td>${tEsc(r.ruta_nombre)}</td>
+      <td>${r.pedidos_completos}/${r.pedidos}</td>
+      <td>${r.fill_rate != null ? r.fill_rate + '%' : '—'}</td>
+      <td>${r.takt_time_segundos ?? '—'}</td>
+      <td style="font-weight:700;color:${r.hora_fin_picking && r.hora_fin_picking <= '04:00' ? '#16a34a' : '#dc2626'};">${r.hora_fin_picking || '—'}</td>
+      <td style="font-weight:700;color:${r.hora_fin_packing && r.hora_fin_packing <= '06:00' ? '#16a34a' : '#dc2626'};">${r.hora_fin_packing || '—'}</td>
+    </tr>`).join('')
+  }</tbody></table>`;
+  document.getElementById('prod-seccion-detalle').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+function cargarPanelProductividadCompleto() {
+  cargarProdGlobal();
+  cargarProdEvolucion();
+  cargarProdOtifVariables();
+  cargarProdPorCedi();
+  cargarProdAuditores();
 }
 
 function cargarPanelBdncCompleto() {
