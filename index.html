@@ -1193,6 +1193,7 @@ input:focus,select:focus,textarea:focus{outline:none!important;border-color:#176
               <div style="padding:10px;overflow-x:auto;" id="irasku-cedi-detalle-tabla"></div>
               <div class="hidden" id="irasku-referencia-detalle" style="padding:10px;border-top:1px solid var(--modern-border);margin-top:10px;">
                 <div class="inv-section-title" id="irasku-referencia-titulo" style="font-size:13px;margin-bottom:8px;">Detalle por referencia</div>
+                <input type="text" id="irasku-buscador-referencia" placeholder="Busca por proveedor, producto o referencia..." style="width:100%;padding:8px 12px;border-radius:8px;border:1px solid var(--modern-border);background:var(--surface-1);color:inherit;font-size:13px;margin-bottom:10px;">
                 <div style="overflow-x:auto;" id="irasku-tabla-referencia"></div>
               </div>
             </div>
@@ -1696,6 +1697,7 @@ input:focus,select:focus,textarea:focus{outline:none!important;border-color:#176
             <div class="inv-hero-top">
               <div><div class="inv-eyebrow">JDH · Inventory Control Tower</div><div class="inv-title">Inventarios Cíclicos</div><div class="inv-subtitle">Conteo físico contra el teórico de SIESA -- información, excepción, decisión, acción.</div></div>
               <div class="inv-sync" style="display:flex;gap:8px;">
+                <button class="btn ghost" id="btn-ic-agregar-referencias"><i class="ti ti-plus"></i> Agregar referencias</button>
                 <button class="btn ghost" id="btn-ic-importar-conteo"><i class="ti ti-upload"></i> Importar conteo</button>
                 <button class="btn ghost" id="btn-ic-limpiar-ciclo" style="color:#dc2626;"><i class="ti ti-trash"></i> Limpiar ciclo</button>
                 <button class="btn ghost" id="btn-ic-eliminar-ciclo-actual" style="color:#dc2626;"><i class="ti ti-x"></i> Eliminar este ciclo</button>
@@ -3091,6 +3093,7 @@ function inicializarModuloIndicadores() {
   if (!puedeVerTodosLosCedis() && SESION.cedi) selCediIraSku.value = SESION.cedi;
   selCediIraSku.addEventListener('change', () => { cargarIraSkuCedi(); cargarIraSkuProveedores(); });
   document.getElementById('btn-irasku-volver-proveedores').addEventListener('click', () => { document.getElementById('irasku-seccion-skus').classList.add('hidden'); });
+  document.getElementById('irasku-buscador-referencia').addEventListener('input', filtrarTablaReferenciaIraSku);
 
   const selCediMerma = document.getElementById('merma-filtro-cedi');
   CEDIS_MERMAS.forEach(c => selCediMerma.insertAdjacentHTML('beforeend', `<option value="${c}">${c}</option>`));
@@ -3565,20 +3568,39 @@ async function cargarIraSkuCedi() {
   document.getElementById('irasku-referencia-detalle').classList.add('hidden');
 }
 
+let IRASKU_REFERENCIA_CACHE = [];
+
 async function verDetalleReferenciaIraSku(mes, cedi) {
   const cont = document.getElementById('irasku-tabla-referencia');
+  const buscador = document.getElementById('irasku-buscador-referencia');
+  buscador.value = '';
   cont.innerHTML = '<div class="inv-empty">Cargando...</div>';
   document.getElementById('irasku-referencia-titulo').textContent = `Detalle por referencia -- ${cedi}, ${new Date(mes + 'T00:00:00').toLocaleDateString('es-CO', { month: 'long', year: 'numeric' })}`;
   document.getElementById('irasku-referencia-detalle').classList.remove('hidden');
   const { data, error } = await sb.rpc('indicador_ira_sku_detalle_referencia', { p_cedi: cedi, p_meses: 24 });
   if (error) { cont.innerHTML = `<div class="inv-empty">Error: ${tEsc(error.message)}</div>`; return; }
-  const filas = (data || []).filter(f => f.mes === mes);
-  if (!filas.length) { cont.innerHTML = '<div class="inv-empty">Sin registros para este mes.</div>'; return; }
-  cont.innerHTML = `<table class="inv-table"><thead><tr><th>Fecha</th><th>Referencia</th><th>Producto</th><th>Contado</th><th>Teórico</th><th>Diferencia</th><th>Correcto</th><th>Valor diferencia</th></tr></thead><tbody>${
+  IRASKU_REFERENCIA_CACHE = (data || []).filter(f => f.mes === mes);
+  cont.innerHTML = `<div class="inv-empty">Escribe un proveedor, producto o referencia para ver el detalle (${IRASKU_REFERENCIA_CACHE.length.toLocaleString('es-CO')} registro(s) disponibles este mes).</div>`;
+  document.getElementById('irasku-referencia-detalle').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  buscador.focus();
+}
+
+function filtrarTablaReferenciaIraSku() {
+  const cont = document.getElementById('irasku-tabla-referencia');
+  const termino = document.getElementById('irasku-buscador-referencia').value.trim().toLowerCase();
+  if (!termino) { cont.innerHTML = `<div class="inv-empty">Escribe un proveedor, producto o referencia para ver el detalle (${IRASKU_REFERENCIA_CACHE.length.toLocaleString('es-CO')} registro(s) disponibles este mes).</div>`; return; }
+  const filas = IRASKU_REFERENCIA_CACHE.filter(f =>
+    (f.proveedor || '').toLowerCase().includes(termino) ||
+    (f.descripcion || '').toLowerCase().includes(termino) ||
+    (f.referencia || '').toLowerCase().includes(termino)
+  );
+  if (!filas.length) { cont.innerHTML = '<div class="inv-empty">Sin coincidencias.</div>'; return; }
+  cont.innerHTML = `<table class="inv-table"><thead><tr><th>Fecha</th><th>Referencia</th><th>Producto</th><th>Proveedor</th><th>Contado</th><th>Teórico</th><th>Diferencia</th><th>Correcto</th><th>Valor diferencia</th></tr></thead><tbody>${
     filas.map(f => `<tr>
       <td>${new Date(f.fecha + 'T00:00:00').toLocaleDateString('es-CO')}</td>
       <td>${tEsc(f.referencia)}</td>
       <td class="inv-product">${tEsc(f.descripcion || '—')}</td>
+      <td style="font-size:11px;">${tEsc(f.proveedor || '—')}</td>
       <td>${f.inventario_contado}</td>
       <td>${f.inventario_teorico}</td>
       <td style="font-weight:700;color:${f.diferencia === 0 ? '#16a34a' : '#dc2626'};">${f.diferencia}</td>
@@ -3586,7 +3608,6 @@ async function verDetalleReferenciaIraSku(mes, cedi) {
       <td>${f.valor_diferencia != null ? formatoCOP(f.valor_diferencia) : '—'}</td>
     </tr>`).join('')
   }</tbody></table>`;
-  document.getElementById('irasku-referencia-detalle').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 }
 
 function cargarPanelIraSkuCompleto() {
@@ -8492,11 +8513,31 @@ function renderSvwTabla(contId, filas) {
       document.getElementById('ic-modal-backdrop').classList.add('hidden');
       if (error) { mostrarToast('Error al generar el cíclico: ' + error.message); return; }
       alert(`Listo -- ${items.length} referencia(s) agregadas al Ciclo #${cicloId} de ${cedi}, pendientes de contar en Inventarios Cíclicos.`);
+      crearOrdenConteoEnOdoo(cedi, items.map(i => i.referencia));
       SVW_SELECCIONADOS_CICLICO.clear();
       renderSvwTodo();
     });
   });
 }
+// Crea la Orden de Conteo correspondiente en Odoo (modelo
+// bexwms_counted.order), con los productos del ciclo que se acaba de
+// generar -- se llama justo después de crear el ciclo, sin importar
+// desde cuál de las 3 pantallas se haya hecho. Si falla, no revierte
+// nada de lo nuestro -- solo avisa, porque el ciclo en JDH ya quedó
+// creado de todas formas.
+async function crearOrdenConteoEnOdoo(cedi, referencias) {
+  try {
+    const { data, error } = await sb.functions.invoke('crear-orden-conteo-odoo', { body: { cedi, referencias } });
+    if (error) throw error;
+    if (data?.error) throw new Error(data.error);
+    let msg = `Orden de conteo creada en Odoo (#${data.orden_id}) con ${data.productos_incluidos} de ${data.productos_totales_pedidos} referencia(s).`;
+    if (data.codigos_no_encontrados?.length) msg += ` ${data.codigos_no_encontrados.length} código(s) no se encontraron en Odoo.`;
+    mostrarToast(msg);
+  } catch (err) {
+    mostrarToast('El ciclo se creó, pero no se pudo generar la orden en Odoo: ' + err.message);
+  }
+}
+
 function toggleSvwSeleccionCiclico(clave) {
   if (SVW_SELECCIONADOS_CICLICO.has(clave)) SVW_SELECCIONADOS_CICLICO.delete(clave);
   else SVW_SELECCIONADOS_CICLICO.add(clave);
@@ -8924,6 +8965,7 @@ async function generarCiclicoDesdeCronograma() {
     document.getElementById('ic-modal-backdrop').classList.add('hidden');
     if (error) { mostrarToast('Error al generar el cíclico: ' + error.message); return; }
     alert(`Listo -- ${items.length} referencia(s) agregadas al Ciclo #${cicloId} de ${cedi}.`);
+    crearOrdenConteoEnOdoo(cedi, items.map(i => i.referencia));
     CRONO_SELECCIONADOS.clear();
     renderTablaCronogramaIc();
   });
@@ -8987,6 +9029,73 @@ function filtrarCronogramaPorProveedor(proveedor) {
   document.getElementById('ic-tabla-cronograma').dataset.filtroProveedorPendiente = proveedor;
   renderTablaCronogramaIc();
   setTimeout(() => { const input = document.getElementById('crono-filtro-texto'); if (input) { input.value = proveedor; renderTablaCronogramaIc(); } }, 0);
+}
+
+// ---------- Agregar referencias manualmente ----------
+let IC_REFERENCIAS_SELECCIONADAS_MANUAL = new Map();
+document.getElementById('btn-ic-agregar-referencias').addEventListener('click', async () => {
+  const cedi = document.getElementById('ic-filtro-cedi').value || SESION.cedi;
+  if (!cedi) { mostrarToast('Elige un CEDI primero.'); return; }
+  const cicloId = await obtenerOCrearCicloIc(cedi);
+  if (!cicloId) return;
+  IC_REFERENCIAS_SELECCIONADAS_MANUAL = new Map();
+
+  document.getElementById('ic-modal-contenido').innerHTML = `
+    <h3 style="margin-top:0;">Agregar referencias -- ${tEsc(cedi)}, Ciclo #${cicloId}</h3>
+    <input type="text" id="ic-buscar-referencia-manual" placeholder="Busca por código o nombre del producto..." style="width:100%;padding:8px;border-radius:8px;border:1px solid #dbe2ea;margin-top:4px;">
+    <div id="ic-resultados-referencia-manual" style="max-height:280px;overflow-y:auto;margin-top:10px;border:1px solid #eef1f4;border-radius:8px;"></div>
+    <div id="ic-seleccion-referencia-manual" style="margin-top:10px;font-size:12px;color:var(--modern-muted);">0 referencia(s) seleccionada(s).</div>
+    <div style="display:flex;gap:8px;margin-top:16px;">
+      <button class="btn ghost" id="btn-ic-referencia-manual-cancelar" style="flex:1;">Cancelar</button>
+      <button class="btn" id="btn-ic-referencia-manual-confirmar" style="flex:1;" disabled>Agregar al ciclo</button>
+    </div>
+  `;
+  document.getElementById('ic-modal-backdrop').classList.remove('hidden');
+  document.getElementById('btn-ic-referencia-manual-cancelar').addEventListener('click', () => document.getElementById('ic-modal-backdrop').classList.add('hidden'));
+
+  let temporizadorBusqueda = null;
+  document.getElementById('ic-buscar-referencia-manual').addEventListener('input', (e) => {
+    clearTimeout(temporizadorBusqueda);
+    const termino = e.target.value.trim();
+    const cont = document.getElementById('ic-resultados-referencia-manual');
+    if (termino.length < 2) { cont.innerHTML = ''; return; }
+    cont.innerHTML = '<div style="padding:10px;font-size:12px;color:var(--modern-muted);">Buscando...</div>';
+    temporizadorBusqueda = setTimeout(async () => {
+      const { data, error } = await sb.from('maestra_articulos_siesa')
+        .select('referencia, descripcion, proveedor')
+        .or(`referencia.ilike.%${termino}%,descripcion.ilike.%${termino}%`)
+        .limit(30);
+      if (error) { cont.innerHTML = `<div style="padding:10px;color:#dc2626;font-size:12px;">Error: ${tEsc(error.message)}</div>`; return; }
+      if (!data || !data.length) { cont.innerHTML = '<div style="padding:10px;font-size:12px;color:var(--modern-muted);">Sin resultados.</div>'; return; }
+      cont.innerHTML = data.map(p => `
+        <label style="display:flex;align-items:center;gap:8px;padding:8px 10px;border-bottom:1px solid #f2f4f7;cursor:pointer;font-size:12px;">
+          <input type="checkbox" ${IC_REFERENCIAS_SELECCIONADAS_MANUAL.has(p.referencia) ? 'checked' : ''} onchange='toggleReferenciaManual(${JSON.stringify(p.referencia)}, ${JSON.stringify(p.descripcion)}, this.checked)'>
+          <span><strong>${tEsc(p.referencia)}</strong> -- ${tEsc(p.descripcion || '')} <span style="color:var(--modern-muted);">${p.proveedor ? '· ' + tEsc(p.proveedor) : ''}</span></span>
+        </label>
+      `).join('');
+    }, 350);
+  });
+
+  document.getElementById('btn-ic-referencia-manual-confirmar').addEventListener('click', async () => {
+    const items = Array.from(IC_REFERENCIAS_SELECCIONADAS_MANUAL, ([referencia, producto]) => ({ referencia, producto, cedi, origen: 'manual', ciclo_id: cicloId }));
+    if (!items.length) return;
+    const { error } = await sb.from('conteos_ciclicos').upsert(items, { onConflict: 'referencia,cedi,ciclo_id', ignoreDuplicates: true });
+    document.getElementById('ic-modal-backdrop').classList.add('hidden');
+    if (error) { mostrarToast('Error al agregar: ' + error.message); return; }
+    mostrarToast(`${items.length} referencia(s) agregadas al Ciclo #${cicloId}.`);
+    crearOrdenConteoEnOdoo(cedi, items.map(i => i.referencia));
+    document.getElementById('ic-filtro-cedi').value = cedi;
+    await poblarSelectorCiclosIc(cedi);
+    document.getElementById('ic-filtro-ciclo').value = cicloId;
+    consultarCiclicos();
+  });
+});
+
+function toggleReferenciaManual(referencia, producto, marcado) {
+  if (marcado) IC_REFERENCIAS_SELECCIONADAS_MANUAL.set(referencia, producto);
+  else IC_REFERENCIAS_SELECCIONADAS_MANUAL.delete(referencia);
+  document.getElementById('ic-seleccion-referencia-manual').textContent = `${IC_REFERENCIAS_SELECCIONADAS_MANUAL.size} referencia(s) seleccionada(s).`;
+  document.getElementById('btn-ic-referencia-manual-confirmar').disabled = IC_REFERENCIAS_SELECCIONADAS_MANUAL.size === 0;
 }
 
 // ---------- Importar conteo ----------
