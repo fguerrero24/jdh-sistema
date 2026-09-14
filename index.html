@@ -1290,10 +1290,12 @@ input:focus,select:focus,textarea:focus{outline:none!important;border-color:#176
 
             <div class="inv-section" style="margin-top:16px;"><div class="inv-section-head"><div class="inv-section-title">Picking vs. Packing -- variables que impactan el OTIF</div></div><div id="prod-otif-variables" style="padding:10px;"></div></div>
 
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:16px;">
-              <div class="inv-section" style="margin:0;"><div class="inv-section-head"><div class="inv-section-title">Comparativo por CEDI</div></div><div id="prod-tabla-cedi" style="padding:10px;"></div></div>
-              <div class="inv-section" style="margin:0;"><div class="inv-section-head"><div class="inv-section-title">Ranking de auditores</div></div><div id="prod-tabla-auditores" style="padding:10px;"></div></div>
+            <div class="inv-section" style="margin-top:16px;"><div class="inv-section-head"><div><div class="inv-section-title">Comparativo por CEDI</div><div class="inv-section-note">Ordenado del mejor al peor takt time.</div></div></div>
+              <div id="prod-chart-cedi" style="padding:10px;"></div>
+              <div id="prod-tabla-cedi" style="padding:10px;overflow-x:auto;"></div>
             </div>
+
+            <div class="inv-section" style="margin-top:16px;"><div class="inv-section-head"><div class="inv-section-title">Ranking de auditores</div></div><div id="prod-tabla-auditores" style="padding:10px;overflow-x:auto;"></div></div>
 
             <div class="inv-section hidden" id="prod-seccion-detalle" style="margin-top:16px;"><div class="inv-section-head"><div><div class="inv-section-title" id="prod-detalle-titulo">Rutas</div></div><button class="btn ghost" id="btn-prod-cerrar-detalle">Cerrar</button></div>
               <div class="inv-table-wrap" id="prod-tabla-detalle"></div>
@@ -4036,32 +4038,55 @@ async function cargarProdEvolucion() {
   }</tbody></table>`;
 }
 
+const DIAS_ES = { Monday: 'Lunes', Tuesday: 'Martes', Wednesday: 'Miércoles', Thursday: 'Jueves', Friday: 'Viernes', Saturday: 'Sábado', Sunday: 'Domingo' };
+const ORDEN_DIAS = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
+
 async function cargarProdOtifVariables() {
   const cont = document.getElementById('prod-otif-variables');
   const { data, error } = await sb.rpc('productividad_otif_variables', filtrosProd());
   if (error) { cont.innerHTML = `<div class="inv-empty">Error: ${tEsc(error.message)}</div>`; return; }
-  const filas = data || [];
+  const filas = (data || []).map(f => f.dimension === 'Día de la semana' ? { ...f, categoria: DIAS_ES[f.categoria] || f.categoria } : f);
   if (!filas.length) { cont.innerHTML = '<div class="inv-empty">Sin datos.</div>'; return; }
   const dimensiones = [...new Set(filas.map(f => f.dimension))];
-  cont.innerHTML = dimensiones.map(dim => `
+  cont.innerHTML = dimensiones.map(dim => {
+    const filasDim = filas.filter(f => f.dimension === dim);
+    if (dim === 'Día de la semana') filasDim.sort((a, b) => ORDEN_DIAS.indexOf(a.categoria) - ORDEN_DIAS.indexOf(b.categoria));
+    return `
     <div style="margin-bottom:16px;">
       <div style="font-weight:700;font-size:12px;margin-bottom:6px;">${tEsc(dim)}</div>
       <table class="inv-table" style="text-align:center;"><thead><tr><th style="text-align:left;">Categoría</th><th>Rutas</th><th>OTIF Picking</th><th>OTIF Packing</th></tr></thead><tbody>${
-        filas.filter(f => f.dimension === dim).map(f => `<tr><td style="text-align:left;">${tEsc(f.categoria)}</td><td>${f.rutas}</td><td>${celdaOtif(f.otif_picking_pct)}</td><td>${celdaOtif(f.otif_packing_pct)}</td></tr>`).join('')
+        filasDim.map(f => `<tr><td style="text-align:left;">${tEsc(f.categoria)}</td><td>${f.rutas}</td><td>${celdaOtif(f.otif_picking_pct)}</td><td>${celdaOtif(f.otif_packing_pct)}</td></tr>`).join('')
       }</tbody></table>
-    </div>
-  `).join('');
+    </div>`;
+  }).join('');
 }
 
+let PROD_CHART_CEDI = null;
 async function cargarProdPorCedi() {
   const cont = document.getElementById('prod-tabla-cedi');
+  const contChart = document.getElementById('prod-chart-cedi');
   const f = filtrosProd();
   const { data, error } = await sb.rpc('productividad_por_cedi', { p_desde: f.p_desde, p_hasta: f.p_hasta });
   if (error) { cont.innerHTML = `<div class="inv-empty">Error: ${tEsc(error.message)}</div>`; return; }
-  const filas = data || [];
-  if (!filas.length) { cont.innerHTML = '<div class="inv-empty">Sin datos.</div>'; return; }
-  cont.innerHTML = `<table class="inv-table" style="text-align:center;"><thead><tr><th style="text-align:left;">CEDI</th><th>Rutas</th><th>Takt</th><th>Fill rate</th><th>OTIF Pick.</th><th>OTIF Pack.</th></tr></thead><tbody>${
-    filas.map(f => `<tr><td style="text-align:left;font-weight:700;">${tEsc(f.cedi)}</td><td>${f.rutas_atendidas}</td><td>${f.takt_time_promedio ?? '—'}</td><td>${f.fill_rate_promedio != null ? f.fill_rate_promedio + '%' : '—'}</td><td>${celdaOtif(f.otif_picking_pct)}</td><td>${celdaOtif(f.otif_packing_pct)}</td></tr>`).join('')
+  const filas = (data || []).filter(f => f.takt_time_promedio != null).sort((a, b) => a.takt_time_promedio - b.takt_time_promedio);
+  if (!filas.length) { cont.innerHTML = '<div class="inv-empty">Sin datos.</div>'; contChart.innerHTML = ''; return; }
+
+  contChart.innerHTML = '';
+  if (PROD_CHART_CEDI) PROD_CHART_CEDI.destroy();
+  PROD_CHART_CEDI = new ApexCharts(contChart, {
+    chart: { type: 'bar', height: 220, toolbar: { show: false }, fontFamily: 'inherit' },
+    series: [{ name: 'Takt time (s/línea)', data: filas.map(f => f.takt_time_promedio) }],
+    xaxis: { categories: filas.map(f => f.cedi) },
+    plotOptions: { bar: { borderRadius: 6, columnWidth: '55%', distributed: true } },
+    colors: filas.map((_, i) => i === 0 ? '#16a34a' : i === filas.length - 1 ? '#dc2626' : '#2563eb'),
+    legend: { show: false },
+    dataLabels: { enabled: true, formatter: v => v + 's' },
+    tooltip: { y: { formatter: v => v + ' seg/línea' } },
+  });
+  PROD_CHART_CEDI.render();
+
+  cont.innerHTML = `<table class="inv-table" style="text-align:center;"><thead><tr><th style="text-align:left;">CEDI</th><th>Rutas</th><th>Takt</th><th>Fill rate</th><th>OTIF Pick.</th><th>OTIF Pack.</th><th>Prom. líneas</th><th>Prom. kilos</th><th>Prom. pedidos</th><th>Prom. visitas</th><th>Operarios</th></tr></thead><tbody>${
+    filas.map(f => `<tr><td style="text-align:left;font-weight:700;">${tEsc(f.cedi)}</td><td>${f.rutas_atendidas}</td><td>${f.takt_time_promedio ?? '—'}</td><td>${f.fill_rate_promedio != null ? f.fill_rate_promedio + '%' : '—'}</td><td>${celdaOtif(f.otif_picking_pct)}</td><td>${celdaOtif(f.otif_packing_pct)}</td><td>${f.promedio_lineas ?? '—'}</td><td>${f.promedio_kilos ?? '—'}</td><td>${f.promedio_pedidos ?? '—'}</td><td>${f.promedio_visitas ?? '—'}</td><td>${f.numero_operarios ?? '—'}</td></tr>`).join('')
   }</tbody></table>`;
 }
 
@@ -4071,8 +4096,8 @@ async function cargarProdAuditores() {
   if (error) { cont.innerHTML = `<div class="inv-empty">Error: ${tEsc(error.message)}</div>`; return; }
   const filas = data || [];
   if (!filas.length) { cont.innerHTML = '<div class="inv-empty">Sin datos.</div>'; return; }
-  cont.innerHTML = `<p style="font-size:10.5px;color:var(--text-secondary);margin:0 0 6px;">Clic en un auditor para ver el detalle de sus rutas.</p><table class="inv-table" style="text-align:center;"><thead><tr><th style="text-align:left;">Auditor</th><th>Rutas</th><th>Takt</th><th>Fill</th><th>OTIF Pick.</th><th>OTIF Pack.</th></tr></thead><tbody>${
-    filas.map(f => `<tr style="cursor:pointer;" onclick='verRutasAuditorProd(${JSON.stringify(f.auditor)})'><td style="text-align:left;font-weight:700;">${tEsc(f.auditor)}</td><td>${f.rutas_atendidas}</td><td>${f.takt_time_promedio ?? '—'}</td><td>${f.fill_rate_promedio != null ? f.fill_rate_promedio + '%' : '—'}</td><td>${celdaOtif(f.otif_picking_pct)}</td><td>${celdaOtif(f.otif_packing_pct)}</td></tr>`).join('')
+  cont.innerHTML = `<p style="font-size:10.5px;color:var(--text-secondary);margin:0 0 6px;">Ordenado del mejor al peor takt time. Clic en un auditor para ver el detalle de sus rutas.</p><table class="inv-table" style="text-align:center;"><thead><tr><th style="text-align:left;">Auditor</th><th>CEDI</th><th>Rutas</th><th>Takt</th><th>Fill</th><th>OTIF Pick.</th><th>OTIF Pack.</th></tr></thead><tbody>${
+    filas.map(f => `<tr style="cursor:pointer;" onclick='verRutasAuditorProd(${JSON.stringify(f.auditor)})'><td style="text-align:left;font-weight:700;">${tEsc(f.auditor)}</td><td>${tEsc(f.cedi)}</td><td>${f.rutas_atendidas}</td><td>${f.takt_time_promedio ?? '—'}</td><td>${f.fill_rate_promedio != null ? f.fill_rate_promedio + '%' : '—'}</td><td>${celdaOtif(f.otif_picking_pct)}</td><td>${celdaOtif(f.otif_packing_pct)}</td></tr>`).join('')
   }</tbody></table>`;
 }
 
