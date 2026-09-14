@@ -1098,6 +1098,7 @@ input:focus,select:focus,textarea:focus{outline:none!important;border-color:#176
             <button class="btn ghost admin-tab" id="tab-ind-mermas" style="display:flex;align-items:center;justify-content:center;text-align:center;">🗑️ Mermas</button>
             <button class="btn ghost admin-tab" id="tab-ind-analisis-mov" style="display:flex;align-items:center;justify-content:center;text-align:center;">📤 Salidas y Ajustes</button>
             <button class="btn ghost admin-tab" id="tab-ind-eru" style="display:flex;align-items:center;justify-content:center;text-align:center;">🎯 %ERU</button>
+            <button class="btn ghost admin-tab" id="tab-ind-bdnc" style="display:flex;align-items:center;justify-content:center;text-align:center;">🗄️ BD No Conformes</button>
           </div>
 
           <div id="panel-ind-personales">
@@ -1200,7 +1201,7 @@ input:focus,select:focus,textarea:focus{outline:none!important;border-color:#176
           <div id="panel-ind-eru" class="hidden">
             <div class="inv-hero" style="background:linear-gradient(135deg,#581c87,#7e22ce);">
               <div class="inv-hero-top">
-                <div><div class="inv-eyebrow" style="color:#e9d5ff;">JDH · Control de Inventarios</div><div class="inv-title" style="color:#fff;">%ERU — Exactitud de Registro de Ubicaciones</div><div class="inv-subtitle" style="color:#f3e8ff;">(Registros con conteo correcto) ÷ (Ubicaciones auditadas) × 100 -- se trae del módulo de conteo de Odoo. Meta: ≥ 98%</div></div>
+                <div><div class="inv-eyebrow" style="color:#e9d5ff;">JDH · Control de Inventarios</div><div class="inv-title" style="color:#fff;">%ERU — Exactitud de Registro de Ubicaciones</div><div class="inv-subtitle" style="color:#f3e8ff;">(Registros de ubicación correctos) ÷ (Registros de ubicación auditados) × 100 -- se trae del módulo de conteo de Odoo. Meta: ≥ 98%</div></div>
                 <div class="inv-sync"><button class="btn" id="btn-sync-eru"><i class="ti ti-refresh"></i> Sincronizar desde Odoo</button></div>
               </div>
             </div>
@@ -1231,6 +1232,34 @@ input:focus,select:focus,textarea:focus{outline:none!important;border-color:#176
               </div>
               <div id="eru-cedi-hero" style="display:flex;gap:18px;flex-wrap:wrap;margin:0 10px 18px;"></div>
               <div id="eru-cedi-chart" style="padding:10px;"></div>
+            </div>
+          </div>
+
+          <div id="panel-ind-bdnc" class="hidden">
+            <div class="inv-hero" style="background:linear-gradient(135deg,#78350f,#92400e);">
+              <div class="inv-hero-top">
+                <div><div class="inv-eyebrow" style="color:#fde68a;">JDH · Control de Inventarios</div><div class="inv-title" style="color:#fff;">BD No Conformes</div><div class="inv-subtitle" style="color:#fef3c7;">Devoluciones a proveedor, mercados, averías, cambios de factura y demás bodegas especiales -- cortes mensuales.</div></div>
+              </div>
+            </div>
+
+            <div style="display:flex;gap:8px;align-items:end;margin-top:10px;">
+              <div class="inv-filter" style="max-width:220px;"><label>Mes de corte</label><select id="bdnc-filtro-mes"></select></div>
+              <div class="inv-filter" style="max-width:220px;"><label>CEDI</label><select id="bdnc-filtro-cedi"><option value="">Todos</option></select></div>
+              <button class="btn ghost" id="btn-bdnc-aplicar">Aplicar</button>
+            </div>
+            <div id="bdnc-global-hero" style="display:flex;gap:12px;flex-wrap:wrap;margin:12px 0;"></div>
+
+            <div class="inv-section"><div class="inv-section-head"><div><div class="inv-section-title">Evolución mensual por tipo de bodega</div><div class="inv-section-note">Cada línea es un tipo (Mercados, Devoluciones Proveedor, Averías, etc.)</div></div></div><div id="bdnc-evolucion-chart" style="padding:10px;"></div></div>
+
+            <div class="inv-section" style="margin-top:16px;"><div class="inv-section-head"><div><div class="inv-section-title">Antigüedad del inventario (mes de corte elegido)</div><div class="inv-section-note">Calculado desde la fecha de última entrada hasta el fin de ese mes</div></div></div><div id="bdnc-antiguedad-chart" style="padding:10px;"></div></div>
+
+            <div class="inv-section" style="margin-top:16px;"><div class="inv-section-head"><div><div class="inv-section-title">Proveedores más representativos (Pareto)</div><div class="inv-section-note">Clic en un proveedor para ver sus ítems.</div></div></div>
+              <div id="bdnc-proveedor-chart" style="padding:10px;"></div>
+              <div class="inv-table-wrap" id="bdnc-proveedor-tabla"></div>
+            </div>
+
+            <div class="inv-section hidden" id="bdnc-seccion-items" style="margin-top:16px;"><div class="inv-section-head"><div><div class="inv-section-title" id="bdnc-items-titulo">Ítems</div></div><button class="btn ghost" id="btn-bdnc-volver-proveedores">← Volver a proveedores</button></div>
+              <div class="inv-table-wrap" id="bdnc-tabla-items"></div>
             </div>
           </div>
 
@@ -1476,9 +1505,11 @@ input:focus,select:focus,textarea:focus{outline:none!important;border-color:#176
                 <option value="mermas_sai_aji">Salidas y Ajustes (SAI/AJI) -- Mermas</option>
                 <option value="mermas_donaciones">Donaciones -- Mermas</option>
                 <option value="mermas_ventas">Ventas mensuales (consolidado) -- Mermas</option>
+                <option value="bd_no_conformes">BD No Conformes (mensual)</option>
               </select>
             </div>
             <div class="indicator-field"><label>Archivo (.xlsx o .csv)</label><input type="file" id="imp-archivo" accept=".xlsx,.xls,.csv"></div>
+            <div class="indicator-field hidden" id="imp-bdnc-mes-wrap"><label>Mes al que pertenece este corte</label><input type="month" id="imp-bdnc-mes"></div>
             <button class="btn" id="btn-imp-procesar">Procesar archivo</button>
           </div>
           <div id="imp-status" style="font-size:12px;color:var(--text-secondary);margin:8px 0;"></div>
@@ -2913,6 +2944,13 @@ function inicializarModuloIndicadores() {
   if (!puedeVerTodosLosCedis() && SESION.cedi) selCediEru.value = SESION.cedi;
   selCediEru.addEventListener('change', cargarEruCedi);
 
+  document.getElementById('tab-ind-bdnc').addEventListener('click', () => { cambiarTabIndicadores('bdnc'); cargarPanelBdncCompleto(); });
+  document.getElementById('btn-bdnc-aplicar').addEventListener('click', cargarPanelBdncCompleto);
+  document.getElementById('btn-bdnc-volver-proveedores').addEventListener('click', () => { document.getElementById('bdnc-seccion-items').classList.add('hidden'); });
+  const selCediBdnc = document.getElementById('bdnc-filtro-cedi');
+  CEDIS_MERMAS.forEach(c => selCediBdnc.insertAdjacentHTML('beforeend', `<option value="${c}">${c}</option>`));
+  if (!puedeVerTodosLosCedis() && SESION.cedi) selCediBdnc.value = SESION.cedi;
+
   const selCedi = document.getElementById('ra-filtro-cedi');
   CEDIS_VALIDOS.forEach(c => selCedi.insertAdjacentHTML('beforeend', `<option value="${c}">${c}</option>`));
   if (!puedeVerTodosLosCedis() && SESION.cedi) selCedi.value = SESION.cedi;
@@ -2947,11 +2985,13 @@ function cambiarTabIndicadores(cual) {
   document.getElementById('panel-ind-mermas').classList.toggle('hidden', cual !== 'mermas');
   document.getElementById('panel-ind-analisis-mov').classList.toggle('hidden', cual !== 'analisis-mov');
   document.getElementById('panel-ind-eru').classList.toggle('hidden', cual !== 'eru');
+  document.getElementById('panel-ind-bdnc').classList.toggle('hidden', cual !== 'bdnc');
   document.getElementById('tab-ind-personales').classList.toggle('active', cual === 'personales');
   document.getElementById('tab-ind-inventarios').classList.toggle('active', cual === 'inventarios');
   document.getElementById('tab-ind-mermas').classList.toggle('active', cual === 'mermas');
   document.getElementById('tab-ind-analisis-mov').classList.toggle('active', cual === 'analisis-mov');
   document.getElementById('tab-ind-eru').classList.toggle('active', cual === 'eru');
+  document.getElementById('tab-ind-bdnc').classList.toggle('active', cual === 'bdnc');
 }
 
 let RA_YA_CARGADO = false;
@@ -3479,9 +3519,9 @@ function tarjetaHeroEru(mesTexto, eru, correctos, auditados) {
       <div style="font-size:11px;color:var(--modern-muted);margin-top:4px;">Meta ≥ 98% ${eru != null ? (cumple ? '· <span style="color:#16a34a;font-weight:700;">✓ cumple</span>' : '· <span style="color:#dc2626;font-weight:700;">✗ no cumple</span>') : ''}</div>
     </div>
     <div style="flex:1;min-width:180px;background:var(--surface-1);border-radius:14px;padding:14px;">
-      <div style="font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--modern-muted);font-weight:700;">Ubicaciones correctas</div>
+      <div style="font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--modern-muted);font-weight:700;">Registros de ubicación correctos</div>
       <div style="font-size:18px;font-weight:700;margin-top:4px;color:#16a34a;">${correctos.toLocaleString('es-CO')}</div>
-      <div style="font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--modern-muted);font-weight:700;margin-top:8px;">Ubicaciones auditadas</div>
+      <div style="font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--modern-muted);font-weight:700;margin-top:8px;">Registros de ubicación auditados</div>
       <div style="font-size:18px;font-weight:700;margin-top:4px;">${auditados.toLocaleString('es-CO')}</div>
     </div>`;
 }
@@ -3601,6 +3641,167 @@ function cargarPanelEruCompleto() {
   cargarEruMatriz();
   const selCedi = document.getElementById('eru-filtro-cedi');
   if (selCedi.value) cargarEruCedi();
+}
+
+// ============================================================
+// MÓDULO BD NO CONFORMES
+// ============================================================
+let BDNC_MESES_POBLADOS = false;
+let BDNC_PROVEEDORES_CACHE = [];
+let BDNC_EVOLUCION_CHART = null;
+let BDNC_ANTIGUEDAD_CHART = null;
+let BDNC_PROVEEDOR_CHART = null;
+
+async function cargarBdncMesesDisponibles() {
+  const { data, error } = await sb.from('bd_no_conformes').select('mes_corte').order('mes_corte', { ascending: false });
+  const sel = document.getElementById('bdnc-filtro-mes');
+  if (error || !data) return;
+  const meses = [...new Set(data.map(f => f.mes_corte))];
+  const valorPrevio = sel.value;
+  sel.innerHTML = '<option value="">(más reciente)</option>' + meses.map(m =>
+    `<option value="${m}">${new Date(m + 'T00:00:00').toLocaleDateString('es-CO', { month: 'long', year: 'numeric' })}</option>`
+  ).join('');
+  if (valorPrevio && meses.includes(valorPrevio)) sel.value = valorPrevio;
+  BDNC_MESES_POBLADOS = true;
+}
+
+function tarjetaHeroBdnc(mesTexto, existencia, valor, referencias) {
+  return `
+    <div style="flex:1;min-width:200px;background:linear-gradient(135deg,#92400e12,#92400e03);border:1px solid #92400e33;border-radius:14px;padding:14px;">
+      <div style="font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--modern-muted);font-weight:700;">BD No Conformes -- ${tEsc(mesTexto)}</div>
+      <div style="font-size:28px;font-weight:800;color:#92400e;line-height:1.1;margin-top:4px;">${formatoCOP(valor)}</div>
+      <div style="font-size:11px;color:var(--modern-muted);margin-top:4px;">${referencias.toLocaleString('es-CO')} referencia(s)</div>
+    </div>
+    <div style="flex:1;min-width:180px;background:var(--surface-1);border-radius:14px;padding:14px;">
+      <div style="font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--modern-muted);font-weight:700;">Existencia total (unidades)</div>
+      <div style="font-size:18px;font-weight:700;margin-top:4px;">${existencia.toLocaleString('es-CO')}</div>
+    </div>`;
+}
+
+async function cargarBdncGlobal() {
+  const mesSel = document.getElementById('bdnc-filtro-mes').value || null;
+  const cedi = document.getElementById('bdnc-filtro-cedi').value || null;
+  const { data, error } = await sb.rpc('bdnc_resumen_mes', { p_mes: mesSel, p_cedi: cedi });
+  const hero = document.getElementById('bdnc-global-hero');
+  if (error) { hero.innerHTML = `<div class="inv-empty">Error: ${tEsc(error.message)}</div>`; return; }
+  const fila = (data || [])[0];
+  if (!fila) { hero.innerHTML = '<div class="inv-empty">Todavía no hay ningún corte cargado -- importa un archivo primero.</div>'; return; }
+  const mesTexto = new Date(fila.mes_corte + 'T00:00:00').toLocaleDateString('es-CO', { month: 'long', year: 'numeric' });
+  hero.innerHTML = tarjetaHeroBdnc(mesTexto, Number(fila.existencia_total || 0), Number(fila.valor_total || 0), Number(fila.referencias || 0));
+}
+
+async function cargarBdncEvolucion() {
+  const cedi = document.getElementById('bdnc-filtro-cedi').value || null;
+  const { data, error } = await sb.rpc('bdnc_evolucion_por_tipo', { p_cedi: cedi, p_meses: 12 });
+  const cont = document.getElementById('bdnc-evolucion-chart');
+  if (error) { cont.innerHTML = `<div class="inv-empty">Error: ${tEsc(error.message)}</div>`; return; }
+  const filas = data || [];
+  if (!filas.length) { cont.innerHTML = '<div class="inv-empty">Todavía no hay histórico suficiente.</div>'; return; }
+
+  const meses = [...new Set(filas.map(f => f.mes))].sort();
+  const tipos = [...new Set(filas.map(f => f.desc_bodega))];
+  const buscar = (tipo, mes) => filas.find(f => f.desc_bodega === tipo && f.mes === mes);
+  const colores = ['#92400e', '#2563eb', '#16a34a', '#dc2626', '#7c3aed', '#d97706', '#0891b2', '#be185d', '#4d7c0f', '#0f766e'];
+
+  cont.innerHTML = '';
+  if (BDNC_EVOLUCION_CHART) BDNC_EVOLUCION_CHART.destroy();
+  BDNC_EVOLUCION_CHART = new ApexCharts(cont, {
+    chart: { type: 'line', height: 340, toolbar: { show: false }, fontFamily: 'inherit' },
+    series: tipos.map(tipo => ({ name: tipo, data: meses.map(m => Number(buscar(tipo, m)?.valor || 0)) })),
+    xaxis: { categories: meses.map(m => new Date(m + 'T00:00:00').toLocaleDateString('es-CO', { month: 'short', year: '2-digit' })) },
+    colors: tipos.map((_, i) => colores[i % colores.length]),
+    stroke: { curve: 'smooth', width: 2 },
+    markers: { size: 4 },
+    legend: { position: 'top', fontSize: '11px' },
+    tooltip: { y: { formatter: v => formatoCOP(v) } },
+  });
+  BDNC_EVOLUCION_CHART.render();
+}
+
+async function cargarBdncAntiguedad() {
+  const mesSel = document.getElementById('bdnc-filtro-mes').value || null;
+  const cedi = document.getElementById('bdnc-filtro-cedi').value || null;
+  const { data, error } = await sb.rpc('bdnc_analisis_antiguedad', { p_mes: mesSel, p_cedi: cedi });
+  const cont = document.getElementById('bdnc-antiguedad-chart');
+  if (error) { cont.innerHTML = `<div class="inv-empty">Error: ${tEsc(error.message)}</div>`; return; }
+  const filas = data || [];
+  if (!filas.length) { cont.innerHTML = '<div class="inv-empty">Sin datos de fecha de última entrada para este corte.</div>'; return; }
+
+  cont.innerHTML = '';
+  if (BDNC_ANTIGUEDAD_CHART) BDNC_ANTIGUEDAD_CHART.destroy();
+  BDNC_ANTIGUEDAD_CHART = new ApexCharts(cont, {
+    chart: { type: 'bar', height: 300, toolbar: { show: false }, fontFamily: 'inherit' },
+    series: [{ name: 'Valor', data: filas.map(f => Number(f.valor || 0)) }],
+    xaxis: { categories: filas.map(f => f.rango.replace(/^\d\)\s*/, '')) },
+    plotOptions: { bar: { borderRadius: 6, columnWidth: '55%', distributed: true } },
+    colors: ['#16a34a', '#d97706', '#ea580c', '#dc2626'],
+    legend: { show: false },
+    dataLabels: { enabled: true, formatter: v => formatoCOP(v) },
+    tooltip: { y: { formatter: (v, { dataPointIndex }) => `${formatoCOP(v)} -- ${filas[dataPointIndex].referencias} referencia(s)` } },
+  });
+  BDNC_ANTIGUEDAD_CHART.render();
+}
+
+async function cargarBdncProveedores() {
+  const mesSel = document.getElementById('bdnc-filtro-mes').value || null;
+  const cedi = document.getElementById('bdnc-filtro-cedi').value || null;
+  const { data, error } = await sb.rpc('bdnc_pareto_proveedores', { p_mes: mesSel, p_cedi: cedi });
+  const contTabla = document.getElementById('bdnc-proveedor-tabla');
+  const contChart = document.getElementById('bdnc-proveedor-chart');
+  if (error) { contTabla.innerHTML = `<div class="inv-empty">Error: ${tEsc(error.message)}</div>`; return; }
+  BDNC_PROVEEDORES_CACHE = (data || []).filter(f => f.valor > 0);
+  document.getElementById('bdnc-seccion-items').classList.add('hidden');
+  if (!BDNC_PROVEEDORES_CACHE.length) { contTabla.innerHTML = '<div class="inv-empty">Sin datos para este corte.</div>'; contChart.innerHTML = ''; return; }
+
+  const top10 = BDNC_PROVEEDORES_CACHE.slice(0, 10);
+  contChart.innerHTML = '';
+  if (BDNC_PROVEEDOR_CHART) BDNC_PROVEEDOR_CHART.destroy();
+  BDNC_PROVEEDOR_CHART = new ApexCharts(contChart, {
+    chart: { type: 'bar', height: 300, toolbar: { show: false }, fontFamily: 'inherit' },
+    series: [{ name: 'Valor', data: top10.map(f => f.valor) }],
+    xaxis: { categories: top10.map(f => f.proveedor.length > 22 ? f.proveedor.slice(0, 22) + '…' : f.proveedor) },
+    plotOptions: { bar: { borderRadius: 4, horizontal: true } },
+    colors: ['#92400e'],
+    dataLabels: { enabled: true, formatter: v => formatoCOP(v) },
+  });
+  BDNC_PROVEEDOR_CHART.render();
+
+  contTabla.innerHTML = `<table class="inv-table"><thead><tr><th>Proveedor</th><th>Existencia</th><th>Valor</th><th>% Acumulado (Pareto)</th></tr></thead><tbody>${
+    BDNC_PROVEEDORES_CACHE.slice(0, 30).map(f => `<tr style="cursor:pointer;" onclick='verItemsProveedorBdnc(${JSON.stringify(f.proveedor)})'>
+      <td>${tEsc(f.proveedor)}</td>
+      <td>${Number(f.existencia).toLocaleString('es-CO')}</td>
+      <td style="font-weight:700;">${formatoCOP(f.valor)}</td>
+      <td>${f.pct_acumulado_pareto != null ? f.pct_acumulado_pareto + '%' : '—'}</td>
+    </tr>`).join('')
+  }</tbody></table>`;
+}
+
+async function verItemsProveedorBdnc(proveedor) {
+  const mesSel = document.getElementById('bdnc-filtro-mes').value || null;
+  const cedi = document.getElementById('bdnc-filtro-cedi').value || null;
+  const { data, error } = await sb.rpc('bdnc_items_proveedor', { p_proveedor: proveedor, p_mes: mesSel, p_cedi: cedi });
+  if (error) { mostrarToast('Error: ' + error.message); return; }
+  document.getElementById('bdnc-items-titulo').textContent = `Ítems -- ${proveedor}`;
+  document.getElementById('bdnc-seccion-items').classList.remove('hidden');
+  document.getElementById('bdnc-tabla-items').innerHTML = `<table class="inv-table"><thead><tr><th>Código</th><th>Producto</th><th>Bodega</th><th>Existencia</th><th>Valor</th><th>Última entrada</th><th>Días en bodega</th></tr></thead><tbody>${
+    (data || []).map(f => `<tr>
+      <td>${tEsc(f.referencia)}</td>
+      <td class="inv-product">${tEsc(f.descripcion || '—')}</td>
+      <td style="font-size:11px;">${tEsc(f.desc_bodega)}</td>
+      <td>${f.existencia != null ? Number(f.existencia).toLocaleString('es-CO') : '—'}</td>
+      <td style="font-weight:700;">${f.costo_total != null ? formatoCOP(f.costo_total) : '—'}</td>
+      <td>${f.fecha_ultima_entrada ? new Date(f.fecha_ultima_entrada + 'T00:00:00').toLocaleDateString('es-CO') : '—'}</td>
+      <td style="font-weight:700;color:${f.dias_en_bodega > 90 ? '#dc2626' : f.dias_en_bodega > 60 ? '#d97706' : '#16a34a'}">${f.dias_en_bodega ?? '—'}</td>
+    </tr>`).join('')
+  }</tbody></table>`;
+  document.getElementById('bdnc-seccion-items').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+function cargarPanelBdncCompleto() {
+  if (!BDNC_MESES_POBLADOS) cargarBdncMesesDisponibles().then(() => {
+    cargarBdncGlobal(); cargarBdncEvolucion(); cargarBdncAntiguedad(); cargarBdncProveedores();
+  });
+  else { cargarBdncGlobal(); cargarBdncEvolucion(); cargarBdncAntiguedad(); cargarBdncProveedores(); }
 }
 
 function cargarPanelMermasCompleto() {
@@ -6948,6 +7149,63 @@ document.getElementById('btn-imp-procesar').addEventListener('click', async () =
     return;
   }
 
+  // ---------- Caso especial: BD No Conformes (corte mensual) ----------
+  if (tipoId === 'bd_no_conformes') {
+    const mesInput = document.getElementById('imp-bdnc-mes').value; // "YYYY-MM"
+    if (!mesInput) { estado.textContent = 'Elige a qué mes pertenece este corte antes de procesar.'; return; }
+    const mesCorte = mesInput + '-01';
+
+    estado.textContent = 'Leyendo archivo...';
+    const filasArchivo = await leerCsvComoTexto(archivo);
+    if (!filasArchivo.length) { estado.textContent = 'El archivo está vacío o no se pudo leer.'; return; }
+
+    const filasProcesadas = [];
+    let sinDatos = 0, cosDesconocidos = new Set();
+    filasArchivo.forEach(fila => {
+      const referencia = String(valorPorColumna(fila, ['Referencia']) ?? '').trim();
+      if (!referencia || referencia.toLowerCase().includes('gran total')) return; // fila de totales
+      const codigoCo = normalizarCodigoCo(valorPorColumna(fila, ['C.O. bodega']));
+      const cedi = MAPA_CO_MERMAS[codigoCo] || null;
+      const existencia = parsearMonedaFlexible(valorPorColumna(fila, ['Existencia']));
+      const costoTotal = parsearMonedaFlexible(valorPorColumna(fila, ['Costo prom. total']));
+      const fechaEntrada = parsearFechaDDMMYYYY(valorPorColumna(fila, ['Fecha última entrada corte']));
+      if (!cedi) {
+        sinDatos++;
+        if (codigoCo) cosDesconocidos.add(codigoCo);
+        return;
+      }
+      filasProcesadas.push({
+        mes_corte: mesCorte, cedi, co_bodega: codigoCo,
+        bodega: String(valorPorColumna(fila, ['Bodega']) ?? '').trim() || null,
+        desc_bodega: String(valorPorColumna(fila, ['Desc. bodega']) ?? '').trim() || 'Sin clasificar',
+        referencia,
+        descripcion: String(valorPorColumna(fila, ['Desc. item']) ?? '').trim() || null,
+        proveedor: String(valorPorColumna(fila, ['PROVEEDOR']) ?? '').trim() || null,
+        existencia: Number.isNaN(existencia) ? null : existencia,
+        costo_total: Number.isNaN(costoTotal) ? null : costoTotal,
+        fecha_ultima_entrada: fechaEntrada,
+      });
+    });
+
+    IMPORTACION_FILAS_PROCESADAS = filasProcesadas;
+
+    // Avisa si ya existe un corte cargado para ese mes (se reemplazaría al confirmar).
+    const { data: yaExiste } = await sb.rpc('bdnc_existe_corte', { p_mes: mesCorte });
+
+    estado.textContent = `${filasProcesadas.length.toLocaleString('es-CO')} registro(s) listos para importar -- corte de ${mesInput}.` +
+      (sinDatos ? ` ${sinDatos} fila(s) se ignoraron (sin CEDI identificado).` : '') +
+      (cosDesconocidos.size ? ` ⚠️ C.O. desconocidos: ${[...cosDesconocidos].join(', ')}.` : '') +
+      (yaExiste ? ' ⚠️ Ya existe un corte cargado para ese mes -- al confirmar, se REEMPLAZA por este.' : '');
+
+    document.getElementById('imp-preview').innerHTML = `
+      <p style="font-size:12px;color:var(--text-secondary);">Vista previa (primeras 10 filas).</p>
+      <table class="hist-table open"><tr><th>CEDI</th><th>Bodega</th><th>Referencia</th><th>Existencia</th><th>Valor</th><th>Última entrada</th></tr>${
+        filasProcesadas.slice(0, 10).map(r => `<tr><td>${tEsc(r.cedi)}</td><td>${tEsc(r.desc_bodega)}</td><td>${tEsc(r.referencia)}</td><td>${r.existencia ?? '—'}</td><td>${r.costo_total != null ? formatoCOP(r.costo_total) : '—'}</td><td>${tEsc(r.fecha_ultima_entrada || '—')}</td></tr>`).join('')
+      }</table>`;
+    document.getElementById('btn-imp-confirmar').classList.toggle('hidden', filasProcesadas.length === 0);
+    return;
+  }
+
 
   estado.textContent = 'Leyendo archivo...';
   const buffer = await archivo.arrayBuffer();
@@ -7172,6 +7430,32 @@ document.getElementById('btn-imp-confirmar').addEventListener('click', async () 
     }
     boton.disabled = false;
     estado.textContent = `Listo -- ${importados} registro(s) de ventas importados (el inventario que ya tuvieras cargado no se tocó).`;
+    mostrarToast('Importación completada.');
+    document.getElementById('btn-imp-confirmar').classList.add('hidden');
+    return;
+  }
+
+  // ---------- BD No Conformes -- reemplaza SOLO el mes de corte que se está subiendo ----------
+  if (tipoId === 'bd_no_conformes') {
+    boton.disabled = true;
+    const mesCorte = IMPORTACION_FILAS_PROCESADAS[0]?.mes_corte;
+    if (mesCorte) {
+      estado.textContent = 'Borrando el corte anterior de ese mes (si existía)...';
+      const { error: errorBorrar } = await sb.from('bd_no_conformes').delete().eq('mes_corte', mesCorte);
+      if (errorBorrar) { estado.textContent = 'Error al borrar el corte anterior: ' + errorBorrar.message; boton.disabled = false; return; }
+    }
+    const TAM_LOTE = 200;
+    let importados = 0;
+    const total = IMPORTACION_FILAS_PROCESADAS.length;
+    for (let i = 0; i < total; i += TAM_LOTE) {
+      const lote = IMPORTACION_FILAS_PROCESADAS.slice(i, i + TAM_LOTE);
+      const { error } = await sb.from('bd_no_conformes').insert(lote);
+      if (error) { estado.textContent = `Error en el lote ${i}-${i + TAM_LOTE}: ${error.message}`; boton.disabled = false; return; }
+      importados += lote.length;
+      estado.textContent = `Importando... ${importados}/${total}`;
+    }
+    boton.disabled = false;
+    estado.textContent = `Listo -- ${importados} registro(s) importados para el corte de ${mesCorte}.`;
     mostrarToast('Importación completada.');
     document.getElementById('btn-imp-confirmar').classList.add('hidden');
     return;
@@ -9954,6 +10238,10 @@ async function enviarPreguntaIaFlotante() {
 
 document.getElementById('ia-flotante-enviar').addEventListener('click', enviarPreguntaIaFlotante);
 document.getElementById('ia-flotante-input').addEventListener('keydown', (e) => { if (e.key === 'Enter') enviarPreguntaIaFlotante(); });
+
+document.getElementById('imp-tipo').addEventListener('change', (e) => {
+  document.getElementById('imp-bdnc-mes-wrap').classList.toggle('hidden', e.target.value !== 'bd_no_conformes');
+});
 </script>
 
 <!-- Modal compartido de Inventarios Cíclicos -- vive fuera de cualquier
