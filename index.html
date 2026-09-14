@@ -2289,7 +2289,15 @@ function quitarComillas(valor) {
 }
 
 async function leerCsvComoTexto(archivo) {
-  const texto = await archivo.text();
+  // Algunos archivos vienen en Windows-1252/Latin-1 en vez de UTF-8 (común en
+  // exportes de sistemas en español, por las tildes) -- si la lectura UTF-8
+  // sale con caracteres de reemplazo (señal de que no era UTF-8 de verdad),
+  // se vuelve a leer como Windows-1252.
+  const buffer = await archivo.arrayBuffer();
+  let texto = new TextDecoder('utf-8').decode(buffer);
+  if (texto.includes('\ufffd')) {
+    texto = new TextDecoder('windows-1252').decode(buffer);
+  }
   const lineas = texto.split(/\r\n|\n|\r/).filter(l => l.trim() !== '');
   if (!lineas.length) return [];
   const delimitador = lineas[0].includes(';') ? ';' : ',';
