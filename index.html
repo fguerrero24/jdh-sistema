@@ -1249,9 +1249,13 @@ input:focus,select:focus,textarea:focus{outline:none!important;border-color:#176
             </div>
             <div id="bdnc-global-hero" style="display:flex;gap:12px;flex-wrap:wrap;margin:12px 0;"></div>
 
-            <div class="inv-section"><div class="inv-section-head"><div><div class="inv-section-title">Evolución mensual por tipo de bodega</div><div class="inv-section-note">Valor y variación % contra el mes anterior, últimos 12 meses.</div></div></div><div id="bdnc-evolucion-chart" style="padding:10px;overflow-x:auto;"></div></div>
+            <div class="inv-section"><div class="inv-section-head"><div><div class="inv-section-title">Valor por CEDI (mes de corte elegido)</div></div></div><div id="bdnc-cedi-chart" style="padding:10px;"></div></div>
 
-            <div class="inv-section" style="margin-top:16px;"><div class="inv-section-head"><div><div class="inv-section-title">Antigüedad del inventario (mes de corte elegido)</div><div class="inv-section-note">Calculado desde la fecha de última entrada hasta el fin de ese mes</div></div></div><div id="bdnc-antiguedad-chart" style="padding:10px;"></div></div>
+            <div class="inv-section" style="margin-top:16px;"><div class="inv-section-head"><div><div class="inv-section-title">Evolución mensual por tipo de bodega</div><div class="inv-section-note">Ordenado por el mes más reciente, de mayor a menor. Valor y variación % contra el mes anterior.</div></div></div><div id="bdnc-evolucion-chart" style="padding:10px;overflow-x:auto;"></div></div>
+
+            <div class="inv-section" style="margin-top:16px;"><div class="inv-section-head"><div><div class="inv-section-title">Antigüedad del inventario (mes de corte elegido)</div><div class="inv-section-note">Calculado desde la fecha de última entrada hasta el fin de ese mes -- clic en una barra para ver el detalle.</div></div></div><div id="bdnc-antiguedad-chart" style="padding:10px;"></div>
+              <div class="hidden" id="bdnc-antiguedad-detalle" style="padding:0 10px 10px;"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;"><div class="inv-section-title" id="bdnc-antiguedad-detalle-titulo" style="font-size:13px;">Ítems</div><button class="btn ghost" id="btn-bdnc-cerrar-antiguedad">Cerrar</button></div><div class="inv-table-wrap" id="bdnc-antiguedad-tabla-detalle"></div></div>
+            </div>
 
             <div class="inv-section" style="margin-top:16px;"><div class="inv-section-head"><div><div class="inv-section-title">Proveedores más representativos (Pareto)</div><div class="inv-section-note">Clic en un proveedor para ver sus ítems.</div></div></div>
               <div id="bdnc-proveedor-chart" style="padding:10px;"></div>
@@ -2966,6 +2970,7 @@ function inicializarModuloIndicadores() {
   document.getElementById('tab-ind-bdnc').addEventListener('click', () => { cambiarTabIndicadores('bdnc'); cargarPanelBdncCompleto(); });
   document.getElementById('btn-bdnc-aplicar').addEventListener('click', cargarPanelBdncCompleto);
   document.getElementById('btn-bdnc-volver-proveedores').addEventListener('click', () => { document.getElementById('bdnc-seccion-items').classList.add('hidden'); });
+  document.getElementById('btn-bdnc-cerrar-antiguedad').addEventListener('click', () => { document.getElementById('bdnc-antiguedad-detalle').classList.add('hidden'); });
   const selCediBdnc = document.getElementById('bdnc-filtro-cedi');
   CEDIS_MERMAS.forEach(c => selCediBdnc.insertAdjacentHTML('beforeend', `<option value="${c}">${c}</option>`));
   if (!puedeVerTodosLosCedis() && SESION.cedi) selCediBdnc.value = SESION.cedi;
@@ -3670,6 +3675,29 @@ let BDNC_PROVEEDORES_CACHE = [];
 let BDNC_EVOLUCION_CHART = null;
 let BDNC_ANTIGUEDAD_CHART = null;
 let BDNC_PROVEEDOR_CHART = null;
+let BDNC_CEDI_CHART = null;
+
+async function cargarBdncPorCedi() {
+  const mesSel = document.getElementById('bdnc-filtro-mes').value || null;
+  const { data, error } = await sb.rpc('bdnc_resumen_por_cedi', { p_mes: mesSel });
+  const cont = document.getElementById('bdnc-cedi-chart');
+  if (error) { cont.innerHTML = `<div class="inv-empty">Error: ${tEsc(error.message)}</div>`; return; }
+  const filas = (data || []).filter(f => f.valor > 0);
+  if (!filas.length) { cont.innerHTML = '<div class="inv-empty">Sin datos para este corte.</div>'; return; }
+
+  cont.innerHTML = '';
+  if (BDNC_CEDI_CHART) BDNC_CEDI_CHART.destroy();
+  BDNC_CEDI_CHART = new ApexCharts(cont, {
+    chart: { type: 'bar', height: 280, toolbar: { show: false }, fontFamily: 'inherit' },
+    series: [{ name: 'Valor', data: filas.map(f => f.valor) }],
+    xaxis: { categories: filas.map(f => f.cedi) },
+    plotOptions: { bar: { borderRadius: 6, columnWidth: '55%', distributed: true } },
+    colors: ['#92400e', '#2563eb', '#16a34a', '#dc2626', '#7c3aed', '#d97706', '#0891b2', '#4d7c0f'],
+    legend: { show: false },
+    dataLabels: { enabled: true, formatter: v => formatoCOP(v) },
+  });
+  BDNC_CEDI_CHART.render();
+}
 
 async function cargarBdncMesesDisponibles() {
   const { data, error } = await sb.from('bd_no_conformes').select('mes_corte').order('mes_corte', { ascending: false });
@@ -3718,8 +3746,10 @@ async function cargarBdncEvolucion() {
   if (!filas.length) { cont.innerHTML = '<div class="inv-empty">Todavía no hay histórico suficiente.</div>'; return; }
 
   const meses = [...new Set(filas.map(f => f.mes))].sort();
-  const tipos = [...new Set(filas.map(f => f.desc_bodega))];
+  const mesReciente = meses[meses.length - 1];
   const buscar = (tipo, mes) => filas.find(f => f.desc_bodega === tipo && f.mes === mes);
+  const tipos = [...new Set(filas.map(f => f.desc_bodega))]
+    .sort((a, b) => Number(buscar(b, mesReciente)?.valor || 0) - Number(buscar(a, mesReciente)?.valor || 0));
 
   cont.innerHTML = `<table class="inv-table" style="text-align:center;"><thead><tr>
       <th style="text-align:left;">Tipo de bodega</th>
@@ -3749,21 +3779,50 @@ async function cargarBdncAntiguedad() {
   const cont = document.getElementById('bdnc-antiguedad-chart');
   if (error) { cont.innerHTML = `<div class="inv-empty">Error: ${tEsc(error.message)}</div>`; return; }
   const filas = data || [];
+  BDNC_ANTIGUEDAD_CACHE = filas;
+  document.getElementById('bdnc-antiguedad-detalle').classList.add('hidden');
   if (!filas.length) { cont.innerHTML = '<div class="inv-empty">Sin datos de fecha de última entrada para este corte.</div>'; return; }
 
   cont.innerHTML = '';
   if (BDNC_ANTIGUEDAD_CHART) BDNC_ANTIGUEDAD_CHART.destroy();
   BDNC_ANTIGUEDAD_CHART = new ApexCharts(cont, {
-    chart: { type: 'bar', height: 300, toolbar: { show: false }, fontFamily: 'inherit' },
+    chart: {
+      type: 'bar', height: 200, toolbar: { show: false }, fontFamily: 'inherit',
+      events: { dataPointSelection: (e, ctx, config) => verItemsRangoAntiguedad(filas[config.dataPointIndex].rango) },
+    },
     series: [{ name: 'Valor', data: filas.map(f => Number(f.valor || 0)) }],
     xaxis: { categories: filas.map(f => f.rango.replace(/^\d\)\s*/, '')) },
-    plotOptions: { bar: { borderRadius: 6, columnWidth: '55%', distributed: true } },
+    plotOptions: { bar: { borderRadius: 6, columnWidth: '45%', distributed: true } },
     colors: ['#16a34a', '#d97706', '#ea580c', '#dc2626'],
     legend: { show: false },
     dataLabels: { enabled: true, formatter: v => formatoCOP(v) },
-    tooltip: { y: { formatter: (v, { dataPointIndex }) => `${formatoCOP(v)} -- ${filas[dataPointIndex].referencias} referencia(s)` } },
+    tooltip: { y: { formatter: (v, { dataPointIndex }) => `${formatoCOP(v)} -- ${filas[dataPointIndex].referencias} referencia(s) -- clic para ver detalle` } },
   });
   BDNC_ANTIGUEDAD_CHART.render();
+}
+
+let BDNC_ANTIGUEDAD_CACHE = [];
+async function verItemsRangoAntiguedad(rango) {
+  const mesSel = document.getElementById('bdnc-filtro-mes').value || null;
+  const cedi = document.getElementById('bdnc-filtro-cedi').value || null;
+  const { data, error } = await sb.rpc('bdnc_items_por_rango_antiguedad', { p_rango: rango, p_mes: mesSel, p_cedi: cedi });
+  if (error) { mostrarToast('Error: ' + error.message); return; }
+  document.getElementById('bdnc-antiguedad-detalle-titulo').textContent = `Ítems -- ${rango.replace(/^\d\)\s*/, '')}`;
+  document.getElementById('bdnc-antiguedad-detalle').classList.remove('hidden');
+  document.getElementById('bdnc-antiguedad-tabla-detalle').innerHTML = `<table class="inv-table"><thead><tr><th>Código</th><th>Producto</th><th>CEDI</th><th>Bodega</th><th>Proveedor</th><th>Existencia</th><th>Valor</th><th>Última entrada</th><th>Días</th></tr></thead><tbody>${
+    (data || []).map(f => `<tr>
+      <td>${tEsc(f.referencia)}</td>
+      <td class="inv-product">${tEsc(f.descripcion || '—')}</td>
+      <td>${tEsc(f.cedi || '—')}</td>
+      <td style="font-size:11px;">${tEsc(f.desc_bodega)}</td>
+      <td style="font-size:11px;">${tEsc(f.proveedor || '—')}</td>
+      <td>${f.existencia != null ? Number(f.existencia).toLocaleString('es-CO') : '—'}</td>
+      <td style="font-weight:700;">${f.costo_total != null ? formatoCOP(f.costo_total) : '—'}</td>
+      <td>${f.fecha_ultima_entrada ? new Date(f.fecha_ultima_entrada + 'T00:00:00').toLocaleDateString('es-CO') : '—'}</td>
+      <td style="font-weight:700;">${f.dias_en_bodega ?? '—'}</td>
+    </tr>`).join('')
+  }</tbody></table>`;
+  document.getElementById('bdnc-antiguedad-detalle').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 }
 
 async function cargarBdncProveedores() {
@@ -3823,9 +3882,9 @@ async function verItemsProveedorBdnc(proveedor) {
 
 function cargarPanelBdncCompleto() {
   if (!BDNC_MESES_POBLADOS) cargarBdncMesesDisponibles().then(() => {
-    cargarBdncGlobal(); cargarBdncEvolucion(); cargarBdncAntiguedad(); cargarBdncProveedores();
+    cargarBdncGlobal(); cargarBdncPorCedi(); cargarBdncEvolucion(); cargarBdncAntiguedad(); cargarBdncProveedores();
   });
-  else { cargarBdncGlobal(); cargarBdncEvolucion(); cargarBdncAntiguedad(); cargarBdncProveedores(); }
+  else { cargarBdncGlobal(); cargarBdncPorCedi(); cargarBdncEvolucion(); cargarBdncAntiguedad(); cargarBdncProveedores(); }
 }
 
 function cargarPanelMermasCompleto() {
