@@ -10550,6 +10550,8 @@ async function cargarLayout3DAlmacen() {
   if (!almacen) return;
   L3D_ALMACEN_ACTUAL = almacen;
   L3D_PROVEEDOR_RESALTADO = null;
+  L3D_FILTRO_ALMACENAMIENTO = null;
+  L3D_FILTRO_OPERACION = null;
   document.getElementById('l3d-status').textContent = 'Cargando ubicaciones...';
   // Paginado por seguridad -- Supabase corta cada respuesta en 1.000 filas.
   const TAM_BLOQUE = 1000;
@@ -10575,13 +10577,15 @@ async function cargarLayout3DAlmacen() {
   cargarLayout3DOperacion();
 }
 
+let L3D_FILTRO_ALMACENAMIENTO = null, L3D_FILTRO_OPERACION = null;
+
 async function cargarLayout3DPareto() {
   const cont = document.getElementById('l3d-pareto-proveedores');
   cont.innerHTML = '<div class="inv-empty">Cargando...</div>';
-  const { data, error } = await sb.rpc('layout_pareto_proveedores', { p_almacen: L3D_ALMACEN_ACTUAL });
+  const { data, error } = await sb.rpc('layout_pareto_proveedores', { p_almacen: L3D_ALMACEN_ACTUAL, p_almacenamiento: L3D_FILTRO_ALMACENAMIENTO, p_operacion: L3D_FILTRO_OPERACION });
   if (error) { cont.innerHTML = `<div class="inv-empty">Error: ${tEsc(error.message)}</div>`; return; }
   const filas = (data || []).filter(f => f.posiciones_ocupadas > 0);
-  if (!filas.length) { cont.innerHTML = '<div class="inv-empty">Sin ubicaciones ocupadas para este almacén.</div>'; return; }
+  if (!filas.length) { cont.innerHTML = '<div class="inv-empty">Sin ubicaciones ocupadas con este filtro.</div>'; return; }
   cont.innerHTML = filas.map(f => `
     <div class="l3d-prov-item" style="cursor:pointer;padding:8px;border-radius:8px;margin-bottom:4px;background:${L3D_PROVEEDOR_RESALTADO === f.proveedor ? 'var(--surface-2)' : 'transparent'};" onclick='resaltarProveedorEn3D(${JSON.stringify(f.proveedor)})'>
       <div style="display:flex;justify-content:space-between;font-size:12px;font-weight:700;">${tEsc(f.proveedor)}<span>${f.posiciones_ocupadas}</span></div>
@@ -10602,14 +10606,18 @@ async function resaltarProveedorEn3D(proveedor) {
   renderizarEscena3D();
 }
 
+function filaClicable(activo) {
+  return `cursor:pointer;${activo ? 'background:rgba(14,165,233,.12);' : ''}`;
+}
+
 async function cargarLayout3DAlmacenamiento() {
   const cont = document.getElementById('l3d-tabla-almacenamiento');
   const { data, error } = await sb.rpc('layout_ocupacion_por_almacenamiento', { p_almacen: L3D_ALMACEN_ACTUAL });
   if (error) { cont.innerHTML = `<div class="inv-empty">Error: ${tEsc(error.message)}</div>`; return; }
   const filas = data || [];
   if (!filas.length) { cont.innerHTML = '<div class="inv-empty">Sin datos.</div>'; return; }
-  cont.innerHTML = `<table class="inv-table"><thead><tr><th>Tipo</th><th>Total</th><th>Ocupadas</th><th>% Ocupación</th></tr></thead><tbody>${
-    filas.map(f => `<tr><td style="font-weight:700;">${tEsc(f.almacenamiento)}</td><td>${f.total}</td><td>${f.ocupadas}</td><td style="color:${f.pct_ocupacion >= 80 ? '#dc2626' : f.pct_ocupacion >= 50 ? '#d97706' : '#16a34a'};font-weight:700;">${f.pct_ocupacion}%</td></tr>`).join('')
+  cont.innerHTML = `<p style="font-size:10.5px;color:var(--text-secondary);margin:0 0 6px;">Clic en una fila para filtrar el Pareto y la vista 3D.</p><table class="inv-table"><thead><tr><th>Tipo</th><th>Total</th><th>Ocupadas</th><th>% Ocupación</th></tr></thead><tbody>${
+    filas.map(f => `<tr style="${filaClicable(L3D_FILTRO_ALMACENAMIENTO === f.almacenamiento)}" onclick='filtrarPorAlmacenamiento3D(${JSON.stringify(f.almacenamiento)})'><td style="font-weight:700;">${tEsc(f.almacenamiento)}</td><td>${f.total}</td><td>${f.ocupadas}</td><td style="color:${f.pct_ocupacion >= 80 ? '#dc2626' : f.pct_ocupacion >= 50 ? '#d97706' : '#16a34a'};font-weight:700;">${f.pct_ocupacion}%</td></tr>`).join('')
   }</tbody></table>`;
 }
 
@@ -10619,9 +10627,23 @@ async function cargarLayout3DOperacion() {
   if (error) { cont.innerHTML = `<div class="inv-empty">Error: ${tEsc(error.message)}</div>`; return; }
   const filas = data || [];
   if (!filas.length) { cont.innerHTML = '<div class="inv-empty">Sin datos.</div>'; return; }
-  cont.innerHTML = `<table class="inv-table"><thead><tr><th>Operación</th><th>Total</th><th>Ocupadas</th><th>% Ocupación</th></tr></thead><tbody>${
-    filas.map(f => `<tr><td style="font-weight:700;">${tEsc(f.operacion)}</td><td>${f.total}</td><td>${f.ocupadas}</td><td style="color:${f.pct_ocupacion >= 80 ? '#dc2626' : f.pct_ocupacion >= 50 ? '#d97706' : '#16a34a'};font-weight:700;">${f.pct_ocupacion}%</td></tr>`).join('')
+  cont.innerHTML = `<p style="font-size:10.5px;color:var(--text-secondary);margin:0 0 6px;">Clic en una fila para filtrar el Pareto y la vista 3D.</p><table class="inv-table"><thead><tr><th>Operación</th><th>Total</th><th>Ocupadas</th><th>% Ocupación</th></tr></thead><tbody>${
+    filas.map(f => `<tr style="${filaClicable(L3D_FILTRO_OPERACION === f.operacion)}" onclick='filtrarPorOperacion3D(${JSON.stringify(f.operacion)})'><td style="font-weight:700;">${tEsc(f.operacion)}</td><td>${f.total}</td><td>${f.ocupadas}</td><td style="color:${f.pct_ocupacion >= 80 ? '#dc2626' : f.pct_ocupacion >= 50 ? '#d97706' : '#16a34a'};font-weight:700;">${f.pct_ocupacion}%</td></tr>`).join('')
   }</tbody></table>`;
+}
+
+function filtrarPorAlmacenamiento3D(valor) {
+  L3D_FILTRO_ALMACENAMIENTO = L3D_FILTRO_ALMACENAMIENTO === valor ? null : valor;
+  cargarLayout3DAlmacenamiento();
+  cargarLayout3DPareto();
+  renderizarEscena3D();
+}
+
+function filtrarPorOperacion3D(valor) {
+  L3D_FILTRO_OPERACION = L3D_FILTRO_OPERACION === valor ? null : valor;
+  cargarLayout3DOperacion();
+  cargarLayout3DPareto();
+  renderizarEscena3D();
 }
 
 function inicializarEscenaThreeJs() {
@@ -10722,11 +10744,11 @@ function crearEtiquetaTexto(texto, color) {
 }
 
 // ---------- Espaciado de la escena ----------
-const L3D_ESP_POSICION = 0.75;   // horizontal, a lo largo de un rack
-const L3D_ESP_NIVEL = 1.5;       // vertical, altura del rack
-const L3D_ESP_PAR = 2.4;         // separación entre las 2 caras de un mismo pasillo
+const L3D_ESP_POSICION = 0.72;   // horizontal, a lo largo de un rack (casi igual al tamaño del cubo -- para que se vean pegados, como bloque sólido)
+const L3D_ESP_NIVEL = 1.42;      // vertical, altura del rack
+const L3D_ESP_PAR = 2.2;         // separación entre las 2 caras de un mismo pasillo
 const L3D_ESP_AISLE = 6.5;       // ancho del pasillo caminable entre un par de racks y el siguiente
-const L3D_TAMANO_CUBO = 0.62;
+const L3D_TAMANO_CUBO = 0.7;     // casi igual al espaciado -- los cubos quedan pegados entre sí, formando un bloque continuo
 
 // Zigzag (mezzanine/cava/refri)
 const L3D_ESP_ZIGZAG_GRUPO = 1.3;
@@ -10757,27 +10779,26 @@ function renderizarEscena3D() {
     return parIdx * L3D_ESP_AISLE + lado * L3D_ESP_PAR;
   };
 
-  // ---------- Materiales: estructura de acero (postes/vigas) + pallets ----------
-  const matAcero = new THREE.MeshStandardMaterial({ color: 0xf97316, metalness: 0.4, roughness: 0.5 }); // naranja tipo rack industrial
-  const matPallet = new THREE.MeshStandardMaterial({ color: 0x92400e, roughness: 0.9 }); // madera
-  const geomPalletBase = new THREE.BoxGeometry(L3D_ESP_POSICION * 0.82, 0.08, 0.95);
-
+  // ---------- Materiales: cubos "fantasma" (estructura) + cubos sólidos (ocupación) ----------
+  // Simplificado a propósito -- un bloque denso de cubos semi-transparentes
+  // pegados entre sí (como la vista nativa de ubicaciones de Odoo), en vez
+  // de postes/vigas sueltos que se veían como pallets flotando sin conexión.
   const geomFantasma = new THREE.BoxGeometry(L3D_TAMANO_CUBO, L3D_TAMANO_CUBO, L3D_TAMANO_CUBO);
-  const matFantasma = new THREE.MeshBasicMaterial({ color: 0x64748b, transparent: true, opacity: 0.13, depthWrite: false });
+  const matFantasma = new THREE.MeshBasicMaterial({ color: 0x64748b, transparent: true, opacity: 0.16, depthWrite: false });
   const bordeFantasma = new THREE.EdgesGeometry(geomFantasma);
-  const matBordeFantasma = new THREE.LineBasicMaterial({ color: 0x94a3b8, transparent: true, opacity: 0.3 });
+  const matBordeFantasma = new THREE.LineBasicMaterial({ color: 0x94a3b8, transparent: true, opacity: 0.32 });
+  const geomSolido = new THREE.BoxGeometry(L3D_TAMANO_CUBO * 0.86, L3D_TAMANO_CUBO * 0.86, L3D_TAMANO_CUBO * 0.86);
 
   const colorOcupada = 0xdc2626, colorVacia = 0x16a34a;
 
   let minX = Infinity, maxX = -Infinity, minZ = Infinity, maxZ = -Infinity;
   const agregarPunto = (x, z) => { minX = Math.min(minX, x); maxX = Math.max(maxX, x); minZ = Math.min(minZ, z); maxZ = Math.max(maxZ, z); };
 
-  // Dibuja un pallet (base de madera + carga de color) en una posición -- se
-  // usa para racks, mezzanine, cava, refri: todo lo que tiene código de
-  // barra se ve como un pallet en su lugar. Siempre se dibuja además una
-  // "caja fantasma" transparente en la posición, tenga o no código de barra
-  // -- así se ve la silueta completa del rack, no solo huecos donde falta dato.
-  function dibujarPallet(f, x, y, z) {
+  // Dibuja UNA posición: siempre el cubo "fantasma" transparente (para que
+  // el bloque completo del rack se vea sólido y conectado), y si tiene
+  // código de barra, un cubo interior de color (rojo=ocupada, verde=vacía,
+  // azul=resaltado por proveedor).
+  function dibujarCubo(f, x, y, z) {
     agregarPunto(x, z);
 
     const fantasma = new THREE.Mesh(geomFantasma, matFantasma);
@@ -10788,41 +10809,18 @@ function renderizarEscena3D() {
     L3D_ESCENA.add(bordes); L3D_ESTRUCTURA.push(bordes);
 
     if (f.codigo_barra == null) return;
-    const base = new THREE.Mesh(geomPalletBase, matPallet); // material compartido -- NO se agrega a L3D_CUBOS (si se recolorea por proveedor, no debe afectar a los demás pallets)
-    base.position.set(x, y, z);
-    L3D_ESCENA.add(base);
+    // Si hay un filtro activo de almacenamiento u operación y esta posición
+    // no coincide, se deja solo la caja fantasma (sin el cubo sólido de color).
+    if (L3D_FILTRO_ALMACENAMIENTO && f.almacenamiento !== L3D_FILTRO_ALMACENAMIENTO) return;
+    if (L3D_FILTRO_OPERACION && f.operacion !== L3D_FILTRO_OPERACION) return;
 
-    const alturaCarga = f.ocupada ? 0.62 : 0.22;
-    const geomCarga = new THREE.BoxGeometry(L3D_ESP_POSICION * 0.7, alturaCarga, 0.8);
     const seleccionado = !!f.proveedorSeleccionado;
     const colorBase = seleccionado ? 0x0ea5e9 : (f.ocupada ? colorOcupada : colorVacia);
     const colorEmissive = seleccionado ? 0x0c4a6e : (f.ocupada ? 0x450a0a : 0x052e16);
-    const carga = new THREE.Mesh(geomCarga, new THREE.MeshLambertMaterial({ color: colorBase, emissive: colorEmissive, emissiveIntensity: seleccionado ? 0.9 : 0.25 })); // material propio -- sí se puede recolorear individualmente
-    carga.position.set(x, y + 0.04 + alturaCarga / 2, z);
-    carga.userData = f;
-    L3D_ESCENA.add(carga); L3D_CUBOS.push(carga);
-  }
-
-  // Dibuja el marco de acero (postes + viga) de UN nivel de UN rack --
-  // spanPosiciones = [min, max] de posicion_estructura ocupadas en ese rack.
-  function dibujarNivelRack(z, nivel, spanPosiciones) {
-    const y = nivel * L3D_ESP_NIVEL;
-    const x0 = (spanPosiciones[0] - 0.55) * L3D_ESP_POSICION, x1 = (spanPosiciones[1] + 0.55) * L3D_ESP_POSICION;
-    const largo = x1 - x0;
-    const viga = new THREE.Mesh(new THREE.BoxGeometry(largo, 0.07, 0.1), matAcero);
-    viga.position.set((x0 + x1) / 2, y - L3D_ESP_NIVEL / 2 + 0.05, z + 0.42);
-    L3D_ESCENA.add(viga); L3D_ESTRUCTURA.push(viga);
-    const viga2 = viga.clone(); viga2.position.z = z - 0.42;
-    L3D_ESCENA.add(viga2); L3D_ESTRUCTURA.push(viga2);
-  }
-  function dibujarPostesRack(z, xInicio, xFin, alturaTotal) {
-    [xInicio, xFin].forEach(x => {
-      [z + 0.42, z - 0.42].forEach(zPos => {
-        const poste = new THREE.Mesh(new THREE.BoxGeometry(0.08, alturaTotal, 0.08), matAcero);
-        poste.position.set(x, alturaTotal / 2 - L3D_ESP_NIVEL / 2 + 0.05, zPos);
-        L3D_ESCENA.add(poste); L3D_ESTRUCTURA.push(poste);
-      });
-    });
+    const solido = new THREE.Mesh(geomSolido, new THREE.MeshLambertMaterial({ color: colorBase, emissive: colorEmissive, emissiveIntensity: seleccionado ? 0.9 : 0.25 }));
+    solido.position.set(x, y, z);
+    solido.userData = f;
+    L3D_ESCENA.add(solido); L3D_CUBOS.push(solido);
   }
 
   // ---------- Racks estándar ----------
@@ -10832,17 +10830,12 @@ function renderizarEscena3D() {
       if (!filasRack.length) return;
       const z = posicionZRack(rack);
       const posiciones = filasRack.map(f => f.posicion_estructura).filter(v => v != null);
-      const niveles = [...new Set(filasRack.map(f => f.nivel_estructura).filter(v => v != null))].sort((a, b) => a - b);
       const spanPos = [Math.min(...posiciones), Math.max(...posiciones)];
-      const alturaTotal = (Math.max(...niveles) + 0.5) * L3D_ESP_NIVEL;
-
-      dibujarPostesRack(z, (spanPos[0] - 0.55) * L3D_ESP_POSICION, (spanPos[1] + 0.55) * L3D_ESP_POSICION, alturaTotal);
-      niveles.forEach(nivel => { if (!nivelFiltro || String(nivel) === nivelFiltro) dibujarNivelRack(z, nivel, spanPos); });
 
       filasRack.forEach(f => {
         if (nivelFiltro && String(f.nivel_estructura) !== nivelFiltro) return;
         if (f.posicion_estructura == null || f.nivel_estructura == null) return;
-        dibujarPallet(f, f.posicion_estructura * L3D_ESP_POSICION, f.nivel_estructura * L3D_ESP_NIVEL, z);
+        dibujarCubo(f, f.posicion_estructura * L3D_ESP_POSICION, f.nivel_estructura * L3D_ESP_NIVEL, z);
       });
 
       const etiqueta = crearEtiquetaTexto(rack, '#67e8f9');
@@ -10866,7 +10859,7 @@ function renderizarEscena3D() {
       const x = info.offsetX - (f.grupo_zigzag || 0) * L3D_ESP_ZIGZAG_GRUPO;
       const z = (info.offsetZAdd || 0) + (f.lado_zigzag === 'izquierda' ? L3D_ESP_ZIGZAG_LADO : 0);
       const y = pisoIdx * L3D_ESP_ZIGZAG_PISO + (f.nivel_zigzag || 1) * L3D_ESP_ZIGZAG_NIVEL;
-      dibujarPallet(f, x, y, z);
+      dibujarCubo(f, x, y, z);
     });
     const etiqueta = crearEtiquetaTexto(info.label, info.color);
     etiqueta.position.set(info.offsetX - 3, (pisos.length * L3D_ESP_ZIGZAG_PISO) / 2, (info.offsetZAdd || 0) + 1);
@@ -10880,7 +10873,7 @@ function renderizarEscena3D() {
       const x = (maxX === -Infinity ? 0 : maxX) + L3D_ESP_AISLE + i * 1.6;
       const y = L3D_ESP_NIVEL;
       const z = 0;
-      dibujarPallet(f, x, y, z);
+      dibujarCubo(f, x, y, z);
     });
     if (contenedores.length) {
       const etiqueta = crearEtiquetaTexto('CONT.', '#fbbf24');
@@ -10925,7 +10918,8 @@ function onMoveEscena3D(evento) {
   const intersectados = L3D_RAYCASTER.intersectObjects(L3D_CUBOS);
   if (intersectados.length) {
     const f = intersectados[0].object.userData;
-    tooltip.innerHTML = `<strong>${tEsc(f.codigo_ubicacion)}</strong> · ${f.ocupada ? `${tEsc((f.producto || '').replace(/^\[\d+\]\s*/, '').slice(0, 26))}` : 'Vacía'}`;
+    const nRefs = Array.isArray(f.referencias) ? f.referencias.length : 0;
+    tooltip.innerHTML = `<strong>${tEsc(f.codigo_ubicacion)}</strong> · ${f.ocupada ? `${nRefs} ref.` : 'Vacía'}`;
     tooltip.style.left = (evento.clientX - rect.left + 12) + 'px';
     tooltip.style.top = (evento.clientY - rect.top + 12) + 'px';
     tooltip.classList.remove('hidden');
@@ -10939,15 +10933,27 @@ function onClickEscena3D(evento) {
   const intersectados = L3D_RAYCASTER.intersectObjects(L3D_CUBOS);
   if (!intersectados.length) return;
   const f = intersectados[0].object.userData;
+  const referencias = Array.isArray(f.referencias) ? f.referencias : [];
   document.getElementById('l3d-detalle-contenido').innerHTML = `
     <div style="font-size:20px;font-weight:800;margin-bottom:10px;color:${f.ocupada ? '#f87171' : '#4ade80'};">${tEsc(f.codigo_ubicacion)}</div>
     <div style="margin-bottom:6px;"><span style="color:#94a3b8;">Estado:</span> <strong>${f.ocupada ? 'Ocupada' : 'Vacía'}</strong></div>
-    ${f.ocupada ? `<div style="margin-bottom:6px;"><span style="color:#94a3b8;">Producto:</span> ${tEsc(f.producto || '—')}</div><div style="margin-bottom:6px;"><span style="color:#94a3b8;">Cantidad:</span> ${f.cantidad ?? '—'}</div>` : ''}
     <div style="margin-bottom:6px;"><span style="color:#94a3b8;">Tipo:</span> ${tEsc(f.tipo || '—')}</div>
     <div style="margin-bottom:6px;"><span style="color:#94a3b8;">Almacenamiento:</span> ${tEsc(f.almacenamiento || '—')}</div>
+    <div style="margin-bottom:6px;"><span style="color:#94a3b8;">Operación:</span> ${tEsc(f.operacion || '—')}</div>
     <div style="margin-bottom:6px;"><span style="color:#94a3b8;">Peso máx.:</span> ${f.peso_kg != null ? f.peso_kg + ' kg' : '—'}</div>
     <div style="margin-bottom:6px;"><span style="color:#94a3b8;">Volumen:</span> ${f.volumen ?? '—'}</div>
-    <div style="margin-bottom:6px;"><span style="color:#94a3b8;">Código de barra:</span> ${tEsc(f.codigo_barra || '—')}</div>
+    <div style="margin-bottom:10px;"><span style="color:#94a3b8;">Código de barra:</span> ${tEsc(f.codigo_barra || '—')}</div>
+    ${referencias.length ? `
+      <div style="border-top:1px solid rgba(255,255,255,.12);padding-top:10px;margin-top:4px;">
+        <div style="font-weight:700;margin-bottom:8px;">Referencias en esta posición (${referencias.length})</div>
+        ${referencias.map(r => `
+          <div style="background:rgba(255,255,255,.05);border-radius:8px;padding:8px 10px;margin-bottom:6px;">
+            <div style="font-size:11.5px;">${tEsc((r.producto || '').replace(/^\[\d+\]\s*/, ''))}</div>
+            <div style="font-size:10.5px;color:#94a3b8;margin-top:2px;">Cant.: <strong style="color:#e2e8f0;">${r.cantidad ?? '—'}</strong>${r.lote ? ` · Lote: ${tEsc(r.lote)}` : ''}</div>
+          </div>
+        `).join('')}
+      </div>
+    ` : ''}
   `;
   document.getElementById('l3d-panel-detalle').classList.remove('hidden');
 }
