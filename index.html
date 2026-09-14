@@ -1386,24 +1386,43 @@ input:focus,select:focus,textarea:focus{outline:none!important;border-color:#176
 
           <div style="display:flex;gap:8px;align-items:end;margin-top:10px;flex-wrap:wrap;">
             <div class="inv-filter" style="max-width:220px;"><label>Almacén</label><select id="l3d-filtro-almacen"></select></div>
-            <div class="inv-filter" style="max-width:160px;"><label>Nivel</label><select id="l3d-filtro-nivel"><option value="">Todos</option></select></div>
-            <div class="inv-filter" style="max-width:220px;"><label>Zona</label><select id="l3d-filtro-zona"><option value="">Todas</option></select></div>
+            <div class="inv-filter" style="max-width:170px;"><label>Tipo de ubicación</label><select id="l3d-filtro-tipo"><option value="">Todas</option><option value="rack">Racks</option><option value="mezzanine">Mezzanine</option><option value="cava">Cava</option><option value="refri">Refri</option><option value="contenedor">Contenedores</option></select></div>
+            <div class="inv-filter" style="max-width:140px;"><label>Nivel</label><select id="l3d-filtro-nivel"><option value="">Todos</option></select></div>
             <button class="btn ghost" id="btn-l3d-recentrar">Recentrar vista</button>
           </div>
 
           <div id="l3d-kpis" class="inv-kpis" style="margin:14px 0;"></div>
 
-          <div class="inv-section">
-            <div class="inv-section-head"><div><div class="inv-section-title">Vista 3D</div><div class="inv-section-note">Clic y arrastra para rotar · rueda del mouse para zoom · clic derecho para mover · clic en una ubicación para ver el detalle.</div></div>
-              <div style="display:flex;gap:10px;align-items:center;font-size:11px;">
-                <span style="display:flex;align-items:center;gap:4px;"><span style="width:12px;height:12px;border-radius:3px;background:#16a34a;display:inline-block;"></span>Vacía</span>
-                <span style="display:flex;align-items:center;gap:4px;"><span style="width:12px;height:12px;border-radius:3px;background:#dc2626;display:inline-block;"></span>Ocupada</span>
+          <div style="display:grid;grid-template-columns:1fr 340px;gap:14px;align-items:start;">
+            <div class="inv-section" style="margin:0;">
+              <div class="inv-section-head"><div><div class="inv-section-title">Vista 3D</div><div class="inv-section-note">Arrastra para rotar · rueda para zoom · clic derecho para mover · clic en una ubicación para ver el detalle.</div></div></div>
+              <div id="l3d-status" style="font-size:11px;color:var(--text-secondary);padding:0 10px 6px;"></div>
+              <div id="l3d-canvas-wrap" style="position:relative;height:600px;border-radius:0 0 16px 16px;overflow:hidden;background:#0f172a;">
+                <div id="l3d-tooltip" class="hidden" style="position:absolute;pointer-events:none;background:#0f172a;color:#fff;padding:8px 12px;border-radius:8px;font-size:12px;z-index:10;box-shadow:0 4px 12px rgba(0,0,0,.3);max-width:240px;"></div>
+                <div id="l3d-leyenda" style="position:absolute;top:14px;right:14px;background:rgba(15,23,42,.85);backdrop-filter:blur(6px);border:1px solid rgba(255,255,255,.1);border-radius:10px;padding:10px 14px;font-size:11px;color:#e2e8f0;z-index:5;">
+                  <div style="font-weight:700;margin-bottom:6px;color:#fff;">Leyenda</div>
+                  <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;"><span style="width:11px;height:11px;border-radius:3px;background:#16a34a;display:inline-block;"></span>Vacía</div>
+                  <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;"><span style="width:11px;height:11px;border-radius:3px;background:#dc2626;display:inline-block;"></span>Ocupada</div>
+                  <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;"><span style="width:11px;height:11px;border-radius:3px;background:#0ea5e9;display:inline-block;"></span>Resaltado (proveedor)</div>
+                  <div style="display:flex;align-items:center;gap:6px;"><span style="width:11px;height:11px;border-radius:3px;background:#475569;display:inline-block;opacity:.5;"></span>Estructura</div>
+                </div>
+                <div id="l3d-panel-detalle" class="hidden" style="position:absolute;top:0;right:0;height:100%;width:280px;background:rgba(15,23,42,.96);backdrop-filter:blur(8px);border-left:1px solid rgba(255,255,255,.12);color:#e2e8f0;z-index:8;padding:18px;overflow-y:auto;">
+                  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;"><strong style="font-size:13px;">Detalle</strong><button id="btn-l3d-cerrar-detalle" style="background:none;border:none;color:#94a3b8;cursor:pointer;font-size:16px;">✕</button></div>
+                  <div id="l3d-detalle-contenido" style="font-size:12px;line-height:1.7;"></div>
+                </div>
               </div>
             </div>
-            <div id="l3d-status" style="font-size:11px;color:var(--text-secondary);padding:0 10px 6px;"></div>
-            <div id="l3d-canvas-wrap" style="position:relative;height:560px;border-radius:0 0 16px 16px;overflow:hidden;background:#0f172a;">
-              <div id="l3d-tooltip" class="hidden" style="position:absolute;pointer-events:none;background:#0f172a;color:#fff;padding:8px 12px;border-radius:8px;font-size:12px;z-index:10;box-shadow:0 4px 12px rgba(0,0,0,.3);max-width:240px;"></div>
+
+            <div class="inv-section" style="margin:0;">
+              <div class="inv-section-head"><div class="inv-section-title">Proveedores (Pareto)</div></div>
+              <div style="padding:8px 10px;font-size:11px;color:var(--text-secondary);">Clic en un proveedor para resaltar sus posiciones en el 3D.</div>
+              <div id="l3d-pareto-proveedores" style="max-height:520px;overflow-y:auto;padding:0 10px 10px;"></div>
             </div>
+          </div>
+
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:14px;">
+            <div class="inv-section" style="margin:0;"><div class="inv-section-head"><div class="inv-section-title">Ocupación por tipo de almacenamiento</div></div><div id="l3d-tabla-almacenamiento" style="padding:10px;"></div></div>
+            <div class="inv-section" style="margin:0;"><div class="inv-section-head"><div class="inv-section-title">Ocupación por operación</div></div><div id="l3d-tabla-operacion" style="padding:10px;"></div></div>
           </div>
         </div>
 
@@ -7331,6 +7350,48 @@ document.getElementById('btn-imp-procesar').addEventListener('click', async () =
     if (!filasArchivo.length) { estado.textContent = 'El archivo está vacío o no se pudo leer.'; return; }
 
     const MAPA_ALMACEN_CEDI = { Barranquilla: 'BAQ', Bogota: 'BOG', Copacabana: 'COP', Cartagena: 'CTG', Pereira: 'PER', Bucaramanga: 'BGA' };
+    const INDICATIVOS_LAYOUT = { Bucaramanga: 'O', Copacabana: 'M', Pereira: 'P', Cartagena: 'C', Barranquilla: 'B', Bogota: '' };
+
+    const letrasARackIndex = letras => {
+      let idx = 0;
+      for (let i = 0; i < letras.length; i++) idx = idx * 26 + (letras.charCodeAt(i) - 64);
+      return idx - 1;
+    };
+    const calcularZigzag = posicionGlobal => {
+      const idx = posicionGlobal - 1;
+      const grupo = Math.floor(idx / 4), resto = idx % 4;
+      return { grupo_zigzag: grupo, lado_zigzag: resto < 2 ? 'derecha' : 'izquierda', nivel_zigzag: (resto % 2) + 1 };
+    };
+    // Parsea el CÓDIGO DE BARRA de la ubicación (no el "Nombre Ubicación") --
+    // esa es la fuente real de la posición física. Ver los distintos
+    // formatos: racks estándar, mezzanine (Bogotá/Copacabana), cava, refri,
+    // y contenedores (únicos, aparte de la estructura).
+    const parsearCodigoUbicacion = (codigoOriginal, almacen) => {
+      if (!codigoOriginal) return { tipo_ubicacion: 'sin_codigo' };
+      const cod = codigoOriginal.trim().toUpperCase();
+      if (cod.includes('CONT')) return { tipo_ubicacion: 'contenedor' };
+
+      let m = cod.match(/^CAVA(\d{2})(\d{2})$/);
+      if (m) return { tipo_ubicacion: 'cava', nivel_estructura: parseInt(m[1], 10), posicion_estructura: parseInt(m[2], 10), ...calcularZigzag(parseInt(m[2], 10)) };
+
+      m = cod.match(/^REFRI(\d{2})(\d{2})$/);
+      if (m) return { tipo_ubicacion: 'refri', nivel_estructura: parseInt(m[1], 10), posicion_estructura: parseInt(m[2], 10), ...calcularZigzag(parseInt(m[2], 10)) };
+
+      m = cod.match(/^TR(\d{2})(\d{2})$/);
+      if (m) return { tipo_ubicacion: 'mezzanine', piso_mezzanine: parseInt(m[1], 10), posicion_estructura: parseInt(m[2], 10), ...calcularZigzag(parseInt(m[2], 10)) };
+
+      m = cod.match(/^MU(\d{1})(\d{2})$/);
+      if (m) return { tipo_ubicacion: 'mezzanine', piso_mezzanine: parseInt(m[1], 10), posicion_estructura: parseInt(m[2], 10), ...calcularZigzag(parseInt(m[2], 10)) };
+
+      const indicativo = INDICATIVOS_LAYOUT[almacen] ?? '';
+      let resto = cod;
+      if (indicativo && resto.startsWith(indicativo)) resto = resto.slice(indicativo.length);
+      m = resto.match(/^([A-Z]+)(\d{2})(\d{2})$/);
+      if (m) return { tipo_ubicacion: 'rack', rack: m[1], rack_index: letrasARackIndex(m[1]), posicion_estructura: parseInt(m[2], 10), nivel_estructura: parseInt(m[3], 10) };
+
+      return { tipo_ubicacion: 'desconocido' };
+    };
+
     const filasProcesadas = [];
     let sinDatos = 0;
     filasArchivo.forEach(fila => {
@@ -7340,23 +7401,20 @@ document.getElementById('btn-imp-procesar').addEventListener('click', async () =
       let ubicCompleta = String(valorPorColumna(fila, ['Nombre Completo de Locación']) ?? '').trim();
       if (!ubicCompleta) ubicCompleta = codigoUbic; // fallback para filas sin ruta completa (ej. COMPENSAR)
 
-      const m = codigoUbic.match(/^([A-Z]+)(\d{2})(\d{2})$/);
-      const zona = m ? m[1] : null;
-      const pasillo = m ? parseInt(m[2], 10) : null;
-      const posicion = m ? parseInt(m[3], 10) : null;
-
-      const segmentos = ubicCompleta.split('/');
-      const nivel = (segmentos.length >= 3 && /^\d+$/.test(segmentos[2])) ? parseInt(segmentos[2], 10) : null;
+      const codigoBarra = String(valorPorColumna(fila, ['CODIGO BARRA']) ?? '').trim() || null;
+      const parseo = parsearCodigoUbicacion(codigoBarra, almacen);
 
       filasProcesadas.push({
         cedi: MAPA_ALMACEN_CEDI[almacen] || null, almacen, ubicacion_completa: ubicCompleta,
-        codigo_ubicacion: codigoUbic, zona, pasillo, posicion, nivel,
+        codigo_ubicacion: codigoUbic,
         operacion: String(valorPorColumna(fila, ['Operación']) ?? '').trim() || null,
         storage_category: String(valorPorColumna(fila, ['Storage Category']) ?? '').trim() || null,
+        almacenamiento: String(valorPorColumna(fila, ['ALMACENAMIENTO']) ?? '').trim() || null,
         tipo: String(valorPorColumna(fila, ['TIPO']) ?? '').trim() || null,
-        codigo_barra: String(valorPorColumna(fila, ['CODIGO BARRA']) ?? '').trim() || null,
+        codigo_barra: codigoBarra,
         peso_kg: parsearMonedaFlexible(valorPorColumna(fila, ['PESO (Kg)'])),
         volumen: parsearMonedaFlexible(valorPorColumna(fila, ['VOLUMEN']) ?? valorPorColumna(fila, ['VOLUMEN '])),
+        ...parseo,
       });
     });
 
@@ -7366,8 +7424,8 @@ document.getElementById('btn-imp-procesar').addEventListener('click', async () =
 
     document.getElementById('imp-preview').innerHTML = `
       <p style="font-size:12px;color:var(--text-secondary);">Vista previa (primeras 10 filas).</p>
-      <table class="hist-table open"><tr><th>Almacén</th><th>Ubicación</th><th>Zona</th><th>Nivel</th><th>Código barra</th></tr>${
-        filasProcesadas.slice(0, 10).map(r => `<tr><td>${tEsc(r.almacen)}</td><td>${tEsc(r.codigo_ubicacion)}</td><td>${tEsc(r.zona || '—')}</td><td>${r.nivel ?? '—'}</td><td>${tEsc(r.codigo_barra || '—')}</td></tr>`).join('')
+      <table class="hist-table open"><tr><th>Almacén</th><th>Código barra</th><th>Tipo</th><th>Rack</th><th>Posición</th><th>Nivel</th></tr>${
+        filasProcesadas.slice(0, 10).map(r => `<tr><td>${tEsc(r.almacen)}</td><td>${tEsc(r.codigo_barra || '—')}</td><td>${tEsc(r.tipo_ubicacion)}</td><td>${tEsc(r.rack || '—')}</td><td>${r.posicion_estructura ?? '—'}</td><td>${r.nivel_estructura ?? r.piso_mezzanine ?? '—'}</td></tr>`).join('')
       }</table>`;
     document.getElementById('btn-imp-confirmar').classList.toggle('hidden', filasProcesadas.length === 0);
     return;
@@ -10434,13 +10492,15 @@ let L3D_ESCENA = null, L3D_CAMARA = null, L3D_RENDERER = null, L3D_CONTROLES = n
 let L3D_RAYCASTER = null, L3D_MOUSE = null, L3D_CUBOS = [];
 let L3D_ALMACEN_ACTUAL = null;
 let L3D_DATOS_ALMACEN = [];
+let L3D_PROVEEDOR_RESALTADO = null;
 
 function inicializarLayout3D() {
   cargarLayout3DAlmacenes();
   document.getElementById('l3d-filtro-almacen').addEventListener('change', () => { cargarLayout3DAlmacen(); });
   document.getElementById('l3d-filtro-nivel').addEventListener('change', renderizarEscena3D);
-  document.getElementById('l3d-filtro-zona').addEventListener('change', renderizarEscena3D);
+  document.getElementById('l3d-filtro-tipo').addEventListener('change', renderizarEscena3D);
   document.getElementById('btn-l3d-recentrar').addEventListener('click', recentrarCamara3D);
+  document.getElementById('btn-l3d-cerrar-detalle').addEventListener('click', () => document.getElementById('l3d-panel-detalle').classList.add('hidden'));
   cargarLayout3DResumen();
   inicializarEscenaThreeJs();
 }
@@ -10473,22 +10533,72 @@ async function cargarLayout3DAlmacen() {
   const almacen = document.getElementById('l3d-filtro-almacen').value;
   if (!almacen) return;
   L3D_ALMACEN_ACTUAL = almacen;
+  L3D_PROVEEDOR_RESALTADO = null;
   document.getElementById('l3d-status').textContent = 'Cargando ubicaciones...';
   const { data, error } = await sb.rpc('layout_ubicaciones_almacen', { p_almacen: almacen });
   if (error) { document.getElementById('l3d-status').textContent = 'Error: ' + error.message; return; }
   L3D_DATOS_ALMACEN = data || [];
   document.getElementById('l3d-status').textContent = `${L3D_DATOS_ALMACEN.length.toLocaleString('es-CO')} ubicación(es) -- ${L3D_DATOS_ALMACEN.filter(f => f.ocupada).length.toLocaleString('es-CO')} ocupada(s).`;
 
-  const niveles = [...new Set(L3D_DATOS_ALMACEN.map(f => f.nivel).filter(v => v != null))].sort((a, b) => a - b);
+  const niveles = [...new Set(L3D_DATOS_ALMACEN.map(f => f.nivel_estructura).filter(v => v != null))].sort((a, b) => a - b);
   const selNivel = document.getElementById('l3d-filtro-nivel');
   selNivel.innerHTML = '<option value="">Todos</option>' + niveles.map(n => `<option value="${n}">Nivel ${n}</option>`).join('');
 
-  const zonas = [...new Set(L3D_DATOS_ALMACEN.map(f => f.zona).filter(Boolean))].sort();
-  const selZona = document.getElementById('l3d-filtro-zona');
-  selZona.innerHTML = '<option value="">Todas</option>' + zonas.map(z => `<option value="${tEsc(z)}">Zona ${tEsc(z)}</option>`).join('');
-
   renderizarEscena3D();
   recentrarCamara3D();
+  cargarLayout3DPareto();
+  cargarLayout3DAlmacenamiento();
+  cargarLayout3DOperacion();
+}
+
+async function cargarLayout3DPareto() {
+  const cont = document.getElementById('l3d-pareto-proveedores');
+  cont.innerHTML = '<div class="inv-empty">Cargando...</div>';
+  const { data, error } = await sb.rpc('layout_pareto_proveedores', { p_almacen: L3D_ALMACEN_ACTUAL });
+  if (error) { cont.innerHTML = `<div class="inv-empty">Error: ${tEsc(error.message)}</div>`; return; }
+  const filas = (data || []).filter(f => f.posiciones_ocupadas > 0);
+  if (!filas.length) { cont.innerHTML = '<div class="inv-empty">Sin ubicaciones ocupadas para este almacén.</div>'; return; }
+  cont.innerHTML = filas.map(f => `
+    <div class="l3d-prov-item" style="cursor:pointer;padding:8px;border-radius:8px;margin-bottom:4px;background:${L3D_PROVEEDOR_RESALTADO === f.proveedor ? 'var(--surface-2)' : 'transparent'};" onclick='resaltarProveedorEn3D(${JSON.stringify(f.proveedor)})'>
+      <div style="display:flex;justify-content:space-between;font-size:12px;font-weight:700;">${tEsc(f.proveedor)}<span>${f.posiciones_ocupadas}</span></div>
+      <div style="font-size:10px;color:var(--text-secondary);">Pareto acumulado: ${f.pct_acumulado_pareto}%</div>
+    </div>
+  `).join('');
+}
+
+async function resaltarProveedorEn3D(proveedor) {
+  L3D_PROVEEDOR_RESALTADO = L3D_PROVEEDOR_RESALTADO === proveedor ? null : proveedor;
+  cargarLayout3DPareto();
+  if (!L3D_PROVEEDOR_RESALTADO) { renderizarEscena3D(); return; }
+  const { data, error } = await sb.rpc('layout_ubicaciones_proveedor', { p_almacen: L3D_ALMACEN_ACTUAL, p_proveedor: proveedor });
+  if (error) { mostrarToast('Error: ' + error.message); return; }
+  const codigos = new Set((data || []).map(f => f.codigo_barra));
+  L3D_CUBOS.forEach(c => {
+    if (codigos.has(c.userData.codigo_barra)) c.material.color.setHex(0x0ea5e9);
+    else c.material.color.setHex(c.userData.ocupada ? 0xdc2626 : 0x16a34a);
+  });
+}
+
+async function cargarLayout3DAlmacenamiento() {
+  const cont = document.getElementById('l3d-tabla-almacenamiento');
+  const { data, error } = await sb.rpc('layout_ocupacion_por_almacenamiento', { p_almacen: L3D_ALMACEN_ACTUAL });
+  if (error) { cont.innerHTML = `<div class="inv-empty">Error: ${tEsc(error.message)}</div>`; return; }
+  const filas = data || [];
+  if (!filas.length) { cont.innerHTML = '<div class="inv-empty">Sin datos.</div>'; return; }
+  cont.innerHTML = `<table class="inv-table"><thead><tr><th>Tipo</th><th>Total</th><th>Ocupadas</th><th>% Ocupación</th></tr></thead><tbody>${
+    filas.map(f => `<tr><td style="font-weight:700;">${tEsc(f.almacenamiento)}</td><td>${f.total}</td><td>${f.ocupadas}</td><td style="color:${f.pct_ocupacion >= 80 ? '#dc2626' : f.pct_ocupacion >= 50 ? '#d97706' : '#16a34a'};font-weight:700;">${f.pct_ocupacion}%</td></tr>`).join('')
+  }</tbody></table>`;
+}
+
+async function cargarLayout3DOperacion() {
+  const cont = document.getElementById('l3d-tabla-operacion');
+  const { data, error } = await sb.rpc('layout_ocupacion_por_operacion', { p_almacen: L3D_ALMACEN_ACTUAL });
+  if (error) { cont.innerHTML = `<div class="inv-empty">Error: ${tEsc(error.message)}</div>`; return; }
+  const filas = data || [];
+  if (!filas.length) { cont.innerHTML = '<div class="inv-empty">Sin datos.</div>'; return; }
+  cont.innerHTML = `<table class="inv-table"><thead><tr><th>Operación</th><th>Total</th><th>Ocupadas</th><th>% Ocupación</th></tr></thead><tbody>${
+    filas.map(f => `<tr><td style="font-weight:700;">${tEsc(f.operacion)}</td><td>${f.total}</td><td>${f.ocupadas}</td><td style="color:${f.pct_ocupacion >= 80 ? '#dc2626' : f.pct_ocupacion >= 50 ? '#d97706' : '#16a34a'};font-weight:700;">${f.pct_ocupacion}%</td></tr>`).join('')
+  }</tbody></table>`;
 }
 
 function inicializarEscenaThreeJs() {
@@ -10502,20 +10612,20 @@ function inicializarEscenaThreeJs() {
   L3D_RENDERER.setSize(wrap.clientWidth, wrap.clientHeight);
   wrap.insertBefore(L3D_RENDERER.domElement, wrap.firstChild);
 
-  const luzAmbiente = new THREE.AmbientLight(0xffffff, 0.7);
+  const luzAmbiente = new THREE.AmbientLight(0xffffff, 0.75);
   L3D_ESCENA.add(luzAmbiente);
-  const luzDireccional = new THREE.DirectionalLight(0xffffff, 0.6);
+  const luzDireccional = new THREE.DirectionalLight(0xffffff, 0.55);
   luzDireccional.position.set(50, 100, 50);
   L3D_ESCENA.add(luzDireccional);
+  const luzRelleno = new THREE.DirectionalLight(0xbfdbfe, 0.25);
+  luzRelleno.position.set(-40, 40, -40);
+  L3D_ESCENA.add(luzRelleno);
 
   L3D_RAYCASTER = new THREE.Raycaster();
   L3D_MOUSE = new THREE.Vector2();
 
-  // Control de cámara propio (órbita simple), en vez de THREE.OrbitControls --
-  // ese addon depende de un archivo extra del CDN que a veces no carga bien
-  // como script clásico. Esto es lo mismo pero sin esa dependencia externa.
   L3D_CONTROLES = { target: new THREE.Vector3(0, 0, 0), radio: 120, theta: Math.PI / 4, phi: Math.PI / 3.2 };
-  let arrastrando = null; // 'rotar' | 'pan' | null
+  let arrastrando = null;
   let ultimoX = 0, ultimoY = 0;
 
   function actualizarPosicionCamara() {
@@ -10532,16 +10642,12 @@ function inicializarEscenaThreeJs() {
 
   const canvas = L3D_RENDERER.domElement;
   canvas.addEventListener('contextmenu', e => e.preventDefault());
-  canvas.addEventListener('mousedown', e => {
-    arrastrando = e.button === 2 ? 'pan' : 'rotar';
-    ultimoX = e.clientX; ultimoY = e.clientY;
-  });
+  canvas.addEventListener('mousedown', e => { arrastrando = e.button === 2 ? 'pan' : 'rotar'; ultimoX = e.clientX; ultimoY = e.clientY; });
   window.addEventListener('mouseup', () => { arrastrando = null; });
   canvas.addEventListener('mousemove', e => {
     if (arrastrando === 'rotar') {
       const dx = e.clientX - ultimoX, dy = e.clientY - ultimoY;
-      L3D_CONTROLES.theta -= dx * 0.006;
-      L3D_CONTROLES.phi -= dy * 0.006;
+      L3D_CONTROLES.theta -= dx * 0.006; L3D_CONTROLES.phi -= dy * 0.006;
       actualizarPosicionCamara();
     } else if (arrastrando === 'pan') {
       const dx = e.clientX - ultimoX, dy = e.clientY - ultimoY;
@@ -10556,12 +10662,7 @@ function inicializarEscenaThreeJs() {
     ultimoX = e.clientX; ultimoY = e.clientY;
     onMoveEscena3D(e);
   });
-  canvas.addEventListener('wheel', e => {
-    e.preventDefault();
-    L3D_CONTROLES.radio *= (1 + (e.deltaY > 0 ? 0.1 : -0.1));
-    actualizarPosicionCamara();
-  }, { passive: false });
-
+  canvas.addEventListener('wheel', e => { e.preventDefault(); L3D_CONTROLES.radio *= (1 + (e.deltaY > 0 ? 0.1 : -0.1)); actualizarPosicionCamara(); }, { passive: false });
   L3D_RENDERER.domElement.addEventListener('click', onClickEscena3D);
 
   window.addEventListener('resize', () => {
@@ -10576,98 +10677,159 @@ function inicializarEscenaThreeJs() {
     if (L3D_RENDERER && L3D_ESCENA && L3D_CAMARA) L3D_RENDERER.render(L3D_ESCENA, L3D_CAMARA);
   }
   animar();
-
   window.L3D_ACTUALIZAR_CAMARA = actualizarPosicionCamara;
 }
 
-const L3D_ESPACIO_BAHIA = 1.5;   // separación entre cada sección/bahía a lo largo de la estantería (pasillo)
-const L3D_ESPACIO_SUBLUGAR = 0.55; // separación fina entre posiciones dentro de la misma bahía
-const L3D_ESPACIO_NIVEL = 1.5;
-const L3D_ESPACIO_PAR = 2.6;   // separación entre las 2 estanterías que forman un mismo pasillo (frente a frente)
-const L3D_ESPACIO_AISLE = 7;   // ancho del pasillo caminable entre un par de estanterías y el siguiente
-const L3D_TAMANO_CUBO = 1.05;
-let L3D_PISO = null, L3D_ESTRUCTURA = [];
+function crearEtiquetaTexto(texto, color) {
+  const canvas = document.createElement('canvas');
+  canvas.width = 128; canvas.height = 64;
+  const ctx = canvas.getContext('2d');
+  ctx.fillStyle = 'rgba(15,23,42,0.85)';
+  ctx.roundRect ? ctx.roundRect(4, 12, 120, 40, 8) : ctx.rect(4, 12, 120, 40);
+  ctx.fill();
+  ctx.fillStyle = color || '#e2e8f0';
+  ctx.font = 'bold 34px sans-serif';
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText(texto, 64, 32);
+  const textura = new THREE.CanvasTexture(canvas);
+  const material = new THREE.SpriteMaterial({ map: textura, depthTest: false });
+  const sprite = new THREE.Sprite(material);
+  sprite.scale.set(2.2, 1.1, 1);
+  return sprite;
+}
+
+// ---------- Espaciado de la escena ----------
+const L3D_ESP_POSICION = 0.75;   // horizontal, a lo largo de un rack
+const L3D_ESP_NIVEL = 1.5;       // vertical, altura del rack
+const L3D_ESP_PAR = 2.4;         // separación entre las 2 caras de un mismo pasillo
+const L3D_ESP_AISLE = 6.5;       // ancho del pasillo caminable entre un par de racks y el siguiente
+const L3D_TAMANO_CUBO = 0.62;
+
+// Zigzag (mezzanine/cava/refri)
+const L3D_ESP_ZIGZAG_GRUPO = 1.3;
+const L3D_ESP_ZIGZAG_LADO = 2.0;
+const L3D_ESP_ZIGZAG_NIVEL = 1.4;
+const L3D_ESP_ZIGZAG_PISO = 6;
 
 function renderizarEscena3D() {
   if (!L3D_ESCENA) return;
   L3D_CUBOS.forEach(c => L3D_ESCENA.remove(c));
   L3D_ESTRUCTURA.forEach(c => L3D_ESCENA.remove(c));
+  L3D_ETIQUETAS.forEach(c => L3D_ESCENA.remove(c));
   if (L3D_PISO) L3D_ESCENA.remove(L3D_PISO);
-  L3D_CUBOS = [];
-  L3D_ESTRUCTURA = [];
+  L3D_CUBOS = []; L3D_ESTRUCTURA = []; L3D_ETIQUETAS = [];
 
   const nivelFiltro = document.getElementById('l3d-filtro-nivel').value;
-  const zonaFiltro = document.getElementById('l3d-filtro-zona').value;
-  const zonas = [...new Set(L3D_DATOS_ALMACEN.map(f => f.zona).filter(Boolean))].sort();
+  const tipoFiltro = document.getElementById('l3d-filtro-tipo').value;
 
-  // Las zonas se agrupan de a pares para formar pasillos "frente a frente"
-  // (A y B comparten un pasillo, C y D el siguiente, etc.) -- igual al
-  // patrón de la referencia de Odoo. Esto da la posición en Z (profundidad).
-  const posicionZ = zona => {
-    const idx = zonas.indexOf(zona);
+  const racks = [...new Set(L3D_DATOS_ALMACEN.filter(f => f.tipo_ubicacion === 'rack').map(f => f.rack))]
+    .sort((a, b) => {
+      const fa = L3D_DATOS_ALMACEN.find(f => f.rack === a), fb = L3D_DATOS_ALMACEN.find(f => f.rack === b);
+      return (fa?.rack_index ?? 0) - (fb?.rack_index ?? 0);
+    });
+  const posicionZRack = rack => {
+    const idx = racks.indexOf(rack);
     if (idx < 0) return 0;
-    const parIdx = Math.floor(idx / 2);
-    const ladoPar = idx % 2; // 0 = lado izquierdo del pasillo, 1 = lado derecho
-    return parIdx * L3D_ESPACIO_AISLE + ladoPar * L3D_ESPACIO_PAR;
+    const parIdx = Math.floor(idx / 2), lado = idx % 2;
+    return parIdx * L3D_ESP_AISLE + lado * L3D_ESP_PAR;
   };
 
   const geometria = new THREE.BoxGeometry(L3D_TAMANO_CUBO, L3D_TAMANO_CUBO, L3D_TAMANO_CUBO);
   const matEstructura = new THREE.MeshBasicMaterial({ color: 0x64748b, transparent: true, opacity: 0.12 });
   const bordeEstructura = new THREE.EdgesGeometry(geometria);
   const matBorde = new THREE.LineBasicMaterial({ color: 0x94a3b8, transparent: true, opacity: 0.35 });
-  const matOcupada = new THREE.MeshLambertMaterial({ color: 0xdc2626 });
-  const matVacia = new THREE.MeshLambertMaterial({ color: 0x16a34a });
+  const colorOcupada = 0xdc2626, colorVacia = 0x16a34a;
 
   let minX = Infinity, maxX = -Infinity, minZ = Infinity, maxZ = -Infinity;
+  const agregarPunto = (x, z) => { minX = Math.min(minX, x); maxX = Math.max(maxX, x); minZ = Math.min(minZ, z); maxZ = Math.max(maxZ, z); };
 
-  L3D_DATOS_ALMACEN.forEach(f => {
-    if (nivelFiltro && String(f.nivel) !== nivelFiltro) return;
-    if (zonaFiltro && f.zona !== zonaFiltro) return;
-    if (f.pasillo == null || f.posicion == null) return;
-
-    // "Pasillo" avanza a lo largo de la estantería (X); "posición" es el
-    // sub-lugar fino dentro de esa bahía (también en X, pero mucho más
-    // junto); "nivel" es la altura (Y); la zona (par A/B, C/D...) da la
-    // profundidad (Z), como estanterías enfrentadas en un mismo corredor.
-    const x = f.pasillo * L3D_ESPACIO_BAHIA + (f.posicion - 1) * L3D_ESPACIO_SUBLUGAR;
-    const y = (f.nivel || 1) * L3D_ESPACIO_NIVEL;
-    const z = posicionZ(f.zona);
-    minX = Math.min(minX, x); maxX = Math.max(maxX, x);
-    minZ = Math.min(minZ, z); maxZ = Math.max(maxZ, z);
-
-    // Siempre se dibuja la "estructura" (el cubo del estante, transparente)
-    // -- así se ve el esqueleto completo de la estantería, como en Odoo.
+  function dibujarUbicacion(f, x, y, z) {
+    agregarPunto(x, z);
     const estructura = new THREE.Mesh(geometria, matEstructura);
     estructura.position.set(x, y, z);
-    L3D_ESCENA.add(estructura);
-    L3D_ESTRUCTURA.push(estructura);
+    L3D_ESCENA.add(estructura); L3D_ESTRUCTURA.push(estructura);
     const lineas = new THREE.LineSegments(bordeEstructura, matBorde);
     lineas.position.set(x, y, z);
-    L3D_ESCENA.add(lineas);
-    L3D_ESTRUCTURA.push(lineas);
+    L3D_ESCENA.add(lineas); L3D_ESTRUCTURA.push(lineas);
 
-    // Si tiene código de barra conocido, se dibuja el cubo sólido encima
-    // (ocupado = rojo, vacío = verde) -- un poco más chico para que se note
-    // la diferencia contra la estructura.
     if (f.codigo_barra != null) {
-      const cuboSolido = new THREE.Mesh(geometria, f.ocupada ? matOcupada : matVacia);
+      const cuboSolido = new THREE.Mesh(geometria, new THREE.MeshLambertMaterial({ color: f.ocupada ? colorOcupada : colorVacia }));
       cuboSolido.scale.set(0.8, 0.8, 0.8);
       cuboSolido.position.set(x, y, z);
       cuboSolido.userData = f;
-      L3D_ESCENA.add(cuboSolido);
-      L3D_CUBOS.push(cuboSolido);
+      L3D_ESCENA.add(cuboSolido); L3D_CUBOS.push(cuboSolido);
     }
+  }
+
+  // ---------- Racks estándar ----------
+  if (!tipoFiltro || tipoFiltro === 'rack') {
+    L3D_DATOS_ALMACEN.forEach(f => {
+      if (f.tipo_ubicacion !== 'rack') return;
+      if (nivelFiltro && String(f.nivel_estructura) !== nivelFiltro) return;
+      if (f.posicion_estructura == null || f.nivel_estructura == null) return;
+      const x = f.posicion_estructura * L3D_ESP_POSICION;
+      const y = f.nivel_estructura * L3D_ESP_NIVEL;
+      const z = posicionZRack(f.rack);
+      dibujarUbicacion(f, x, y, z);
+    });
+    // Letra del rack, flotando al frente de cada estantería.
+    racks.forEach(rack => {
+      const z = posicionZRack(rack);
+      const maxPos = Math.max(1, ...L3D_DATOS_ALMACEN.filter(f => f.rack === rack).map(f => f.posicion_estructura || 1));
+      const etiqueta = crearEtiquetaTexto(rack, '#67e8f9');
+      etiqueta.position.set((maxPos * L3D_ESP_POSICION) / 2, -0.9, z);
+      L3D_ESCENA.add(etiqueta); L3D_ETIQUETAS.push(etiqueta);
+    });
+  }
+
+  // ---------- Mezzanine / Cava / Refri (zigzag), agrupados aparte ----------
+  const clusters = { mezzanine: { offsetX: -14, color: '#a78bfa', label: 'MEZZANINE' }, cava: { offsetX: -14, offsetZAdd: 20, color: '#38bdf8', label: 'CAVA' }, refri: { offsetX: -14, offsetZAdd: 40, color: '#22d3ee', label: 'REFRI' } };
+  ['mezzanine', 'cava', 'refri'].forEach(tipo => {
+    if (tipoFiltro && tipoFiltro !== tipo) return;
+    const filasTipo = L3D_DATOS_ALMACEN.filter(f => f.tipo_ubicacion === tipo);
+    if (!filasTipo.length) return;
+    const info = clusters[tipo];
+    const pisos = [...new Set(filasTipo.map(f => f.piso_mezzanine ?? f.nivel_estructura ?? 1))].sort((a, b) => a - b);
+    filasTipo.forEach(f => {
+      const piso = f.piso_mezzanine ?? f.nivel_estructura ?? 1;
+      if (nivelFiltro && String(piso) !== nivelFiltro) return;
+      const pisoIdx = pisos.indexOf(piso);
+      const x = info.offsetX - (f.grupo_zigzag || 0) * L3D_ESP_ZIGZAG_GRUPO;
+      const z = (info.offsetZAdd || 0) + (f.lado_zigzag === 'izquierda' ? L3D_ESP_ZIGZAG_LADO : 0);
+      const y = pisoIdx * L3D_ESP_ZIGZAG_PISO + (f.nivel_zigzag || 1) * L3D_ESP_ZIGZAG_NIVEL;
+      dibujarUbicacion(f, x, y, z);
+    });
+    const etiqueta = crearEtiquetaTexto(info.label, info.color);
+    etiqueta.position.set(info.offsetX - 3, (pisos.length * L3D_ESP_ZIGZAG_PISO) / 2, (info.offsetZAdd || 0) + 1);
+    L3D_ESCENA.add(etiqueta); L3D_ETIQUETAS.push(etiqueta);
   });
 
-  // Piso tipo cuadrícula, como el suelo de la referencia.
+  // ---------- Contenedores (únicos, aparte) ----------
+  if (!tipoFiltro || tipoFiltro === 'contenedor') {
+    const contenedores = L3D_DATOS_ALMACEN.filter(f => f.tipo_ubicacion === 'contenedor');
+    contenedores.forEach((f, i) => {
+      const x = (maxX === -Infinity ? 0 : maxX) + L3D_ESP_AISLE + i * 1.6;
+      const y = L3D_ESP_NIVEL;
+      const z = 0;
+      dibujarUbicacion(f, x, y, z);
+    });
+    if (contenedores.length) {
+      const etiqueta = crearEtiquetaTexto('CONT.', '#fbbf24');
+      etiqueta.position.set((maxX === -Infinity ? 0 : maxX) + L3D_ESP_AISLE, -0.9, 0);
+      L3D_ESCENA.add(etiqueta); L3D_ETIQUETAS.push(etiqueta);
+    }
+  }
+
   if (isFinite(minX)) {
-    const anchoX = (maxX - minX) + 20, anchoZ = (maxZ - minZ) + 20;
+    const anchoX = (maxX - minX) + 24, anchoZ = (maxZ - minZ) + 24;
     const tamanoPiso = Math.max(anchoX, anchoZ);
     L3D_PISO = new THREE.GridHelper(tamanoPiso, Math.round(tamanoPiso / 1.3), 0x334155, 0x1e293b);
     L3D_PISO.position.set((minX + maxX) / 2, 0, (minZ + maxZ) / 2);
     L3D_ESCENA.add(L3D_PISO);
   }
 }
+
+let L3D_PISO = null, L3D_ESTRUCTURA = [], L3D_ETIQUETAS = [];
 
 function recentrarCamara3D() {
   if ((!L3D_ESTRUCTURA.length && !L3D_CUBOS.length) || !L3D_CAMARA || !L3D_CONTROLES) return;
@@ -10705,10 +10867,19 @@ function onMoveEscena3D(evento) {
 function onClickEscena3D(evento) {
   L3D_RAYCASTER.setFromCamera(L3D_MOUSE, L3D_CAMARA);
   const intersectados = L3D_RAYCASTER.intersectObjects(L3D_CUBOS);
-  if (intersectados.length) {
-    const f = intersectados[0].object.userData;
-    mostrarToast(`${f.codigo_ubicacion}: ${f.ocupada ? `Ocupada -- ${f.producto} (${f.cantidad})` : 'Vacía'}`);
-  }
+  if (!intersectados.length) return;
+  const f = intersectados[0].object.userData;
+  document.getElementById('l3d-detalle-contenido').innerHTML = `
+    <div style="font-size:20px;font-weight:800;margin-bottom:10px;color:${f.ocupada ? '#f87171' : '#4ade80'};">${tEsc(f.codigo_ubicacion)}</div>
+    <div style="margin-bottom:6px;"><span style="color:#94a3b8;">Estado:</span> <strong>${f.ocupada ? 'Ocupada' : 'Vacía'}</strong></div>
+    ${f.ocupada ? `<div style="margin-bottom:6px;"><span style="color:#94a3b8;">Producto:</span> ${tEsc(f.producto || '—')}</div><div style="margin-bottom:6px;"><span style="color:#94a3b8;">Cantidad:</span> ${f.cantidad ?? '—'}</div>` : ''}
+    <div style="margin-bottom:6px;"><span style="color:#94a3b8;">Tipo:</span> ${tEsc(f.tipo || '—')}</div>
+    <div style="margin-bottom:6px;"><span style="color:#94a3b8;">Almacenamiento:</span> ${tEsc(f.almacenamiento || '—')}</div>
+    <div style="margin-bottom:6px;"><span style="color:#94a3b8;">Peso máx.:</span> ${f.peso_kg != null ? f.peso_kg + ' kg' : '—'}</div>
+    <div style="margin-bottom:6px;"><span style="color:#94a3b8;">Volumen:</span> ${f.volumen ?? '—'}</div>
+    <div style="margin-bottom:6px;"><span style="color:#94a3b8;">Código de barra:</span> ${tEsc(f.codigo_barra || '—')}</div>
+  `;
+  document.getElementById('l3d-panel-detalle').classList.remove('hidden');
 }
 
 document.getElementById('imp-tipo').addEventListener('change', (e) => {
