@@ -3204,10 +3204,11 @@ async function cargarRaCedi() {
   if (RA_CEDI_CHART) RA_CEDI_CHART.destroy();
   RA_CEDI_CHART = dibujarChartRa('ra-cedi-chart', filas, `RA$ ${cedi}`);
 
-  document.getElementById('ra-cedi-detalle-tabla').innerHTML = `<table class="inv-table"><thead><tr><th>Mes</th><th>Valor contado</th><th>Valor diferencia (absoluto)</th><th>% Exactitud (IRA Valor)</th></tr></thead><tbody>${
+  document.getElementById('ra-cedi-detalle-tabla').innerHTML = `<table class="inv-table"><thead><tr><th>Mes</th><th>Valor contado</th><th>Valor teórico</th><th>Valor diferencia (absoluto)</th><th>% Exactitud (IRA Valor)</th></tr></thead><tbody>${
     filas.slice().reverse().map(f => `<tr>
       <td>${new Date(f.mes + 'T00:00:00').toLocaleDateString('es-CO', { month: 'short', year: 'numeric' })}</td>
       <td>${formatoCOP(f.valor_contado)}</td>
+      <td>${formatoCOP(f.valor_teorico)}</td>
       <td>${formatoCOP(f.valor_ajustes_absoluto)}</td>
       <td style="font-weight:700;color:${f.ra_valor >= 98.5 ? '#16a34a' : '#dc2626'};">${f.ra_valor != null ? f.ra_valor + '%' : '—'}</td>
     </tr>`).join('')
