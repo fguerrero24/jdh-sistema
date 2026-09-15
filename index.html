@@ -9119,7 +9119,6 @@ function filtrarCronogramaPorProveedor(proveedor) {
 }
 
 // ---------- Sincronizar conteo desde Odoo ----------
-let ODOO_SYNC_CICLO_ACTUAL = null;
 document.getElementById('btn-ic-sincronizar-odoo').addEventListener('click', async () => {
   const cicloSel = document.getElementById('ic-filtro-ciclo').value;
   if (!cicloSel) { mostrarToast('Elige un ciclo primero.'); return; }
@@ -9128,70 +9127,35 @@ document.getElementById('btn-ic-sincronizar-odoo').addEventListener('click', asy
   if (errorCiclo || !ciclo) { mostrarToast('No se pudo leer el ciclo: ' + (errorCiclo?.message || '')); return; }
   if (!ciclo.odoo_orden_id) { mostrarToast('Este ciclo no tiene una orden de Odoo vinculada (créala primero con "Agregar referencias" o desde SIESA vs WMS / Cronograma).'); return; }
 
-  ODOO_SYNC_CICLO_ACTUAL = { cicloSel, odooOrdenId: ciclo.odoo_orden_id };
+  const slot = prompt(`Orden de Odoo #${ciclo.odoo_orden_id} -- ¿a cuál conteo debe caer la cantidad? Escribe 1, 2 o 3.`, '1');
+  if (!slot || !['1', '2', '3'].includes(slot.trim())) { if (slot !== null) mostrarToast('Debes escribir 1, 2 o 3.'); return; }
 
-  document.getElementById('ic-modal-contenido').innerHTML = `
-    <h3 style="margin-top:0;">Sincronizar conteo desde Odoo</h3>
-    <p style="font-size:12px;color:var(--modern-muted);">Orden de Odoo #${ciclo.odoo_orden_id}. ¿A cuál conteo de nuestro sistema debe caer la cantidad contada?</p>
-    <select id="odoo-sync-slot" style="width:100%;padding:8px;border-radius:8px;border:1px solid #dbe2ea;margin-top:8px;">
-      <option value="1">Conteo 1</option>
-      <option value="2">Conteo 2</option>
-      <option value="3">Conteo 3</option>
-    </select>
-    <div style="display:flex;gap:8px;margin-top:16px;">
-      <button class="btn ghost" data-accion="odoo-sync-cancelar" style="flex:1;">Cancelar</button>
-      <button class="btn" data-accion="odoo-sync-confirmar" style="flex:1;">Sincronizar</button>
-    </div>
-  `;
-  document.getElementById('ic-modal-backdrop').classList.remove('hidden');
-});
-
-// Delegación de eventos sobre el contenedor del modal -- así no depende de
-// que el botón exista en el momento exacto en que se intenta enganchar el
-// listener (más confiable que re-adjuntar listeners cada vez que se
-// reescribe el innerHTML del modal).
-document.getElementById('ic-modal-contenido').addEventListener('click', async (e) => {
-  const elementoAccion = e.target.closest('[data-accion]');
-  const accion = elementoAccion?.dataset?.accion;
-  if (!accion) return;
-
-  if (accion === 'odoo-sync-cancelar') {
-    document.getElementById('ic-modal-backdrop').classList.add('hidden');
-    return;
-  }
-
-  if (accion === 'odoo-sync-confirmar') {
-    const contexto = ODOO_SYNC_CICLO_ACTUAL;
-    if (!contexto) { mostrarToast('Se perdió el contexto de sincronización, intenta de nuevo.'); return; }
-    const slot = document.getElementById('odoo-sync-slot').value;
-    document.getElementById('ic-modal-backdrop').classList.add('hidden');
-    mostrarToast('Sincronizando...');
-    try {
-      const { data, error } = await sb.functions.invoke('crear-orden-conteo-odoo', {
-        body: { accion: 'sincronizar_conteo', odoo_orden_id: contexto.odooOrdenId },
-      });
-      if (error) throw error;
-      if (data?.error) throw new Error(data.error);
-      const resultados = data.resultados || [];
-      if (!resultados.length) {
-        console.log('Depuración sincronización Odoo:', data.depuracion);
-        mostrarToast(`Odoo no devolvió cantidades contadas (${data.depuracion?.total_lineas_encontradas ?? 0} línea(s) encontradas con el campo "${data.depuracion?.campo_usado}"). Detalle en la consola (F12).`);
-        return;
-      }
-
-      const campoValor = `conteo${slot}`, campoFecha = `conteo${slot}_en`, campoPor = `conteo${slot}_por`;
-      let actualizados = 0, errores = 0;
-      for (const r of resultados) {
-        const { error: errUpd } = await sb.from('conteos_ciclicos')
-          .update({ [campoValor]: r.cantidad_contada, [campoFecha]: new Date().toISOString(), [campoPor]: SESION.id })
-          .eq('ciclo_id', contexto.cicloSel).eq('referencia', r.referencia);
-        if (errUpd) errores++; else actualizados++;
-      }
-      mostrarToast(`Sincronizado -- ${actualizados} referencia(s) actualizadas en Conteo ${slot}.` + (errores ? ` ${errores} con error.` : ''));
-      consultarCiclicos();
-    } catch (err) {
-      mostrarToast('Error al sincronizar: ' + err.message);
+  mostrarToast('Sincronizando...');
+  try {
+    const { data, error } = await sb.functions.invoke('crear-orden-conteo-odoo', {
+      body: { accion: 'sincronizar_conteo', odoo_orden_id: ciclo.odoo_orden_id },
+    });
+    if (error) throw error;
+    if (data?.error) throw new Error(data.error);
+    const resultados = data.resultados || [];
+    if (!resultados.length) {
+      console.log('Depuración sincronización Odoo:', data.depuracion);
+      mostrarToast(`Odoo no devolvió cantidades contadas (${data.depuracion?.total_lineas_encontradas ?? 0} línea(s) encontradas con el campo "${data.depuracion?.campo_usado}"). Detalle en la consola (F12).`);
+      return;
     }
+
+    const campoValor = `conteo${slot.trim()}`, campoFecha = `conteo${slot.trim()}_en`, campoPor = `conteo${slot.trim()}_por`;
+    let actualizados = 0, errores = 0;
+    for (const r of resultados) {
+      const { error: errUpd } = await sb.from('conteos_ciclicos')
+        .update({ [campoValor]: r.cantidad_contada, [campoFecha]: new Date().toISOString(), [campoPor]: SESION.id })
+        .eq('ciclo_id', cicloSel).eq('referencia', r.referencia);
+      if (errUpd) errores++; else actualizados++;
+    }
+    mostrarToast(`Sincronizado -- ${actualizados} referencia(s) actualizadas en Conteo ${slot.trim()}.` + (errores ? ` ${errores} con error.` : ''));
+    consultarCiclicos();
+  } catch (err) {
+    mostrarToast('Error al sincronizar: ' + err.message);
   }
 });
 
