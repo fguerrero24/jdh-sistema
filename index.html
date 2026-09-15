@@ -8522,20 +8522,53 @@ function renderSvwTabla(contId, filas) {
 // Crea la Orden de Conteo correspondiente en Odoo (modelo
 // bexwms_counted.order), con los productos del ciclo que se acaba de
 // generar -- se llama justo después de crear el ciclo, sin importar
-// desde cuál de las 3 pantallas se haya hecho. Si falla, no revierte
-// nada de lo nuestro -- solo avisa, porque el ciclo en JDH ya quedó
-// creado de todas formas.
+// desde cuál de las 3 pantallas se haya hecho. Primero pide elegir el
+// responsable (de una lista real de usuarios de Odoo), porque ese
+// campo es obligatorio ahí. Si falla, no revierte nada de lo nuestro
+// -- solo avisa, porque el ciclo en JDH ya quedó creado de todas formas.
 async function crearOrdenConteoEnOdoo(cedi, referencias) {
+  let usuarios = [];
   try {
-    const { data, error } = await sb.functions.invoke('crear-orden-conteo-odoo', { body: { cedi, referencias } });
+    const { data, error } = await sb.functions.invoke('crear-orden-conteo-odoo', { body: { accion: 'listar_usuarios' } });
     if (error) throw error;
     if (data?.error) throw new Error(data.error);
-    let msg = `Orden de conteo creada en Odoo (#${data.orden_id}) con ${data.productos_incluidos} de ${data.productos_totales_pedidos} referencia(s).`;
-    if (data.codigos_no_encontrados?.length) msg += ` ${data.codigos_no_encontrados.length} código(s) no se encontraron en Odoo.`;
-    mostrarToast(msg);
+    usuarios = data.usuarios || [];
   } catch (err) {
-    mostrarToast('El ciclo se creó, pero no se pudo generar la orden en Odoo: ' + err.message);
+    mostrarToast('El ciclo se creó, pero no se pudo consultar los usuarios de Odoo: ' + err.message);
+    return;
   }
+  if (!usuarios.length) { mostrarToast('El ciclo se creó, pero Odoo no devolvió ningún usuario para asignar como responsable.'); return; }
+
+  document.getElementById('ic-modal-contenido').innerHTML = `
+    <h3 style="margin-top:0;">¿Quién va a realizar este conteo?</h3>
+    <p style="font-size:12px;color:var(--modern-muted);">Se creará la orden de conteo en Odoo con ${referencias.length} referencia(s), asignada a la persona que elijas.</p>
+    <select id="odoo-selector-responsable" style="width:100%;padding:8px;border-radius:8px;border:1px solid #dbe2ea;margin-top:8px;">
+      ${usuarios.map(u => `<option value="${u.id}">${tEsc(u.name)}${u.login ? ' -- ' + tEsc(u.login) : ''}</option>`).join('')}
+    </select>
+    <div style="display:flex;gap:8px;margin-top:16px;">
+      <button class="btn ghost" id="btn-odoo-responsable-cancelar" style="flex:1;">Omitir</button>
+      <button class="btn" id="btn-odoo-responsable-confirmar" style="flex:1;">Crear orden en Odoo</button>
+    </div>
+  `;
+  document.getElementById('ic-modal-backdrop').classList.remove('hidden');
+  document.getElementById('btn-odoo-responsable-cancelar').addEventListener('click', () => {
+    document.getElementById('ic-modal-backdrop').classList.add('hidden');
+    mostrarToast('No se creó la orden en Odoo (omitido).');
+  });
+  document.getElementById('btn-odoo-responsable-confirmar').addEventListener('click', async () => {
+    const responsableId = Number(document.getElementById('odoo-selector-responsable').value);
+    document.getElementById('ic-modal-backdrop').classList.add('hidden');
+    try {
+      const { data, error } = await sb.functions.invoke('crear-orden-conteo-odoo', { body: { cedi, referencias, responsable_id: responsableId } });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      let msg = `Orden de conteo creada en Odoo (#${data.orden_id}) con ${data.productos_incluidos} de ${data.productos_totales_pedidos} referencia(s).`;
+      if (data.codigos_no_encontrados?.length) msg += ` ${data.codigos_no_encontrados.length} código(s) no se encontraron en Odoo.`;
+      mostrarToast(msg);
+    } catch (err) {
+      mostrarToast('El ciclo se creó, pero no se pudo generar la orden en Odoo: ' + err.message);
+    }
+  });
 }
 
 function toggleSvwSeleccionCiclico(clave) {
