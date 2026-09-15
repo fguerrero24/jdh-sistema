@@ -8539,31 +8539,84 @@ async function crearOrdenConteoEnOdoo(cedi, referencias) {
   }
   if (!usuarios.length) { mostrarToast('El ciclo se creó, pero Odoo no devolvió ningún usuario para asignar como responsable.'); return; }
 
+  let responsableElegido = null;
+
   document.getElementById('ic-modal-contenido').innerHTML = `
-    <h3 style="margin-top:0;">¿Quién va a realizar este conteo?</h3>
-    <p style="font-size:12px;color:var(--modern-muted);">Se creará la orden de conteo en Odoo con ${referencias.length} referencia(s), asignada a la persona que elijas.</p>
-    <select id="odoo-selector-responsable" style="width:100%;padding:8px;border-radius:8px;border:1px solid #dbe2ea;margin-top:8px;">
-      ${usuarios.map(u => `<option value="${u.id}">${tEsc(u.name)}${u.login ? ' -- ' + tEsc(u.login) : ''}</option>`).join('')}
+    <h3 style="margin-top:0;">Crear orden de conteo en Odoo</h3>
+    <p style="font-size:12px;color:var(--modern-muted);">${referencias.length} referencia(s) de este ciclo.</p>
+
+    <label style="font-size:12px;font-weight:700;display:block;margin-top:10px;">¿Quién va a realizar este conteo?</label>
+    <input type="text" id="odoo-buscar-responsable" placeholder="Busca por nombre o correo..." style="width:100%;padding:8px;border-radius:8px;border:1px solid #dbe2ea;margin-top:4px;">
+    <div id="odoo-resultados-responsable" style="max-height:180px;overflow-y:auto;margin-top:6px;border:1px solid #eef1f4;border-radius:8px;"></div>
+    <div id="odoo-responsable-elegido" style="font-size:12px;color:var(--modern-muted);margin-top:6px;">Ningún responsable elegido todavía.</div>
+
+    <label style="font-size:12px;font-weight:700;display:block;margin-top:14px;">Número de conteo</label>
+    <select id="odoo-selector-number-count" style="width:100%;padding:8px;border-radius:8px;border:1px solid #dbe2ea;margin-top:4px;">
+      <option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option>
     </select>
+
+    <label style="font-size:12px;font-weight:700;display:block;margin-top:14px;">Observación (obligatoria en Odoo)</label>
+    <textarea id="odoo-observacion" rows="2" placeholder="Ej. Ciclo generado desde JDH Sistema" style="width:100%;padding:8px;border-radius:8px;border:1px solid #dbe2ea;margin-top:4px;resize:vertical;"></textarea>
+
     <div style="display:flex;gap:8px;margin-top:16px;">
       <button class="btn ghost" id="btn-odoo-responsable-cancelar" style="flex:1;">Omitir</button>
-      <button class="btn" id="btn-odoo-responsable-confirmar" style="flex:1;">Crear orden en Odoo</button>
+      <button class="btn" id="btn-odoo-responsable-confirmar" style="flex:1;" disabled>Crear orden en Odoo</button>
     </div>
   `;
   document.getElementById('ic-modal-backdrop').classList.remove('hidden');
+
+  function refrescarBotonConfirmar() {
+    document.getElementById('btn-odoo-responsable-confirmar').disabled = !responsableElegido;
+  }
+
+  function renderizarResultadosResponsable(lista) {
+    const cont = document.getElementById('odoo-resultados-responsable');
+    if (!lista.length) { cont.innerHTML = '<div style="padding:8px;font-size:12px;color:var(--modern-muted);">Sin resultados.</div>'; return; }
+    cont.innerHTML = lista.map(u => `
+      <div style="padding:8px 10px;border-bottom:1px solid #f2f4f7;cursor:pointer;font-size:12px;" onclick='elegirResponsableOdoo(${u.id}, ${JSON.stringify(u.name)})'>
+        <strong>${tEsc(u.name)}</strong>${u.login ? ` <span style="color:var(--modern-muted);">-- ${tEsc(u.login)}</span>` : ''}
+      </div>
+    `).join('');
+  }
+  renderizarResultadosResponsable(usuarios.slice(0, 50));
+
+  window.elegirResponsableOdoo = (id, nombre) => {
+    responsableElegido = id;
+    document.getElementById('odoo-responsable-elegido').innerHTML = `Responsable: <strong>${tEsc(nombre)}</strong>`;
+    document.getElementById('odoo-buscar-responsable').value = nombre;
+    document.getElementById('odoo-resultados-responsable').innerHTML = '';
+    refrescarBotonConfirmar();
+  };
+
+  document.getElementById('odoo-buscar-responsable').addEventListener('input', (e) => {
+    responsableElegido = null;
+    refrescarBotonConfirmar();
+    const termino = e.target.value.trim().toLowerCase();
+    if (!termino) { renderizarResultadosResponsable(usuarios.slice(0, 50)); return; }
+    const filtrados = usuarios.filter(u => u.name.toLowerCase().includes(termino) || (u.login || '').toLowerCase().includes(termino));
+    renderizarResultadosResponsable(filtrados.slice(0, 50));
+  });
+
   document.getElementById('btn-odoo-responsable-cancelar').addEventListener('click', () => {
     document.getElementById('ic-modal-backdrop').classList.add('hidden');
     mostrarToast('No se creó la orden en Odoo (omitido).');
   });
   document.getElementById('btn-odoo-responsable-confirmar').addEventListener('click', async () => {
-    const responsableId = Number(document.getElementById('odoo-selector-responsable').value);
+    if (!responsableElegido) return;
+    const numberCount = document.getElementById('odoo-selector-number-count').value;
+    const observacion = document.getElementById('odoo-observacion').value.trim();
+    if (!observacion) { mostrarToast('La observación es obligatoria en Odoo.'); return; }
     document.getElementById('ic-modal-backdrop').classList.add('hidden');
     try {
-      const { data, error } = await sb.functions.invoke('crear-orden-conteo-odoo', { body: { cedi, referencias, responsable_id: responsableId } });
+      const { data, error } = await sb.functions.invoke('crear-orden-conteo-odoo', {
+        body: { cedi, referencias, responsable_id: responsableElegido, number_count: numberCount, observacion },
+      });
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
       let msg = `Orden de conteo creada en Odoo (#${data.orden_id}) con ${data.productos_incluidos} de ${data.productos_totales_pedidos} referencia(s).`;
       if (data.codigos_no_encontrados?.length) msg += ` ${data.codigos_no_encontrados.length} código(s) no se encontraron en Odoo.`;
+      if (data.estado_final) msg += ` Estado: ${data.estado_final}.`;
+      else if (data.aviso_estado) msg += ` ${data.aviso_estado}`;
       mostrarToast(msg);
     } catch (err) {
       mostrarToast('El ciclo se creó, pero no se pudo generar la orden en Odoo: ' + err.message);
