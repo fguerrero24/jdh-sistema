@@ -1698,6 +1698,7 @@ input:focus,select:focus,textarea:focus{outline:none!important;border-color:#176
               <div><div class="inv-eyebrow">JDH · Inventory Control Tower</div><div class="inv-title">Inventarios Cíclicos</div><div class="inv-subtitle">Conteo físico contra el teórico de SIESA -- información, excepción, decisión, acción.</div></div>
               <div class="inv-sync" style="display:flex;gap:8px;">
                 <button class="btn ghost" id="btn-ic-agregar-referencias"><i class="ti ti-plus"></i> Agregar referencias</button>
+                <button class="btn ghost" id="btn-ic-sincronizar-odoo"><i class="ti ti-refresh"></i> Sincronizar desde Odoo</button>
                 <button class="btn ghost" id="btn-ic-importar-conteo"><i class="ti ti-upload"></i> Importar conteo</button>
                 <button class="btn ghost" id="btn-ic-limpiar-ciclo" style="color:#dc2626;"><i class="ti ti-trash"></i> Limpiar ciclo</button>
                 <button class="btn ghost" id="btn-ic-eliminar-ciclo-actual" style="color:#dc2626;"><i class="ti ti-x"></i> Eliminar este ciclo</button>
@@ -8513,7 +8514,7 @@ function renderSvwTabla(contId, filas) {
       document.getElementById('ic-modal-backdrop').classList.add('hidden');
       if (error) { mostrarToast('Error al generar el cíclico: ' + error.message); return; }
       alert(`Listo -- ${items.length} referencia(s) agregadas al Ciclo #${cicloId} de ${cedi}, pendientes de contar en Inventarios Cíclicos.`);
-      crearOrdenConteoEnOdoo(cedi, items.map(i => i.referencia));
+      crearOrdenConteoEnOdoo(cedi, items.map(i => i.referencia), cicloId);
       SVW_SELECCIONADOS_CICLICO.clear();
       renderSvwTodo();
     });
@@ -8526,7 +8527,7 @@ function renderSvwTabla(contId, filas) {
 // responsable (de una lista real de usuarios de Odoo), porque ese
 // campo es obligatorio ahí. Si falla, no revierte nada de lo nuestro
 // -- solo avisa, porque el ciclo en JDH ya quedó creado de todas formas.
-async function crearOrdenConteoEnOdoo(cedi, referencias) {
+async function crearOrdenConteoEnOdoo(cedi, referencias, cicloId) {
   let usuarios = [];
   try {
     const { data, error } = await sb.functions.invoke('crear-orden-conteo-odoo', { body: { accion: 'listar_usuarios' } });
@@ -8609,7 +8610,7 @@ async function crearOrdenConteoEnOdoo(cedi, referencias) {
     document.getElementById('ic-modal-backdrop').classList.add('hidden');
     try {
       const { data, error } = await sb.functions.invoke('crear-orden-conteo-odoo', {
-        body: { cedi, referencias, responsable_id: responsableElegido, number_count: numberCount, observacion },
+        body: { cedi, referencias, responsable_id: responsableElegido, number_count: numberCount, observacion, ciclo_id: cicloId },
       });
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
@@ -9051,7 +9052,7 @@ async function generarCiclicoDesdeCronograma() {
     document.getElementById('ic-modal-backdrop').classList.add('hidden');
     if (error) { mostrarToast('Error al generar el cíclico: ' + error.message); return; }
     alert(`Listo -- ${items.length} referencia(s) agregadas al Ciclo #${cicloId} de ${cedi}.`);
-    crearOrdenConteoEnOdoo(cedi, items.map(i => i.referencia));
+    crearOrdenConteoEnOdoo(cedi, items.map(i => i.referencia), cicloId);
     CRONO_SELECCIONADOS.clear();
     renderTablaCronogramaIc();
   });
@@ -9117,6 +9118,59 @@ function filtrarCronogramaPorProveedor(proveedor) {
   setTimeout(() => { const input = document.getElementById('crono-filtro-texto'); if (input) { input.value = proveedor; renderTablaCronogramaIc(); } }, 0);
 }
 
+// ---------- Sincronizar conteo desde Odoo ----------
+document.getElementById('btn-ic-sincronizar-odoo').addEventListener('click', async () => {
+  const cicloSel = document.getElementById('ic-filtro-ciclo').value;
+  if (!cicloSel) { mostrarToast('Elige un ciclo primero.'); return; }
+
+  const { data: ciclo, error: errorCiclo } = await sb.from('ciclos_activos').select('odoo_orden_id').eq('id', cicloSel).single();
+  if (errorCiclo || !ciclo) { mostrarToast('No se pudo leer el ciclo: ' + (errorCiclo?.message || '')); return; }
+  if (!ciclo.odoo_orden_id) { mostrarToast('Este ciclo no tiene una orden de Odoo vinculada (créala primero con "Agregar referencias" o desde SIESA vs WMS / Cronograma).'); return; }
+
+  document.getElementById('ic-modal-contenido').innerHTML = `
+    <h3 style="margin-top:0;">Sincronizar conteo desde Odoo</h3>
+    <p style="font-size:12px;color:var(--modern-muted);">Orden de Odoo #${ciclo.odoo_orden_id}. ¿A cuál conteo de nuestro sistema debe caer la cantidad contada?</p>
+    <select id="odoo-sync-slot" style="width:100%;padding:8px;border-radius:8px;border:1px solid #dbe2ea;margin-top:8px;">
+      <option value="1">Conteo 1</option>
+      <option value="2">Conteo 2</option>
+      <option value="3">Conteo 3</option>
+    </select>
+    <div style="display:flex;gap:8px;margin-top:16px;">
+      <button class="btn ghost" id="btn-odoo-sync-cancelar" style="flex:1;">Cancelar</button>
+      <button class="btn" id="btn-odoo-sync-confirmar" style="flex:1;">Sincronizar</button>
+    </div>
+  `;
+  document.getElementById('ic-modal-backdrop').classList.remove('hidden');
+  document.getElementById('btn-odoo-sync-cancelar').addEventListener('click', () => document.getElementById('ic-modal-backdrop').classList.add('hidden'));
+  document.getElementById('btn-odoo-sync-confirmar').addEventListener('click', async () => {
+    const slot = document.getElementById('odoo-sync-slot').value;
+    document.getElementById('ic-modal-backdrop').classList.add('hidden');
+    mostrarToast('Sincronizando...');
+    try {
+      const { data, error } = await sb.functions.invoke('crear-orden-conteo-odoo', {
+        body: { accion: 'sincronizar_conteo', odoo_orden_id: ciclo.odoo_orden_id },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      const resultados = data.resultados || [];
+      if (!resultados.length) { mostrarToast('Odoo no devolvió cantidades contadas para esta orden todavía.'); return; }
+
+      const campoValor = `conteo${slot}`, campoFecha = `conteo${slot}_en`, campoPor = `conteo${slot}_por`;
+      let actualizados = 0, errores = 0;
+      for (const r of resultados) {
+        const { error: errUpd } = await sb.from('conteos_ciclicos')
+          .update({ [campoValor]: r.cantidad_contada, [campoFecha]: new Date().toISOString(), [campoPor]: SESION.id })
+          .eq('ciclo_id', cicloSel).eq('referencia', r.referencia);
+        if (errUpd) errores++; else actualizados++;
+      }
+      mostrarToast(`Sincronizado -- ${actualizados} referencia(s) actualizadas en Conteo ${slot}.` + (errores ? ` ${errores} con error.` : ''));
+      consultarCiclicos();
+    } catch (err) {
+      mostrarToast('Error al sincronizar: ' + err.message);
+    }
+  });
+});
+
 // ---------- Agregar referencias manualmente ----------
 let IC_REFERENCIAS_SELECCIONADAS_MANUAL = new Map();
 document.getElementById('btn-ic-agregar-referencias').addEventListener('click', async () => {
@@ -9169,7 +9223,7 @@ document.getElementById('btn-ic-agregar-referencias').addEventListener('click', 
     document.getElementById('ic-modal-backdrop').classList.add('hidden');
     if (error) { mostrarToast('Error al agregar: ' + error.message); return; }
     mostrarToast(`${items.length} referencia(s) agregadas al Ciclo #${cicloId}.`);
-    crearOrdenConteoEnOdoo(cedi, items.map(i => i.referencia));
+    crearOrdenConteoEnOdoo(cedi, items.map(i => i.referencia), cicloId);
     document.getElementById('ic-filtro-cedi').value = cedi;
     await poblarSelectorCiclosIc(cedi);
     document.getElementById('ic-filtro-ciclo').value = cicloId;
