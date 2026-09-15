@@ -9151,7 +9151,8 @@ document.getElementById('btn-ic-sincronizar-odoo').addEventListener('click', asy
 // listener (más confiable que re-adjuntar listeners cada vez que se
 // reescribe el innerHTML del modal).
 document.getElementById('ic-modal-contenido').addEventListener('click', async (e) => {
-  const accion = e.target?.dataset?.accion;
+  const elementoAccion = e.target.closest('[data-accion]');
+  const accion = elementoAccion?.dataset?.accion;
   if (!accion) return;
 
   if (accion === 'odoo-sync-cancelar') {
