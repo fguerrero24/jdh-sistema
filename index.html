@@ -9119,6 +9119,7 @@ function filtrarCronogramaPorProveedor(proveedor) {
 }
 
 // ---------- Sincronizar conteo desde Odoo ----------
+let ODOO_SYNC_CICLO_ACTUAL = null;
 document.getElementById('btn-ic-sincronizar-odoo').addEventListener('click', async () => {
   const cicloSel = document.getElementById('ic-filtro-ciclo').value;
   if (!cicloSel) { mostrarToast('Elige un ciclo primero.'); return; }
@@ -9126,6 +9127,8 @@ document.getElementById('btn-ic-sincronizar-odoo').addEventListener('click', asy
   const { data: ciclo, error: errorCiclo } = await sb.from('ciclos_activos').select('odoo_orden_id').eq('id', cicloSel).single();
   if (errorCiclo || !ciclo) { mostrarToast('No se pudo leer el ciclo: ' + (errorCiclo?.message || '')); return; }
   if (!ciclo.odoo_orden_id) { mostrarToast('Este ciclo no tiene una orden de Odoo vinculada (créala primero con "Agregar referencias" o desde SIESA vs WMS / Cronograma).'); return; }
+
+  ODOO_SYNC_CICLO_ACTUAL = { cicloSel, odooOrdenId: ciclo.odoo_orden_id };
 
   document.getElementById('ic-modal-contenido').innerHTML = `
     <h3 style="margin-top:0;">Sincronizar conteo desde Odoo</h3>
@@ -9136,19 +9139,35 @@ document.getElementById('btn-ic-sincronizar-odoo').addEventListener('click', asy
       <option value="3">Conteo 3</option>
     </select>
     <div style="display:flex;gap:8px;margin-top:16px;">
-      <button class="btn ghost" id="btn-odoo-sync-cancelar" style="flex:1;">Cancelar</button>
-      <button class="btn" id="btn-odoo-sync-confirmar" style="flex:1;">Sincronizar</button>
+      <button class="btn ghost" data-accion="odoo-sync-cancelar" style="flex:1;">Cancelar</button>
+      <button class="btn" data-accion="odoo-sync-confirmar" style="flex:1;">Sincronizar</button>
     </div>
   `;
   document.getElementById('ic-modal-backdrop').classList.remove('hidden');
-  document.getElementById('btn-odoo-sync-cancelar').addEventListener('click', () => document.getElementById('ic-modal-backdrop').classList.add('hidden'));
-  document.getElementById('btn-odoo-sync-confirmar').addEventListener('click', async () => {
+});
+
+// Delegación de eventos sobre el contenedor del modal -- así no depende de
+// que el botón exista en el momento exacto en que se intenta enganchar el
+// listener (más confiable que re-adjuntar listeners cada vez que se
+// reescribe el innerHTML del modal).
+document.getElementById('ic-modal-contenido').addEventListener('click', async (e) => {
+  const accion = e.target?.dataset?.accion;
+  if (!accion) return;
+
+  if (accion === 'odoo-sync-cancelar') {
+    document.getElementById('ic-modal-backdrop').classList.add('hidden');
+    return;
+  }
+
+  if (accion === 'odoo-sync-confirmar') {
+    const contexto = ODOO_SYNC_CICLO_ACTUAL;
+    if (!contexto) { mostrarToast('Se perdió el contexto de sincronización, intenta de nuevo.'); return; }
     const slot = document.getElementById('odoo-sync-slot').value;
     document.getElementById('ic-modal-backdrop').classList.add('hidden');
     mostrarToast('Sincronizando...');
     try {
       const { data, error } = await sb.functions.invoke('crear-orden-conteo-odoo', {
-        body: { accion: 'sincronizar_conteo', odoo_orden_id: ciclo.odoo_orden_id },
+        body: { accion: 'sincronizar_conteo', odoo_orden_id: contexto.odooOrdenId },
       });
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
@@ -9164,7 +9183,7 @@ document.getElementById('btn-ic-sincronizar-odoo').addEventListener('click', asy
       for (const r of resultados) {
         const { error: errUpd } = await sb.from('conteos_ciclicos')
           .update({ [campoValor]: r.cantidad_contada, [campoFecha]: new Date().toISOString(), [campoPor]: SESION.id })
-          .eq('ciclo_id', cicloSel).eq('referencia', r.referencia);
+          .eq('ciclo_id', contexto.cicloSel).eq('referencia', r.referencia);
         if (errUpd) errores++; else actualizados++;
       }
       mostrarToast(`Sincronizado -- ${actualizados} referencia(s) actualizadas en Conteo ${slot}.` + (errores ? ` ${errores} con error.` : ''));
@@ -9172,8 +9191,9 @@ document.getElementById('btn-ic-sincronizar-odoo').addEventListener('click', asy
     } catch (err) {
       mostrarToast('Error al sincronizar: ' + err.message);
     }
-  });
+  }
 });
+
 
 // ---------- Agregar referencias manualmente ----------
 let IC_REFERENCIAS_SELECCIONADAS_MANUAL = new Map();
