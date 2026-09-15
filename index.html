@@ -8616,6 +8616,7 @@ async function crearOrdenConteoEnOdoo(cedi, referencias, cicloId) {
       if (data?.error) throw new Error(data.error);
       let msg = `Orden de conteo creada en Odoo (#${data.orden_id}) con ${data.productos_incluidos} de ${data.productos_totales_pedidos} referencia(s).`;
       if (data.codigos_no_encontrados?.length) msg += ` ${data.codigos_no_encontrados.length} código(s) no se encontraron en Odoo.`;
+      if (data.lineas_excluidas) msg += ` Se excluyeron ${data.lineas_excluidas} línea(s) en ubicaciones de Entrada/Salida/Avería.`;
       if (data.estado_final) msg += ` Estado: ${data.estado_final}.`;
       else if (data.aviso_estado) msg += ` ${data.aviso_estado}`;
       mostrarToast(msg);
