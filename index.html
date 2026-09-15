@@ -9153,7 +9153,11 @@ document.getElementById('btn-ic-sincronizar-odoo').addEventListener('click', asy
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
       const resultados = data.resultados || [];
-      if (!resultados.length) { mostrarToast('Odoo no devolvió cantidades contadas para esta orden todavía.'); return; }
+      if (!resultados.length) {
+        console.log('Depuración sincronización Odoo:', data.depuracion);
+        mostrarToast(`Odoo no devolvió cantidades contadas (${data.depuracion?.total_lineas_encontradas ?? 0} línea(s) encontradas con el campo "${data.depuracion?.campo_usado}"). Detalle en la consola (F12).`);
+        return;
+      }
 
       const campoValor = `conteo${slot}`, campoFecha = `conteo${slot}_en`, campoPor = `conteo${slot}_por`;
       let actualizados = 0, errores = 0;
