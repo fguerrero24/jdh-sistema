@@ -9169,27 +9169,61 @@ function filtrarCronogramaPorProveedor(proveedor) {
 
 // ---------- Sincronizar conteo desde Odoo ----------
 async function obtenerOrdenesOdooDeCiclo(cicloId) {
-  const { data, error } = await sb.from('ciclo_odoo_ordenes').select('odoo_orden_id').eq('ciclo_id', cicloId);
-  if (error) return { error: error.message, ids: [] };
-  return { error: null, ids: (data || []).map(o => o.odoo_orden_id) };
+  const { data, error } = await sb.from('ciclo_odoo_ordenes').select('odoo_orden_id, numero_conteo, responsable_nombre, observacion').eq('ciclo_id', cicloId);
+  if (error) return { error: error.message, ordenes: [] };
+  return { error: null, ordenes: data || [] };
+}
+
+function etiquetaOrdenOdoo(o) {
+  return `Orden #${o.odoo_orden_id} -- ${o.responsable_nombre || 'sin responsable'} -- ${o.observacion || 'sin observación'} (Conteo ${o.numero_conteo ?? '?'})`;
+}
+
+// Pide elegir una o varias órdenes por número de lista (o "todas") -- usa
+// prompt nativo, más confiable que un modal propio para esta app.
+function elegirOrdenesOdoo(ordenes, tituloAccion) {
+  const lista = ordenes.map((o, i) => `${i + 1}. ${etiquetaOrdenOdoo(o)}`).join('\n');
+  const respuesta = prompt(`${tituloAccion}\n\n${lista}\n\nEscribe el/los número(s) separados por coma, o "todas":`, 'todas');
+  if (!respuesta) return null;
+  const texto = respuesta.trim().toLowerCase();
+  if (texto === 'todas') return ordenes;
+  const indices = texto.split(',').map(t => parseInt(t.trim(), 10) - 1).filter(i => !Number.isNaN(i) && ordenes[i]);
+  if (!indices.length) { mostrarToast('No se entendió la selección.'); return null; }
+  return indices.map(i => ordenes[i]);
 }
 
 async function cargarKpiOdoo(cicloId) {
   const wrap = document.getElementById('ic-kpi-odoo-wrap');
-  const { error, ids } = await obtenerOrdenesOdooDeCiclo(cicloId);
-  if (error || !ids.length) { wrap.style.display = 'none'; return; }
+  const { error, ordenes } = await obtenerOrdenesOdooDeCiclo(cicloId);
+  if (error || !ordenes.length) { wrap.style.display = 'none'; return; }
   wrap.style.display = 'block';
   document.getElementById('ic-kpi-odoo-total').textContent = '...';
   document.getElementById('ic-kpi-odoo-validados').textContent = '...';
   document.getElementById('ic-kpi-odoo-pct').textContent = '...';
-  document.getElementById('ic-kpi-odoo-ordenes').textContent = `Orden(es) en Odoo: #${ids.join(', #')}`;
+  document.getElementById('ic-kpi-odoo-ordenes').innerHTML = '';
   try {
+    const ids = ordenes.map(o => o.odoo_orden_id);
     const { data, error: errFn } = await sb.functions.invoke('crear-orden-conteo-odoo', { body: { accion: 'estado_validacion', odoo_orden_ids: ids } });
     if (errFn) throw errFn;
     if (data?.error) throw new Error(data.error);
     document.getElementById('ic-kpi-odoo-total').textContent = data.total.toLocaleString('es-CO');
     document.getElementById('ic-kpi-odoo-validados').textContent = data.validados.toLocaleString('es-CO');
     document.getElementById('ic-kpi-odoo-pct').textContent = data.pct_avance != null ? data.pct_avance + '%' : '—';
+
+    // Desglose por orden-responsable.
+    const porOrden = data.por_orden || [];
+    document.getElementById('ic-kpi-odoo-ordenes').innerHTML = porOrden.length ? `<table class="inv-table" style="margin-top:10px;font-size:11px;"><thead><tr><th>Orden</th><th>Responsable</th><th>Estado</th><th>Validados</th><th>Total</th><th>% Avance</th></tr></thead><tbody>${
+      porOrden.map(o => {
+        const meta = ordenes.find(x => x.odoo_orden_id === o.odoo_orden_id);
+        return `<tr>
+          <td>#${o.odoo_orden_id}${meta?.observacion ? ' -- ' + tEsc(meta.observacion) : ''}</td>
+          <td>${tEsc(o.responsable || meta?.responsable_nombre || '—')}</td>
+          <td>${tEsc(o.state_count || '—')}</td>
+          <td>${o.validados}</td>
+          <td>${o.total}</td>
+          <td style="font-weight:700;">${o.pct_avance != null ? o.pct_avance + '%' : '—'}</td>
+        </tr>`;
+      }).join('')
+    }</tbody></table>` : '';
   } catch (err) {
     document.getElementById('ic-kpi-odoo-total').textContent = 'Error';
     document.getElementById('ic-kpi-odoo-validados').textContent = '—';
@@ -9201,11 +9235,13 @@ async function cargarKpiOdoo(cicloId) {
 document.getElementById('btn-ic-validar-odoo').addEventListener('click', async () => {
   const cicloSel = document.getElementById('ic-filtro-ciclo').value;
   if (!cicloSel) { mostrarToast('Elige un ciclo primero.'); return; }
-  const { error, ids } = await obtenerOrdenesOdooDeCiclo(cicloSel);
-  if (error || !ids.length) { mostrarToast('Este ciclo no tiene órdenes de Odoo vinculadas.'); return; }
-  if (!confirm(`¿Validar ${ids.length} orden(es) en Odoo? Solo se validan las que estén "en progreso".`)) return;
+  const { error, ordenes } = await obtenerOrdenesOdooDeCiclo(cicloSel);
+  if (error || !ordenes.length) { mostrarToast('Este ciclo no tiene órdenes de Odoo vinculadas.'); return; }
+  const elegidas = elegirOrdenesOdoo(ordenes, '¿Cuál orden quieres validar? (solo se validan las que estén "en progreso")');
+  if (!elegidas) return;
   mostrarToast('Validando...');
   try {
+    const ids = elegidas.map(o => o.odoo_orden_id);
     const { data, error: errFn } = await sb.functions.invoke('crear-orden-conteo-odoo', { body: { accion: 'validar_ordenes', odoo_orden_ids: ids } });
     if (errFn) throw errFn;
     if (data?.error) throw new Error(data.error);
@@ -9221,11 +9257,13 @@ document.getElementById('btn-ic-validar-odoo').addEventListener('click', async (
 document.getElementById('btn-ic-aplicar-odoo').addEventListener('click', async () => {
   const cicloSel = document.getElementById('ic-filtro-ciclo').value;
   if (!cicloSel) { mostrarToast('Elige un ciclo primero.'); return; }
-  const { error, ids } = await obtenerOrdenesOdooDeCiclo(cicloSel);
-  if (error || !ids.length) { mostrarToast('Este ciclo no tiene órdenes de Odoo vinculadas.'); return; }
-  if (!confirm(`¿Aplicar las transacciones de ${ids.length} orden(es)? Esto actualiza las existencias reales en el WMS.`)) return;
+  const { error, ordenes } = await obtenerOrdenesOdooDeCiclo(cicloSel);
+  if (error || !ordenes.length) { mostrarToast('Este ciclo no tiene órdenes de Odoo vinculadas.'); return; }
+  const elegidas = elegirOrdenesOdoo(ordenes, '¿Cuál orden quieres aplicar? (actualiza las existencias reales en el WMS)');
+  if (!elegidas) return;
   mostrarToast('Aplicando...');
   try {
+    const ids = elegidas.map(o => o.odoo_orden_id);
     const { data, error: errFn } = await sb.functions.invoke('crear-orden-conteo-odoo', { body: { accion: 'aplicar_transacciones', odoo_orden_ids: ids } });
     if (errFn) throw errFn;
     if (data?.error) throw new Error(data.error);
@@ -9239,12 +9277,18 @@ document.getElementById('btn-ic-sincronizar-odoo').addEventListener('click', asy
   const cicloSel = document.getElementById('ic-filtro-ciclo').value;
   if (!cicloSel) { mostrarToast('Elige un ciclo primero.'); return; }
 
-  const { data: ordenes, error: errorOrdenes } = await sb.from('ciclo_odoo_ordenes').select('odoo_orden_id').eq('ciclo_id', cicloSel);
-  if (errorOrdenes) { mostrarToast('No se pudo leer las órdenes del ciclo: ' + errorOrdenes.message); return; }
-  if (!ordenes || !ordenes.length) { mostrarToast('Este ciclo no tiene ninguna orden de Odoo vinculada (créala primero con "Agregar referencias" o desde SIESA vs WMS / Cronograma).'); return; }
-  const idsOrdenes = ordenes.map(o => o.odoo_orden_id);
+  const { error: errorOrdenes, ordenes } = await obtenerOrdenesOdooDeCiclo(cicloSel);
+  if (errorOrdenes) { mostrarToast('No se pudo leer las órdenes del ciclo: ' + errorOrdenes); return; }
+  if (!ordenes.length) { mostrarToast('Este ciclo no tiene ninguna orden de Odoo vinculada (créala primero con "Agregar referencias" o desde SIESA vs WMS / Cronograma).'); return; }
 
-  const slot = prompt(`${idsOrdenes.length} orden(es) de Odoo vinculada(s) (#${idsOrdenes.join(', #')}) -- ¿a cuál conteo debe caer la cantidad? Escribe 1, 2 o 3.`, '1');
+  // Se elige de cuál orden específica sincronizar -- si se suman TODAS las
+  // órdenes del ciclo (viejas y nuevas) se mezclan conteos que no
+  // corresponden al mismo conteo1/2/3.
+  const elegidas = elegirOrdenesOdoo(ordenes, '¿De cuál orden quieres traer las cantidades contadas?');
+  if (!elegidas) return;
+  const idsOrdenes = elegidas.map(o => o.odoo_orden_id);
+
+  const slot = prompt(`${idsOrdenes.length} orden(es) elegida(s) (#${idsOrdenes.join(', #')}) -- ¿a cuál conteo debe caer la cantidad? Escribe 1, 2 o 3.`, '1');
   if (!slot || !['1', '2', '3'].includes(slot.trim())) { if (slot !== null) mostrarToast('Debes escribir 1, 2 o 3.'); return; }
 
   mostrarToast('Sincronizando...');
@@ -9261,7 +9305,7 @@ document.getElementById('btn-ic-sincronizar-odoo').addEventListener('click', asy
       }
     }
     const resultados = Object.entries(totalPorReferencia).map(([referencia, cantidad_contada]) => ({ referencia, cantidad_contada }));
-    if (!resultados.length) { mostrarToast('Odoo no devolvió cantidades contadas para ninguna de las órdenes vinculadas.'); return; }
+    if (!resultados.length) { mostrarToast('Odoo no devolvió cantidades contadas para la(s) orden(es) elegida(s).'); return; }
 
     const campoValor = `conteo${slot.trim()}`, campoFecha = `conteo${slot.trim()}_en`, campoPor = `conteo${slot.trim()}_por`;
     let actualizados = 0, errores = 0;
@@ -9271,7 +9315,7 @@ document.getElementById('btn-ic-sincronizar-odoo').addEventListener('click', asy
         .eq('ciclo_id', cicloSel).eq('referencia', r.referencia);
       if (errUpd) errores++; else actualizados++;
     }
-    mostrarToast(`Sincronizado -- ${actualizados} referencia(s) actualizadas en Conteo ${slot.trim()} (de ${idsOrdenes.length} orden(es)).` + (errores ? ` ${errores} con error.` : ''));
+    mostrarToast(`Sincronizado -- ${actualizados} referencia(s) actualizadas en Conteo ${slot.trim()} (de ${idsOrdenes.length} orden(es) elegida(s)).` + (errores ? ` ${errores} con error.` : ''));
     consultarCiclicos();
   } catch (err) {
     mostrarToast('Error al sincronizar: ' + err.message);
