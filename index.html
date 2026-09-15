@@ -1195,6 +1195,10 @@ input:focus,select:focus,textarea:focus{outline:none!important;border-color:#176
                 <div class="inv-section-title" id="irasku-referencia-titulo" style="font-size:13px;margin-bottom:8px;">Detalle por referencia</div>
                 <input type="text" id="irasku-buscador-referencia" placeholder="Busca por proveedor, producto o referencia..." style="width:100%;padding:8px 12px;border-radius:8px;border:1px solid var(--modern-border);background:var(--surface-1);color:inherit;font-size:13px;margin-bottom:10px;">
                 <div style="overflow-x:auto;" id="irasku-tabla-referencia"></div>
+                <div class="hidden" id="irasku-barra-seleccion" style="display:flex;justify-content:space-between;align-items:center;margin-top:10px;padding:10px;background:var(--surface-1);border-radius:10px;">
+                  <span id="irasku-seleccion-contador" style="font-size:12px;font-weight:700;"></span>
+                  <button class="btn" id="btn-irasku-generar-orden-odoo">Generar orden de conteo en Odoo</button>
+                </div>
               </div>
             </div>
 
@@ -1699,6 +1703,8 @@ input:focus,select:focus,textarea:focus{outline:none!important;border-color:#176
               <div class="inv-sync" style="display:flex;gap:8px;">
                 <button class="btn ghost" id="btn-ic-agregar-referencias"><i class="ti ti-plus"></i> Agregar referencias</button>
                 <button class="btn ghost" id="btn-ic-sincronizar-odoo"><i class="ti ti-refresh"></i> Sincronizar desde Odoo</button>
+                <button class="btn ghost" id="btn-ic-validar-odoo"><i class="ti ti-check"></i> Validar orden(es) en Odoo</button>
+                <button class="btn ghost" id="btn-ic-aplicar-odoo"><i class="ti ti-stack-push"></i> Aplicar (actualiza WMS)</button>
                 <button class="btn ghost" id="btn-ic-importar-conteo"><i class="ti ti-upload"></i> Importar conteo</button>
                 <button class="btn ghost" id="btn-ic-limpiar-ciclo" style="color:#dc2626;"><i class="ti ti-trash"></i> Limpiar ciclo</button>
                 <button class="btn ghost" id="btn-ic-eliminar-ciclo-actual" style="color:#dc2626;"><i class="ti ti-x"></i> Eliminar este ciclo</button>
@@ -1712,6 +1718,15 @@ input:focus,select:focus,textarea:focus{outline:none!important;border-color:#176
               <div class="inv-filter"><label>CEDI</label><select id="ic-filtro-cedi"><option value="">Elige un CEDI...</option></select></div>
               <div class="inv-filter"><label>Ciclo</label><select id="ic-filtro-ciclo"><option value="">Elige un CEDI primero...</option></select></div>
               <button class="btn" id="btn-ic-consultar">Consultar</button>
+            </div>
+          </div>
+
+          <div class="inv-section" id="ic-kpi-odoo-wrap" style="margin-top:10px;padding:14px;display:none;">
+            <div style="display:flex;gap:20px;align-items:center;flex-wrap:wrap;">
+              <div><div class="inv-kpi-label">Registros en Odoo</div><div class="inv-kpi-value" id="ic-kpi-odoo-total">—</div></div>
+              <div><div class="inv-kpi-label">Ya validados</div><div class="inv-kpi-value" id="ic-kpi-odoo-validados">—</div></div>
+              <div><div class="inv-kpi-label">% Avance</div><div class="inv-kpi-value" id="ic-kpi-odoo-pct">—</div></div>
+              <div style="font-size:11px;color:var(--modern-muted);" id="ic-kpi-odoo-ordenes"></div>
             </div>
           </div>
 
@@ -3095,6 +3110,15 @@ function inicializarModuloIndicadores() {
   selCediIraSku.addEventListener('change', () => { cargarIraSkuCedi(); cargarIraSkuProveedores(); });
   document.getElementById('btn-irasku-volver-proveedores').addEventListener('click', () => { document.getElementById('irasku-seccion-skus').classList.add('hidden'); });
   document.getElementById('irasku-buscador-referencia').addEventListener('input', filtrarTablaReferenciaIraSku);
+  document.getElementById('btn-irasku-generar-orden-odoo').addEventListener('click', async () => {
+    const cedi = document.getElementById('irasku-filtro-cedi').value;
+    if (!cedi) { mostrarToast('Elige un CEDI primero.'); return; }
+    if (!IRASKU_SELECCION_REFERENCIAS.size) return;
+    await crearOrdenConteoEnOdoo(cedi, Array.from(IRASKU_SELECCION_REFERENCIAS), null);
+    IRASKU_SELECCION_REFERENCIAS.clear();
+    actualizarBarraSeleccionIraSku();
+    filtrarTablaReferenciaIraSku();
+  });
 
   const selCediMerma = document.getElementById('merma-filtro-cedi');
   CEDIS_MERMAS.forEach(c => selCediMerma.insertAdjacentHTML('beforeend', `<option value="${c}">${c}</option>`));
@@ -3586,6 +3610,8 @@ async function verDetalleReferenciaIraSku(mes, cedi) {
   buscador.focus();
 }
 
+let IRASKU_SELECCION_REFERENCIAS = new Set();
+
 function filtrarTablaReferenciaIraSku() {
   const cont = document.getElementById('irasku-tabla-referencia');
   const termino = document.getElementById('irasku-buscador-referencia').value.trim().toLowerCase();
@@ -3596,8 +3622,11 @@ function filtrarTablaReferenciaIraSku() {
     (f.referencia || '').toLowerCase().includes(termino)
   );
   if (!filas.length) { cont.innerHTML = '<div class="inv-empty">Sin coincidencias.</div>'; return; }
-  cont.innerHTML = `<table class="inv-table"><thead><tr><th>Fecha</th><th>Referencia</th><th>Producto</th><th>Proveedor</th><th>Contado</th><th>Teórico</th><th>Diferencia</th><th>Correcto</th><th>Valor diferencia</th></tr></thead><tbody>${
-    filas.map(f => `<tr>
+  cont.innerHTML = `<table class="inv-table"><thead><tr><th></th><th>Fecha</th><th>Referencia</th><th>Producto</th><th>Proveedor</th><th>Contado</th><th>Teórico</th><th>Diferencia</th><th>Correcto</th><th>Valor diferencia</th><th>Existencia actual WMS</th><th>Coincide</th></tr></thead><tbody>${
+    filas.map(f => {
+      const coincide = f.existencia_actual_wms != null ? (Number(f.existencia_actual_wms) === Number(f.inventario_contado)) : null;
+      return `<tr>
+      <td><input type="checkbox" ${IRASKU_SELECCION_REFERENCIAS.has(f.referencia) ? 'checked' : ''} onchange='toggleSeleccionReferenciaIraSku(${JSON.stringify(f.referencia)}, this.checked)'></td>
       <td>${new Date(f.fecha + 'T00:00:00').toLocaleDateString('es-CO')}</td>
       <td>${tEsc(f.referencia)}</td>
       <td class="inv-product">${tEsc(f.descripcion || '—')}</td>
@@ -3607,8 +3636,26 @@ function filtrarTablaReferenciaIraSku() {
       <td style="font-weight:700;color:${f.diferencia === 0 ? '#16a34a' : '#dc2626'};">${f.diferencia}</td>
       <td>${f.correcto ? '✓' : '✗'}</td>
       <td>${f.valor_diferencia != null ? formatoCOP(f.valor_diferencia) : '—'}</td>
-    </tr>`).join('')
+      <td>${f.existencia_actual_wms ?? '—'}</td>
+      <td>${coincide === null ? '—' : (coincide ? '✓' : '✗')}</td>
+    </tr>`;
+    }).join('')
   }</tbody></table>`;
+  actualizarBarraSeleccionIraSku();
+}
+
+function toggleSeleccionReferenciaIraSku(referencia, marcado) {
+  if (marcado) IRASKU_SELECCION_REFERENCIAS.add(referencia);
+  else IRASKU_SELECCION_REFERENCIAS.delete(referencia);
+  actualizarBarraSeleccionIraSku();
+}
+
+function actualizarBarraSeleccionIraSku() {
+  const barra = document.getElementById('irasku-barra-seleccion');
+  if (!barra) return;
+  if (!IRASKU_SELECCION_REFERENCIAS.size) { barra.classList.add('hidden'); return; }
+  barra.classList.remove('hidden');
+  document.getElementById('irasku-seleccion-contador').textContent = `${IRASKU_SELECCION_REFERENCIAS.size} referencia(s) seleccionada(s)`;
 }
 
 function cargarPanelIraSkuCompleto() {
@@ -8833,6 +8880,7 @@ async function consultarCiclicos() {
   if (!cicloId) return;
   IC_CICLO_ACTUAL = cicloId;
   estado.textContent = 'Consultando...';
+  cargarKpiOdoo(cicloId);
 
   const [{ data: analisis, error: e1 }, { data: indicadores, error: e2 }] = await Promise.all([
     sb.rpc('analisis_ciclicos', { p_cedi: cedi, p_ciclo_id: cicloId }),
@@ -9120,30 +9168,100 @@ function filtrarCronogramaPorProveedor(proveedor) {
 }
 
 // ---------- Sincronizar conteo desde Odoo ----------
+async function obtenerOrdenesOdooDeCiclo(cicloId) {
+  const { data, error } = await sb.from('ciclo_odoo_ordenes').select('odoo_orden_id').eq('ciclo_id', cicloId);
+  if (error) return { error: error.message, ids: [] };
+  return { error: null, ids: (data || []).map(o => o.odoo_orden_id) };
+}
+
+async function cargarKpiOdoo(cicloId) {
+  const wrap = document.getElementById('ic-kpi-odoo-wrap');
+  const { error, ids } = await obtenerOrdenesOdooDeCiclo(cicloId);
+  if (error || !ids.length) { wrap.style.display = 'none'; return; }
+  wrap.style.display = 'block';
+  document.getElementById('ic-kpi-odoo-total').textContent = '...';
+  document.getElementById('ic-kpi-odoo-validados').textContent = '...';
+  document.getElementById('ic-kpi-odoo-pct').textContent = '...';
+  document.getElementById('ic-kpi-odoo-ordenes').textContent = `Orden(es) en Odoo: #${ids.join(', #')}`;
+  try {
+    const { data, error: errFn } = await sb.functions.invoke('crear-orden-conteo-odoo', { body: { accion: 'estado_validacion', odoo_orden_ids: ids } });
+    if (errFn) throw errFn;
+    if (data?.error) throw new Error(data.error);
+    document.getElementById('ic-kpi-odoo-total').textContent = data.total.toLocaleString('es-CO');
+    document.getElementById('ic-kpi-odoo-validados').textContent = data.validados.toLocaleString('es-CO');
+    document.getElementById('ic-kpi-odoo-pct').textContent = data.pct_avance != null ? data.pct_avance + '%' : '—';
+  } catch (err) {
+    document.getElementById('ic-kpi-odoo-total').textContent = 'Error';
+    document.getElementById('ic-kpi-odoo-validados').textContent = '—';
+    document.getElementById('ic-kpi-odoo-pct').textContent = '—';
+    console.error('Error cargando KPI de Odoo:', err.message);
+  }
+}
+
+document.getElementById('btn-ic-validar-odoo').addEventListener('click', async () => {
+  const cicloSel = document.getElementById('ic-filtro-ciclo').value;
+  if (!cicloSel) { mostrarToast('Elige un ciclo primero.'); return; }
+  const { error, ids } = await obtenerOrdenesOdooDeCiclo(cicloSel);
+  if (error || !ids.length) { mostrarToast('Este ciclo no tiene órdenes de Odoo vinculadas.'); return; }
+  if (!confirm(`¿Validar ${ids.length} orden(es) en Odoo? Solo se validan las que estén "en progreso".`)) return;
+  mostrarToast('Validando...');
+  try {
+    const { data, error: errFn } = await sb.functions.invoke('crear-orden-conteo-odoo', { body: { accion: 'validar_ordenes', odoo_orden_ids: ids } });
+    if (errFn) throw errFn;
+    if (data?.error) throw new Error(data.error);
+    const validadas = Object.values(data.resultados || {}).filter(v => v === 'validada').length;
+    const conError = Object.values(data.resultados || {}).filter(v => String(v).startsWith('error')).length;
+    mostrarToast(`${validadas} orden(es) validada(s).` + (conError ? ` ${conError} con error.` : '') + (data.ordenes_no_en_progreso?.length ? ` ${data.ordenes_no_en_progreso.length} no estaban en progreso.` : ''));
+    cargarKpiOdoo(cicloSel);
+  } catch (err) {
+    mostrarToast('Error al validar: ' + err.message);
+  }
+});
+
+document.getElementById('btn-ic-aplicar-odoo').addEventListener('click', async () => {
+  const cicloSel = document.getElementById('ic-filtro-ciclo').value;
+  if (!cicloSel) { mostrarToast('Elige un ciclo primero.'); return; }
+  const { error, ids } = await obtenerOrdenesOdooDeCiclo(cicloSel);
+  if (error || !ids.length) { mostrarToast('Este ciclo no tiene órdenes de Odoo vinculadas.'); return; }
+  if (!confirm(`¿Aplicar las transacciones de ${ids.length} orden(es)? Esto actualiza las existencias reales en el WMS.`)) return;
+  mostrarToast('Aplicando...');
+  try {
+    const { data, error: errFn } = await sb.functions.invoke('crear-orden-conteo-odoo', { body: { accion: 'aplicar_transacciones', odoo_orden_ids: ids } });
+    if (errFn) throw errFn;
+    if (data?.error) throw new Error(data.error);
+    mostrarToast(data.mensaje || `${data.aplicadas} transacción(es) aplicada(s) -- existencias actualizadas en el WMS.`);
+  } catch (err) {
+    mostrarToast('Error al aplicar: ' + err.message);
+  }
+});
+
 document.getElementById('btn-ic-sincronizar-odoo').addEventListener('click', async () => {
   const cicloSel = document.getElementById('ic-filtro-ciclo').value;
   if (!cicloSel) { mostrarToast('Elige un ciclo primero.'); return; }
 
-  const { data: ciclo, error: errorCiclo } = await sb.from('ciclos_activos').select('odoo_orden_id').eq('id', cicloSel).single();
-  if (errorCiclo || !ciclo) { mostrarToast('No se pudo leer el ciclo: ' + (errorCiclo?.message || '')); return; }
-  if (!ciclo.odoo_orden_id) { mostrarToast('Este ciclo no tiene una orden de Odoo vinculada (créala primero con "Agregar referencias" o desde SIESA vs WMS / Cronograma).'); return; }
+  const { data: ordenes, error: errorOrdenes } = await sb.from('ciclo_odoo_ordenes').select('odoo_orden_id').eq('ciclo_id', cicloSel);
+  if (errorOrdenes) { mostrarToast('No se pudo leer las órdenes del ciclo: ' + errorOrdenes.message); return; }
+  if (!ordenes || !ordenes.length) { mostrarToast('Este ciclo no tiene ninguna orden de Odoo vinculada (créala primero con "Agregar referencias" o desde SIESA vs WMS / Cronograma).'); return; }
+  const idsOrdenes = ordenes.map(o => o.odoo_orden_id);
 
-  const slot = prompt(`Orden de Odoo #${ciclo.odoo_orden_id} -- ¿a cuál conteo debe caer la cantidad? Escribe 1, 2 o 3.`, '1');
+  const slot = prompt(`${idsOrdenes.length} orden(es) de Odoo vinculada(s) (#${idsOrdenes.join(', #')}) -- ¿a cuál conteo debe caer la cantidad? Escribe 1, 2 o 3.`, '1');
   if (!slot || !['1', '2', '3'].includes(slot.trim())) { if (slot !== null) mostrarToast('Debes escribir 1, 2 o 3.'); return; }
 
   mostrarToast('Sincronizando...');
   try {
-    const { data, error } = await sb.functions.invoke('crear-orden-conteo-odoo', {
-      body: { accion: 'sincronizar_conteo', odoo_orden_id: ciclo.odoo_orden_id },
-    });
-    if (error) throw error;
-    if (data?.error) throw new Error(data.error);
-    const resultados = data.resultados || [];
-    if (!resultados.length) {
-      console.log('Depuración sincronización Odoo:', data.depuracion);
-      mostrarToast(`Odoo no devolvió cantidades contadas (${data.depuracion?.total_lineas_encontradas ?? 0} línea(s) encontradas con el campo "${data.depuracion?.campo_usado}"). Detalle en la consola (F12).`);
-      return;
+    const totalPorReferencia = {};
+    for (const odooOrdenId of idsOrdenes) {
+      const { data, error } = await sb.functions.invoke('crear-orden-conteo-odoo', {
+        body: { accion: 'sincronizar_conteo', odoo_orden_id: odooOrdenId },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      for (const r of (data.resultados || [])) {
+        totalPorReferencia[r.referencia] = (totalPorReferencia[r.referencia] || 0) + r.cantidad_contada;
+      }
     }
+    const resultados = Object.entries(totalPorReferencia).map(([referencia, cantidad_contada]) => ({ referencia, cantidad_contada }));
+    if (!resultados.length) { mostrarToast('Odoo no devolvió cantidades contadas para ninguna de las órdenes vinculadas.'); return; }
 
     const campoValor = `conteo${slot.trim()}`, campoFecha = `conteo${slot.trim()}_en`, campoPor = `conteo${slot.trim()}_por`;
     let actualizados = 0, errores = 0;
@@ -9153,7 +9271,7 @@ document.getElementById('btn-ic-sincronizar-odoo').addEventListener('click', asy
         .eq('ciclo_id', cicloSel).eq('referencia', r.referencia);
       if (errUpd) errores++; else actualizados++;
     }
-    mostrarToast(`Sincronizado -- ${actualizados} referencia(s) actualizadas en Conteo ${slot.trim()}.` + (errores ? ` ${errores} con error.` : ''));
+    mostrarToast(`Sincronizado -- ${actualizados} referencia(s) actualizadas en Conteo ${slot.trim()} (de ${idsOrdenes.length} orden(es)).` + (errores ? ` ${errores} con error.` : ''));
     consultarCiclicos();
   } catch (err) {
     mostrarToast('Error al sincronizar: ' + err.message);
